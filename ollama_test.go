@@ -10,6 +10,8 @@ import (
 	"gitlab.com/tozd/go/fun"
 )
 
+var jsonSchemaString = []byte(`{"type": "string"}`)
+
 type TestCase struct {
 	Input  string
 	Output string
@@ -32,7 +34,7 @@ func TestOllama(t *testing.T) {
 			[]TestCase{
 				{"foo", "foofoo"},
 				{"bar", "barbar"},
-				{"zzz", "zzzzzz"},
+				{"test", "testtest"},
 			},
 		},
 		{
@@ -42,34 +44,56 @@ func TestOllama(t *testing.T) {
 				{"ddd", "dddddd"},
 				{"cba", "cbacba"},
 				{"zoo", "zoozoo"},
+				{"AbC", "AbCAbC"},
 				{"roar", "roarroar"},
 				{"lsdfk", "lsdfklsdfk"},
+				{"ZZZZ", "ZZZZZZZZ"},
+				{"long", "longlong"},
 			},
 			[]TestCase{
 				{"foo", "foofoo"},
 				{"bar", "barbar"},
-				{"zzz", "zzzzzz"},
+				{"test", "testtest"},
+			},
+		},
+		{
+			"Repeat the input twice, by concatenating the input string without any space. Return just the result.",
+			[]fun.InputOutput[string, string]{
+				{"abc", "abcabc"},
+				{"ddd", "dddddd"},
+				{"cba", "cbacba"},
+				{"zoo", "zoozoo"},
+				{"AbC", "AbCAbC"},
+				{"roar", "roarroar"},
+				{"lsdfk", "lsdfklsdfk"},
+				{"ZZZZ", "ZZZZZZZZ"},
+				{"long", "longlong"},
+			},
+			[]TestCase{
+				{"foo", "foofoo"},
+				{"bar", "barbar"},
+				{"test", "testtest"},
 			},
 		},
 	}
 
 	for i, tt := range tests {
-		t.Run(fmt.Sprintf("t=%d", i), func(t *testing.T) {
+		t.Run(fmt.Sprintf("i=%d", i), func(t *testing.T) {
 			f := fun.Ollama[string, string]{
 				Client: nil,
 				Base:   base,
 				Model: fun.OllamaModel{
-					Model:    "llama3:instruct",
+					Model:    "llama3:8b",
 					Insecure: false,
 					Username: "",
 					Password: "",
 				},
-				InputJSONSchema:  nil,
-				OutputJSONSchema: nil,
+				InputJSONSchema:  jsonSchemaString,
+				OutputJSONSchema: jsonSchemaString,
 				Prompt:           tt.Prompt,
 				Data:             tt.Data,
 				Seed:             42,
-				Temperature:      0,
+				Temperature:      0.1,
 			}
 
 			ctx := context.Background()
@@ -77,8 +101,8 @@ func TestOllama(t *testing.T) {
 			errE := f.Init(ctx)
 			assert.NoError(t, errE, "% -+#.1v", errE)
 
-			for j, c := range tt.Cases {
-				t.Run(fmt.Sprintf("c=%d", j), func(t *testing.T) {
+			for _, c := range tt.Cases {
+				t.Run(fmt.Sprintf("input=%s", c.Input), func(t *testing.T) {
 					output, errE := f.Call(ctx, c.Input)
 					assert.NoError(t, errE, "% -+#.1v", errE)
 					assert.Equal(t, c.Output, output)

@@ -257,6 +257,13 @@ func (o *Ollama[Input, Output]) Call(ctx context.Context, input Input) (Output, 
 		return *new(Output), errors.New("not done")
 	}
 
+	if responses[0].Metrics.EvalCount >= o.maxContextLength {
+		return *new(Output), errors.New("response hit max context length")
+	}
+	if responses[0].Metrics.PromptEvalCount >= o.maxContextLength {
+		return *new(Output), errors.New("prompt hit max context length")
+	}
+
 	// TODO: Log/expose responses[0].Metrics.
 
 	content := responses[0].Message.Content
