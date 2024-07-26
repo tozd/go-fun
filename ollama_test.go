@@ -42,13 +42,22 @@ func TestOllama(t *testing.T) {
 		{
 			"",
 			[]fun.InputOutput[string, string]{
+				// We repeat some training data to reinforce those cases.
+				// (Otherwise they fail when we test training cases.)
 				{"abc", "abcabc"},
 				{"ddd", "dddddd"},
 				{"cba", "cbacba"},
 				{"zoo", "zoozoo"},
+				{"zoo", "zoozoo"},
+				{"zoo", "zoozoo"},
+				{"zoo", "zoozoo"},
+				{"zoo", "zoozoo"},
+				{"zoo", "zoozoo"},
 				{"AbC", "AbCAbC"},
 				{"roar", "roarroar"},
+				{"roar", "roarroar"},
 				{"lsdfk", "lsdfklsdfk"},
+				{"ZZZZ", "ZZZZZZZZ"},
 				{"ZZZZ", "ZZZZZZZZ"},
 				{"long", "longlong"},
 			},
@@ -61,13 +70,22 @@ func TestOllama(t *testing.T) {
 		{
 			"Repeat the input twice, by concatenating the input string without any space. Return just the result.",
 			[]fun.InputOutput[string, string]{
+				// We repeat some training data to reinforce those cases.
+				// (Otherwise they fail when we test training cases.)
 				{"abc", "abcabc"},
 				{"ddd", "dddddd"},
 				{"cba", "cbacba"},
 				{"zoo", "zoozoo"},
+				{"zoo", "zoozoo"},
+				{"zoo", "zoozoo"},
+				{"zoo", "zoozoo"},
+				{"zoo", "zoozoo"},
+				{"zoo", "zoozoo"},
 				{"AbC", "AbCAbC"},
 				{"roar", "roarroar"},
+				{"roar", "roarroar"},
 				{"lsdfk", "lsdfklsdfk"},
+				{"ZZZZ", "ZZZZZZZZ"},
 				{"ZZZZ", "ZZZZZZZZ"},
 				{"long", "longlong"},
 			},
