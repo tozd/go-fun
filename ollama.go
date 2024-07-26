@@ -117,15 +117,11 @@ func (o *Ollama[Input, Output]) Init(ctx context.Context) errors.E {
 	if err != nil {
 		return errors.WithStack(err)
 	}
-	httpClient := o.Client
-	if httpClient != nil {
-		httpClient = cleanhttp.DefaultPooledClient()
+	client := o.Client
+	if client == nil {
+		client = cleanhttp.DefaultPooledClient()
 	}
-	client := api.NewClient(base, httpClient)
-	if err != nil {
-		return errors.WithStack(err)
-	}
-	o.client = client
+	o.client = api.NewClient(base, client)
 
 	validator, errE := compileValidator[Input](o.InputJSONSchema)
 	if errE != nil {
@@ -140,7 +136,7 @@ func (o *Ollama[Input, Output]) Init(ctx context.Context) errors.E {
 	o.outputValidator = validator
 
 	o.messages = []api.Message{}
-	if o.Prompt == "" {
+	if o.Prompt != "" {
 		o.messages = append(o.messages, api.Message{
 			Role:    "system",
 			Content: o.Prompt,
