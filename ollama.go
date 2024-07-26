@@ -60,6 +60,23 @@ func compileValidator[T any](jsonSchema []byte) (*jsonschema.Schema, errors.E) {
 	return validator, nil
 }
 
+func validate(validator *jsonschema.Schema, value any) errors.E {
+	if validator == nil {
+		return nil
+	}
+
+	data, errE := x.MarshalWithoutEscapeHTML(value)
+	if errE != nil {
+		return errE
+	}
+	v, err := jsonschema.UnmarshalJSON(bytes.NewReader(data))
+	if err != nil {
+		return errors.WithStack(err)
+	}
+	err = validator.Validate(v)
+	return errors.WithStack(err)
+}
+
 func toString(data any) (string, errors.E) {
 	i, ok := data.(string)
 	if ok {
@@ -144,22 +161,18 @@ func (o *Ollama[Input, Output]) Init(ctx context.Context) errors.E {
 	}
 
 	for _, data := range o.Data {
-		if o.inputValidator != nil {
-			err := o.inputValidator.Validate(data.Input)
-			if err != nil {
-				return errors.WithStack(err)
-			}
+		errE := validate(o.inputValidator, data.Input)
+		if errE != nil {
+			return errE
 		}
 		input, errE := toString(data.Input)
 		if errE != nil {
 			return errE
 		}
 
-		if o.outputValidator != nil {
-			err := o.outputValidator.Validate(data.Output)
-			if err != nil {
-				return errors.WithStack(err)
-			}
+		errE = validate(o.outputValidator, data.Output)
+		if errE != nil {
+			return errE
 		}
 		output, errE := toString(data.Output)
 		if errE != nil {
@@ -211,11 +224,9 @@ func (o *Ollama[Input, Output]) Init(ctx context.Context) errors.E {
 }
 
 func (o *Ollama[Input, Output]) Call(ctx context.Context, input Input) (Output, errors.E) {
-	if o.inputValidator != nil {
-		err := o.inputValidator.Validate(input)
-		if err != nil {
-			return *new(Output), errors.WithStack(err)
-		}
+	errE := validate(o.inputValidator, input)
+	if errE != nil {
+		return *new(Output), errE
 	}
 
 	i, errE := toString(input)
@@ -283,11 +294,9 @@ func (o *Ollama[Input, Output]) Call(ctx context.Context, input Input) (Output, 
 		}
 	}
 
-	if o.outputValidator != nil {
-		err := o.outputValidator.Validate(output)
-		if err != nil {
-			return output, errors.WithStack(err)
-		}
+	errE = validate(o.outputValidator, output)
+	if errE != nil {
+		return output, errE
 	}
 
 	return output, nil
