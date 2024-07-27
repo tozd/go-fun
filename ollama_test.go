@@ -26,11 +26,13 @@ func TestOllama(t *testing.T) {
 	}
 
 	tests := []struct {
+		Name   string
 		Prompt string
 		Data   []fun.InputOutput[string, string]
 		Cases  []fun.InputOutput[string, string]
 	}{
 		{
+			"just_prompt",
 			"Repeat the input twice, by concatenating the input string without any space. Return just the result.",
 			nil,
 			[]fun.InputOutput[string, string]{
@@ -40,6 +42,7 @@ func TestOllama(t *testing.T) {
 			},
 		},
 		{
+			"just_data",
 			"",
 			[]fun.InputOutput[string, string]{
 				// We repeat some training data to reinforce those cases.
@@ -68,6 +71,7 @@ func TestOllama(t *testing.T) {
 			},
 		},
 		{
+			"prompt_and_data",
 			"Repeat the input twice, by concatenating the input string without any space. Return just the result.",
 			[]fun.InputOutput[string, string]{
 				// We repeat some training data to reinforce those cases.
@@ -97,23 +101,25 @@ func TestOllama(t *testing.T) {
 		},
 	}
 
-	for i, tt := range tests {
-		t.Run(fmt.Sprintf("i=%d", i), func(t *testing.T) {
-			f := fun.Ollama[string, string]{
-				Client: nil,
-				Base:   base,
-				Model: fun.OllamaModel{
-					Model:    "llama3:8b",
-					Insecure: false,
-					Username: "",
-					Password: "",
+	for _, tt := range tests {
+		t.Run(tt.Name, func(t *testing.T) {
+			f := fun.Text[string, string]{
+				Provider: &fun.OllamaTextProvider{
+					Client: nil,
+					Base:   base,
+					Model: fun.OllamaModel{
+						Model:    "llama3:8b",
+						Insecure: false,
+						Username: "",
+						Password: "",
+					},
+					Seed:        42,
+					Temperature: 0,
 				},
 				InputJSONSchema:  jsonSchemaString,
 				OutputJSONSchema: jsonSchemaString,
 				Prompt:           tt.Prompt,
 				Data:             tt.Data,
-				Seed:             42,
-				Temperature:      0,
 			}
 
 			ctx := context.Background()
@@ -147,11 +153,13 @@ func TestOllamaStruct(t *testing.T) {
 	}
 
 	tests := []struct {
+		Name   string
 		Prompt string
 		Data   []fun.InputOutput[string, OutputStruct]
 		Cases  []fun.InputOutput[string, OutputStruct]
 	}{
 		{
+			"just_data",
 			"",
 			[]fun.InputOutput[string, OutputStruct]{
 				{"foo=1", OutputStruct{Key: "foo", Value: 1}},
@@ -164,6 +172,7 @@ func TestOllamaStruct(t *testing.T) {
 			},
 		},
 		{
+			"prompt_and_data",
 			fun.StringToJSONPrompt,
 			[]fun.InputOutput[string, OutputStruct]{
 				{"foo=1", OutputStruct{Key: "foo", Value: 1}},
@@ -177,23 +186,25 @@ func TestOllamaStruct(t *testing.T) {
 		},
 	}
 
-	for i, tt := range tests {
-		t.Run(fmt.Sprintf("i=%d", i), func(t *testing.T) {
-			f := fun.Ollama[string, OutputStruct]{
-				Client: nil,
-				Base:   base,
-				Model: fun.OllamaModel{
-					Model:    "llama3:8b",
-					Insecure: false,
-					Username: "",
-					Password: "",
+	for _, tt := range tests {
+		t.Run(tt.Name, func(t *testing.T) {
+			f := fun.Text[string, OutputStruct]{
+				Provider: &fun.OllamaTextProvider{
+					Client: nil,
+					Base:   base,
+					Model: fun.OllamaModel{
+						Model:    "llama3:8b",
+						Insecure: false,
+						Username: "",
+						Password: "",
+					},
+					Seed:        42,
+					Temperature: 0,
 				},
 				InputJSONSchema:  jsonSchemaString,
 				OutputJSONSchema: nil,
 				Prompt:           tt.Prompt,
 				Data:             tt.Data,
-				Seed:             42,
-				Temperature:      0,
 			}
 
 			ctx := context.Background()
