@@ -19,12 +19,7 @@ type OutputStruct struct {
 	Children []OutputStruct `json:"children,omitempty"`
 }
 
-func TestOllama(t *testing.T) {
-	base := os.Getenv("OLLAMA_HOST")
-	if base == "" {
-		t.Skip("OLLAMA_HOST is not available")
-	}
-
+func TestText(t *testing.T) {
 	tests := []struct {
 		Name   string
 		Prompt string
@@ -103,55 +98,72 @@ func TestOllama(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.Name, func(t *testing.T) {
-			f := fun.Text[string, string]{
-				Provider: &fun.OllamaTextProvider{
-					Client: nil,
-					Base:   base,
-					Model: fun.OllamaModel{
-						Model:    "llama3:8b",
-						Insecure: false,
-						Username: "",
-						Password: "",
+			providers := []struct {
+				Name     string
+				Provider fun.TextProvider
+				Enabled  func(t *testing.T)
+			}{
+				{
+					"ollama",
+					&fun.OllamaTextProvider{
+						Client: nil,
+						Base:   os.Getenv("OLLAMA_HOST"),
+						Model: fun.OllamaModel{
+							Model:    "llama3:8b",
+							Insecure: false,
+							Username: "",
+							Password: "",
+						},
+						Seed:        42,
+						Temperature: 0,
 					},
-					Seed:        42,
-					Temperature: 0,
+					func(t *testing.T) {
+						if os.Getenv("OLLAMA_HOST") == "" {
+							t.Skip("OLLAMA_HOST is not available")
+						}
+					},
 				},
-				InputJSONSchema:  jsonSchemaString,
-				OutputJSONSchema: jsonSchemaString,
-				Prompt:           tt.Prompt,
-				Data:             tt.Data,
 			}
 
-			ctx := context.Background()
+			for _, provider := range providers {
+				t.Run(provider.Name, func(t *testing.T) {
+					provider.Enabled(t)
 
-			errE := f.Init(ctx)
-			require.NoError(t, errE, "% -+#.1v", errE)
+					f := fun.Text[string, string]{
+						Provider:         provider.Provider,
+						InputJSONSchema:  jsonSchemaString,
+						OutputJSONSchema: jsonSchemaString,
+						Prompt:           tt.Prompt,
+						Data:             tt.Data,
+					}
 
-			for _, d := range tt.Data {
-				t.Run(fmt.Sprintf("input=%s", d.Input), func(t *testing.T) {
-					output, errE := f.Call(ctx, d.Input)
-					assert.NoError(t, errE, "% -+#.1v", errE)
-					assert.Equal(t, d.Output, output)
-				})
-			}
+					ctx := context.Background()
 
-			for _, c := range tt.Cases {
-				t.Run(fmt.Sprintf("input=%s", c.Input), func(t *testing.T) {
-					output, errE := f.Call(ctx, c.Input)
-					assert.NoError(t, errE, "% -+#.1v", errE)
-					assert.Equal(t, c.Output, output)
+					errE := f.Init(ctx)
+					require.NoError(t, errE, "% -+#.1v", errE)
+
+					for _, d := range tt.Data {
+						t.Run(fmt.Sprintf("input=%s", d.Input), func(t *testing.T) {
+							output, errE := f.Call(ctx, d.Input)
+							assert.NoError(t, errE, "% -+#.1v", errE)
+							assert.Equal(t, d.Output, output)
+						})
+					}
+
+					for _, c := range tt.Cases {
+						t.Run(fmt.Sprintf("input=%s", c.Input), func(t *testing.T) {
+							output, errE := f.Call(ctx, c.Input)
+							assert.NoError(t, errE, "% -+#.1v", errE)
+							assert.Equal(t, c.Output, output)
+						})
+					}
 				})
 			}
 		})
 	}
 }
 
-func TestOllamaStruct(t *testing.T) {
-	base := os.Getenv("OLLAMA_HOST")
-	if base == "" {
-		t.Skip("OLLAMA_HOST is not available")
-	}
-
+func TestTextStruct(t *testing.T) {
 	tests := []struct {
 		Name   string
 		Prompt string
@@ -188,43 +200,65 @@ func TestOllamaStruct(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.Name, func(t *testing.T) {
-			f := fun.Text[string, OutputStruct]{
-				Provider: &fun.OllamaTextProvider{
-					Client: nil,
-					Base:   base,
-					Model: fun.OllamaModel{
-						Model:    "llama3:8b",
-						Insecure: false,
-						Username: "",
-						Password: "",
+			providers := []struct {
+				Name     string
+				Provider fun.TextProvider
+				Enabled  func(t *testing.T)
+			}{
+				{
+					"ollama",
+					&fun.OllamaTextProvider{
+						Client: nil,
+						Base:   os.Getenv("OLLAMA_HOST"),
+						Model: fun.OllamaModel{
+							Model:    "llama3:8b",
+							Insecure: false,
+							Username: "",
+							Password: "",
+						},
+						Seed:        42,
+						Temperature: 0,
 					},
-					Seed:        42,
-					Temperature: 0,
+					func(t *testing.T) {
+						if os.Getenv("OLLAMA_HOST") == "" {
+							t.Skip("OLLAMA_HOST is not available")
+						}
+					},
 				},
-				InputJSONSchema:  jsonSchemaString,
-				OutputJSONSchema: nil,
-				Prompt:           tt.Prompt,
-				Data:             tt.Data,
 			}
 
-			ctx := context.Background()
+			for _, provider := range providers {
+				t.Run(provider.Name, func(t *testing.T) {
+					provider.Enabled(t)
 
-			errE := f.Init(ctx)
-			require.NoError(t, errE, "% -+#.1v", errE)
+					f := fun.Text[string, OutputStruct]{
+						Provider:         provider.Provider,
+						InputJSONSchema:  jsonSchemaString,
+						OutputJSONSchema: nil,
+						Prompt:           tt.Prompt,
+						Data:             tt.Data,
+					}
 
-			for _, d := range tt.Data {
-				t.Run(fmt.Sprintf("input=%s", d.Input), func(t *testing.T) {
-					output, errE := f.Call(ctx, d.Input)
-					assert.NoError(t, errE, "% -+#.1v", errE)
-					assert.Equal(t, d.Output, output)
-				})
-			}
+					ctx := context.Background()
 
-			for _, c := range tt.Cases {
-				t.Run(fmt.Sprintf("input=%s", c.Input), func(t *testing.T) {
-					output, errE := f.Call(ctx, c.Input)
-					assert.NoError(t, errE, "% -+#.1v", errE)
-					assert.Equal(t, c.Output, output)
+					errE := f.Init(ctx)
+					require.NoError(t, errE, "% -+#.1v", errE)
+
+					for _, d := range tt.Data {
+						t.Run(fmt.Sprintf("input=%s", d.Input), func(t *testing.T) {
+							output, errE := f.Call(ctx, d.Input)
+							assert.NoError(t, errE, "% -+#.1v", errE)
+							assert.Equal(t, d.Output, output)
+						})
+					}
+
+					for _, c := range tt.Cases {
+						t.Run(fmt.Sprintf("input=%s", c.Input), func(t *testing.T) {
+							output, errE := f.Call(ctx, c.Input)
+							assert.NoError(t, errE, "% -+#.1v", errE)
+							assert.Equal(t, c.Output, output)
+						})
+					}
 				})
 			}
 		})
