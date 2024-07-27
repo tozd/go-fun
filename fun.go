@@ -12,8 +12,8 @@ type Callee[Input, Output any] interface {
 }
 
 type ChatMessage struct {
-	Role    string
-	Content string
+	Role    string `json:"role"`
+	Content string `json:"content"`
 }
 
 type TextProvider interface {
