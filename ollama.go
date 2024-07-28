@@ -23,16 +23,16 @@ type OllamaModel struct {
 
 // OllamaTextProvider implements TextProvider interface.
 type OllamaTextProvider struct {
-	Client *http.Client
-	Base   string
-	Model  OllamaModel
+	Client           *http.Client
+	Base             string
+	Model            OllamaModel
+	MaxContextLength int
 
 	Seed        int
 	Temperature float64
 
-	client           *api.Client
-	messages         []api.Message
-	maxContextLength int
+	client   *api.Client
+	messages []api.Message
 }
 
 func (o *OllamaTextProvider) Init(ctx context.Context, messages []ChatMessage) errors.E {
@@ -85,7 +85,14 @@ func (o *OllamaTextProvider) Init(ctx context.Context, messages []ChatMessage) e
 	if contextLength == 0 {
 		return errors.New("unable to determine max context length")
 	}
-	o.maxContextLength = contextLength
+
+	if o.MaxContextLength == 0 {
+		o.MaxContextLength = contextLength
+	}
+
+	if o.MaxContextLength > contextLength {
+		return errors.New("max context length is larger than what model supports")
+	}
 
 	return nil
 }
@@ -105,8 +112,8 @@ func (o *OllamaTextProvider) Chat(ctx context.Context, message ChatMessage) (str
 		Messages: messages,
 		Stream:   &stream,
 		Options: map[string]interface{}{
-			"num_ctx":     o.maxContextLength,
-			"num_predict": o.maxContextLength,
+			"num_ctx":     o.MaxContextLength,
+			"num_predict": o.MaxContextLength,
 			"seed":        o.Seed,
 			"temperature": o.Temperature,
 		},
@@ -125,10 +132,10 @@ func (o *OllamaTextProvider) Chat(ctx context.Context, message ChatMessage) (str
 		return "", errors.New("not done")
 	}
 
-	if responses[0].Metrics.EvalCount >= o.maxContextLength {
+	if responses[0].Metrics.EvalCount >= o.MaxContextLength {
 		return "", errors.New("response hit max context length")
 	}
-	if responses[0].Metrics.PromptEvalCount >= o.maxContextLength {
+	if responses[0].Metrics.PromptEvalCount >= o.MaxContextLength {
 		return "", errors.New("prompt hit max context length")
 	}
 

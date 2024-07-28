@@ -65,37 +65,33 @@ var _ TextProvider = (*GroqTextProvider)(nil)
 
 // GroqTextProvider implements TextProvider interface.
 type GroqTextProvider struct {
-	Client *http.Client
-	APIKey string
-	Model  string
+	Client           *http.Client
+	APIKey           string
+	Model            string
+	MaxContextLength int
 
 	Seed        int
 	Temperature float64
 
-	client           *http.Client
-	messages         []ChatMessage
-	maxContextLength int
+	messages []ChatMessage
 }
 
 func (g *GroqTextProvider) Init(ctx context.Context, messages []ChatMessage) errors.E {
-	if g.client != nil {
+	if g.messages != nil {
 		return errors.New("already initialized")
 	}
-
-	if g.Client != nil {
-		g.client = g.Client
-	} else {
-		g.client = cleanhttp.DefaultPooledClient()
-	}
-
 	g.messages = messages
+
+	if g.Client == nil {
+		g.Client = cleanhttp.DefaultPooledClient()
+	}
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, fmt.Sprintf("https://api.groq.com/openai/v1/models/%s", g.Model), nil)
 	if err != nil {
 		return errors.WithStack(err)
 	}
 	req.Header.Add("Authorization", fmt.Sprintf("Bearer %s", g.APIKey))
-	resp, err := g.client.Do(req)
+	resp, err := g.Client.Do(req)
 	if err != nil {
 		return errors.WithStack(err)
 	}
@@ -116,7 +112,13 @@ func (g *GroqTextProvider) Init(ctx context.Context, messages []ChatMessage) err
 		return errors.New("model not active")
 	}
 
-	g.maxContextLength = model.ContextWindow
+	if g.MaxContextLength == 0 {
+		g.MaxContextLength = model.ContextWindow
+	}
+
+	if g.MaxContextLength > model.ContextWindow {
+		return errors.New("max context length is larger than what model supports")
+	}
 
 	return nil
 }
@@ -140,7 +142,7 @@ func (g *GroqTextProvider) Chat(ctx context.Context, message ChatMessage) (strin
 		return "", errors.WithStack(err)
 	}
 	req.Header.Add("Authorization", fmt.Sprintf("Bearer %s", g.APIKey))
-	resp, err := g.client.Do(req)
+	resp, err := g.Client.Do(req)
 	if err != nil {
 		return "", errors.WithStack(err)
 	}
@@ -164,10 +166,10 @@ func (g *GroqTextProvider) Chat(ctx context.Context, message ChatMessage) (strin
 		return "", errors.New("not done")
 	}
 
-	if response.Usage.CompletionTokens >= g.maxContextLength {
+	if response.Usage.CompletionTokens >= g.MaxContextLength {
 		return "", errors.New("response hit max context length")
 	}
-	if response.Usage.PromptTokens >= g.maxContextLength {
+	if response.Usage.PromptTokens >= g.MaxContextLength {
 		return "", errors.New("prompt hit max context length")
 	}
 
