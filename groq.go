@@ -81,7 +81,7 @@ func parseGroqRateLimitHeaders(resp *http.Response) (
 	ok bool, errE errors.E,
 ) {
 	// We use current time and not Date header in response, because Date header has just second
-	// precision, but X-Ratelimit-Reset-Tokens can be in milliseconds, so it seems better to use
+	// precision, but reset headers can be in milliseconds, so it seems better to use
 	// current local time, so that we do not reset the window too soon.
 	now := time.Now()
 
