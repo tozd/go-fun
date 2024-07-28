@@ -16,7 +16,7 @@ import (
 	"golang.org/x/time/rate"
 )
 
-var groqRateLimiter = rateLimiter{}
+var groqRateLimiter = keyedRateLimiter{}
 
 type groqModel struct {
 	ID            string     `json:"id"`
@@ -67,31 +67,50 @@ type groqResponse struct {
 }
 
 func parseRateLimitHeaders(resp *http.Response) (
-	limitRequests, limitTokens int,
+	limitRequests, limitTokens,
+	remainingTokens int, resetTokens time.Time,
 	ok bool, errE errors.E,
 ) {
-	limitRequestsStr := resp.Header.Get("x-ratelimit-limit-requests") // Request per day.
-	limitTokensStr := resp.Header.Get("x-ratelimit-limit-tokens")     // Tokens per minute.
+	// We use current time and not Date header in response, because Date header has just second
+	// precision, but X-Ratelimit-Reset-Tokens can be in milliseconds, so it seems better to use
+	// current local time, so that we do not reset the window too soon.
+	now := time.Now()
+
+	limitRequestsStr := resp.Header.Get("X-Ratelimit-Limit-Requests")     // Request per day.
+	limitTokensStr := resp.Header.Get("X-Ratelimit-Limit-Tokens")         // Tokens per minute.
+	remainingTokensStr := resp.Header.Get("X-Ratelimit-Remaining-Tokens") // Remaining tokens in current window (a minute).
+	resetTokensStr := resp.Header.Get("X-Ratelimit-Reset-Tokens")         // When will tokens window reset.
+
+	if limitRequestsStr == "" || limitTokensStr == "" || remainingTokensStr == "" || resetTokensStr == "" {
+		// ok == false here.
+		return
+	}
+
+	// We have all the headers we want.
+	ok = true
 
 	var err error
-	ok = false
-
-	if limitRequestsStr != "" {
-		limitRequests, err = strconv.Atoi(limitRequestsStr)
-		if err != nil {
-			errE = errors.WithStack(err)
-			return
-		}
-		ok = true
+	limitRequests, err = strconv.Atoi(limitRequestsStr)
+	if err != nil {
+		errE = errors.WithStack(err)
+		return
 	}
-	if limitTokensStr != "" {
-		limitTokens, err = strconv.Atoi(limitTokensStr)
-		if err != nil {
-			errE = errors.WithStack(err)
-			return
-		}
-		ok = true
+	limitTokens, err = strconv.Atoi(limitTokensStr)
+	if err != nil {
+		errE = errors.WithStack(err)
+		return
 	}
+	remainingTokens, err = strconv.Atoi(remainingTokensStr)
+	if err != nil {
+		errE = errors.WithStack(err)
+		return
+	}
+	resetTokensDuration, err := time.ParseDuration(resetTokensStr)
+	if err != nil {
+		errE = errors.WithStack(err)
+		return
+	}
+	resetTokens = now.Add(resetTokensDuration)
 
 	return
 }
@@ -135,7 +154,7 @@ func (g *GroqTextProvider) Init(ctx context.Context, messages []ChatMessage) err
 			return nil
 		}
 		client.CheckRetry = func(ctx context.Context, resp *http.Response, err error) (bool, error) {
-			limitRequests, limitTokens, ok, errE := parseRateLimitHeaders(resp)
+			limitRequests, limitTokens, remainingTokens, resetTokens, ok, errE := parseRateLimitHeaders(resp)
 			if errE != nil {
 				return false, errE
 			}
@@ -145,20 +164,20 @@ func (g *GroqTextProvider) Init(ctx context.Context, messages []ChatMessage) err
 				rpm := float64(30) / time.Minute.Seconds()
 				// Request per day.
 				rpd := float64(limitRequests) / (24 * time.Hour).Seconds()
-				// Tokens per minute.
-				tpm := float64(limitTokens) / time.Minute.Seconds()
-				groqRateLimiter.Set(g.APIKey, map[string]rateLimit{
-					"rpm": {
+				groqRateLimiter.Set(g.APIKey, map[string]any{
+					"rpm": tokenBucketRateLimit{
 						Limit: rate.Limit(rpm),
 						Burst: 30,
 					},
-					"rpd": {
+					"rpd": tokenBucketRateLimit{
 						Limit: rate.Limit(rpd),
 						Burst: limitRequests,
 					},
-					"tpm": {
-						Limit: rate.Limit(tpm),
-						Burst: limitTokens,
+					"tpm": windowRateLimit{
+						Limit:     limitTokens,
+						Remaining: remainingTokens,
+						Window:    time.Minute,
+						Resets:    resetTokens,
 					},
 				})
 			}
