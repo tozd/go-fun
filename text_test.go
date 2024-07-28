@@ -191,9 +191,12 @@ func TestTextStruct(t *testing.T) {
 			"just_data",
 			"",
 			[]fun.InputOutput[string, OutputStruct]{
+				// We repeat some training data to reinforce those cases.
+				// (Otherwise they fail when we test training cases.)
 				{"foo=1", OutputStruct{Key: "foo", Value: 1}},
 				{"bar=3", OutputStruct{Key: "bar", Value: 3}},
 				{"foo=1 [bar=3]", OutputStruct{Key: "foo", Value: 1, Children: []OutputStruct{{Key: "bar", Value: 3}}}},
+				{"foo=1 [bar=3 zoo=2]", OutputStruct{Key: "foo", Value: 1, Children: []OutputStruct{{Key: "bar", Value: 3}, {Key: "zoo", Value: 2}}}},
 				{"foo=1 [bar=3 zoo=2]", OutputStruct{Key: "foo", Value: 1, Children: []OutputStruct{{Key: "bar", Value: 3}, {Key: "zoo", Value: 2}}}},
 			},
 			[]fun.InputOutput[string, OutputStruct]{
