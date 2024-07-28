@@ -34,6 +34,7 @@ func TestText(t *testing.T) {
 				{"foo", "foofoo"},
 				{"bar", "barbar"},
 				{"test", "testtest"},
+				{"zzz", "zzzzzz"},
 			},
 		},
 		{
@@ -47,14 +48,11 @@ func TestText(t *testing.T) {
 				{"cba", "cbacba"},
 				{"zoo", "zoozoo"},
 				{"zoo", "zoozoo"},
-				{"zoo", "zoozoo"},
-				{"zoo", "zoozoo"},
-				{"zoo", "zoozoo"},
-				{"zoo", "zoozoo"},
 				{"AbC", "AbCAbC"},
 				{"roar", "roarroar"},
 				{"roar", "roarroar"},
 				{"lsdfk", "lsdfklsdfk"},
+				{"ZZZZ", "ZZZZZZZZ"},
 				{"ZZZZ", "ZZZZZZZZ"},
 				{"ZZZZ", "ZZZZZZZZ"},
 				{"long", "longlong"},
@@ -63,6 +61,7 @@ func TestText(t *testing.T) {
 				{"foo", "foofoo"},
 				{"bar", "barbar"},
 				{"test", "testtest"},
+				// {"zzz", "zzzzzz"}, // Returns "zzz..." with llama3.8b.
 			},
 		},
 		{
@@ -92,6 +91,7 @@ func TestText(t *testing.T) {
 				{"foo", "foofoo"},
 				{"bar", "barbar"},
 				{"test", "testtest"},
+				// {"zzz", "zzzzzz"}, // Returns "zzzZZZ" with llama3.8b.
 			},
 		},
 	}
