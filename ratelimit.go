@@ -2,6 +2,7 @@ package fun
 
 import (
 	"context"
+	"time"
 
 	"gitlab.com/tozd/go/errors"
 	"golang.org/x/time/rate"
@@ -44,12 +45,18 @@ func (r *rateLimiter) Set(key string, rateLimits map[string]rateLimit) {
 		r.limiters[key] = make(map[string]*rate.Limiter)
 	}
 
+	now := time.Now()
+
 	for k, rl := range rateLimits {
 		if r.limiters[key][k] == nil {
 			r.limiters[key][k] = rate.NewLimiter(rl.Limit, rl.Burst)
 		} else {
-			r.limiters[key][k].SetLimit(rl.Limit)
-			r.limiters[key][k].SetBurst(rl.Burst)
+			if r.limiters[key][k].Limit() != rl.Limit {
+				r.limiters[key][k].SetLimitAt(now, rl.Limit)
+			}
+			if r.limiters[key][k].Burst() != rl.Burst {
+				r.limiters[key][k].SetBurstAt(now, rl.Burst)
+			}
 		}
 	}
 }

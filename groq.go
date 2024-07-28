@@ -67,17 +67,11 @@ type groqResponse struct {
 }
 
 func parseRateLimitHeaders(resp *http.Response) (
-	limitRequests, limitTokens,
-	remainingRequests, remainingTokens int,
-	resetRequests, resetTokens time.Duration,
+	limitRequests, limitTokens int,
 	ok bool, errE errors.E,
 ) {
-	limitRequestsStr := resp.Header.Get("x-ratelimit-limit-requests")
-	limitTokensStr := resp.Header.Get("x-ratelimit-limit-tokens")
-	remainingRequestsStr := resp.Header.Get("x-ratelimit-remaining-requests")
-	remainingTokensStr := resp.Header.Get("x-ratelimit-remaining-tokens")
-	resetRequestsStr := resp.Header.Get("x-ratelimit-reset-requests")
-	resetTokensStr := resp.Header.Get("x-ratelimit-reset-tokens")
+	limitRequestsStr := resp.Header.Get("x-ratelimit-limit-requests") // Request per day.
+	limitTokensStr := resp.Header.Get("x-ratelimit-limit-tokens")     // Tokens per minute.
 
 	var err error
 	ok = false
@@ -92,38 +86,6 @@ func parseRateLimitHeaders(resp *http.Response) (
 	}
 	if limitTokensStr != "" {
 		limitTokens, err = strconv.Atoi(limitTokensStr)
-		if err != nil {
-			errE = errors.WithStack(err)
-			return
-		}
-		ok = true
-	}
-	if remainingRequestsStr != "" {
-		remainingRequests, err = strconv.Atoi(remainingRequestsStr)
-		if err != nil {
-			errE = errors.WithStack(err)
-			return
-		}
-		ok = true
-	}
-	if remainingTokensStr != "" {
-		remainingTokens, err = strconv.Atoi(remainingTokensStr)
-		if err != nil {
-			errE = errors.WithStack(err)
-			return
-		}
-		ok = true
-	}
-	if resetRequestsStr != "" {
-		resetRequests, err = time.ParseDuration(resetRequestsStr)
-		if err != nil {
-			errE = errors.WithStack(err)
-			return
-		}
-		ok = true
-	}
-	if resetTokensStr != "" {
-		resetTokens, err = time.ParseDuration(resetTokensStr)
 		if err != nil {
 			errE = errors.WithStack(err)
 			return
@@ -164,37 +126,35 @@ func (g *GroqTextProvider) Init(ctx context.Context, messages []ChatMessage) err
 		client.PrepareRetry = func(req *http.Request) error {
 			// Rate limit retries.
 			return groqRateLimiter.Take(req.Context(), g.APIKey, map[string]int{
-				"requests": 1,
-				"tokens":   g.MaxContextLength, // TODO: Can we provide a better estimate?
+				"rpm": 1,
+				"rpd": 1,
+				"tpm": g.MaxContextLength, // TODO: Can we provide a better estimate?
 			})
 		}
 		client.CheckRetry = func(ctx context.Context, resp *http.Response, err error) (bool, error) {
-			limitRequests, limitTokens, remainingRequests, remainingTokens, resetRequests, resetTokens, ok, errE := parseRateLimitHeaders(resp)
+			limitRequests, limitTokens, ok, errE := parseRateLimitHeaders(resp)
 			if errE != nil {
 				return false, errE
 			}
 			if ok {
-				var requestsLimit float64
-				if resetRequests == 0 {
-					// Requests per day.
-					requestsLimit = float64(limitRequests) / (24 * time.Hour).Seconds()
-				} else {
-					requestsLimit = float64(remainingRequests) / resetRequests.Seconds()
-				}
-				var tokensLimit float64
-				if resetTokens == 0 {
-					// Tokens per minute.
-					tokensLimit = float64(limitTokens) / time.Minute.Seconds()
-				} else {
-					tokensLimit = float64(remainingTokens) / resetTokens.Seconds()
-				}
+				// Requests per minute.
+				// TODO: Remove hard-coded value.
+				rpm := float64(30) / time.Minute.Seconds()
+				// Request per day.
+				rpd := float64(limitRequests) / (24 * time.Hour).Seconds()
+				// Tokens per minute.
+				tpm := float64(limitTokens) / time.Minute.Seconds()
 				groqRateLimiter.Set(g.APIKey, map[string]rateLimit{
-					"requests": {
-						Limit: rate.Limit(requestsLimit),
+					"rpm": {
+						Limit: rate.Limit(rpm),
+						Burst: 30,
+					},
+					"rpd": {
+						Limit: rate.Limit(rpd),
 						Burst: limitRequests,
 					},
-					"tokens": {
-						Limit: rate.Limit(tokensLimit),
+					"tpm": {
+						Limit: rate.Limit(tpm),
 						Burst: limitTokens,
 					},
 				})
@@ -211,8 +171,9 @@ func (g *GroqTextProvider) Init(ctx context.Context, messages []ChatMessage) err
 	req.Header.Add("Authorization", fmt.Sprintf("Bearer %s", g.APIKey))
 	// Rate limit the initial request.
 	errE := groqRateLimiter.Take(req.Context(), g.APIKey, map[string]int{
-		"requests": 1,
-		"tokens":   g.MaxContextLength, // TODO: Can we provide a better estimate?
+		"rpm": 1,
+		"rpd": 1,
+		"tpm": g.MaxContextLength, // TODO: Can we provide a better estimate?
 	})
 	if errE != nil {
 		return errE
