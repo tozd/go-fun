@@ -8,17 +8,24 @@ import (
 	"net/http"
 	"slices"
 
+	"github.com/hashicorp/go-cleanhttp"
 	"gitlab.com/tozd/go/errors"
 	"gitlab.com/tozd/go/x"
 )
 
 type groqModel struct {
-	ID            string `json:"id"`
-	Object        string `json:"object"`
-	Created       int64  `json:"created"`
-	OwnedBy       string `json:"owned_by"`
-	Active        bool   `json:"active"`
-	ContextWindow int    `json:"context_window"`
+	ID            string     `json:"id"`
+	Object        string     `json:"object"`
+	Created       int64      `json:"created"`
+	OwnedBy       string     `json:"owned_by"`
+	Active        bool       `json:"active"`
+	ContextWindow int        `json:"context_window"`
+	PublicApps    []struct{} `json:"public_apps,omitempty"`
+	Error         *struct {
+		Message string `json:"message"`
+		Type    string `json:"type"`
+		Code    string `json:"code"`
+	} `json:"error,omitempty"`
 }
 
 type groqResponse struct {
@@ -44,6 +51,14 @@ type groqResponse struct {
 		CompletionTime   float64 `json:"completion_time"`
 		TotalTime        float64 `json:"total_time"`
 	} `json:"usage"`
+	XGroq struct {
+		ID string `json:"id"`
+	} `json:"x_groq"`
+	Error *struct {
+		Message string `json:"message"`
+		Type    string `json:"type"`
+		Code    string `json:"code"`
+	} `json:"error,omitempty"`
 }
 
 var _ TextProvider = (*GroqTextProvider)(nil)
@@ -51,26 +66,36 @@ var _ TextProvider = (*GroqTextProvider)(nil)
 // GroqTextProvider implements TextProvider interface.
 type GroqTextProvider struct {
 	Client *http.Client
+	APIKey string
 	Model  string
 
 	Seed        int
 	Temperature float64
 
+	client           *http.Client
 	messages         []ChatMessage
 	maxContextLength int
 }
 
-func (o *GroqTextProvider) Init(ctx context.Context, messages []ChatMessage) errors.E {
-	if o.messages != nil {
+func (g *GroqTextProvider) Init(ctx context.Context, messages []ChatMessage) errors.E {
+	if g.client != nil {
 		return errors.New("already initialized")
 	}
-	o.messages = messages
 
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, fmt.Sprintf("https://api.groq.com/openai/v1/models/%s", o.Model), nil)
+	if g.Client != nil {
+		g.client = g.Client
+	} else {
+		g.client = cleanhttp.DefaultPooledClient()
+	}
+
+	g.messages = messages
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, fmt.Sprintf("https://api.groq.com/openai/v1/models/%s", g.Model), nil)
 	if err != nil {
 		return errors.WithStack(err)
 	}
-	resp, err := o.Client.Do(req)
+	req.Header.Add("Authorization", fmt.Sprintf("Bearer %s", g.APIKey))
+	resp, err := g.client.Do(req)
 	if err != nil {
 		return errors.WithStack(err)
 	}
@@ -83,24 +108,28 @@ func (o *GroqTextProvider) Init(ctx context.Context, messages []ChatMessage) err
 		return errE
 	}
 
+	if model.Error != nil {
+		return errors.Errorf("error response: %s", model.Error.Message)
+	}
+
 	if !model.Active {
 		return errors.New("model not active")
 	}
 
-	o.maxContextLength = model.ContextWindow
+	g.maxContextLength = model.ContextWindow
 
 	return nil
 }
 
-func (o *GroqTextProvider) Chat(ctx context.Context, message ChatMessage) (string, errors.E) {
-	messages := slices.Clone(o.messages)
+func (g *GroqTextProvider) Chat(ctx context.Context, message ChatMessage) (string, errors.E) {
+	messages := slices.Clone(g.messages)
 	messages = append(messages, message)
 
 	request, errE := x.MarshalWithoutEscapeHTML(map[string]interface{}{
 		"messages":    messages,
-		"model":       o.Model,
-		"seed":        o.Seed,
-		"temperature": o.Temperature,
+		"model":       g.Model,
+		"seed":        g.Seed,
+		"temperature": g.Temperature,
 	})
 	if errE != nil {
 		return "", errE
@@ -110,7 +139,8 @@ func (o *GroqTextProvider) Chat(ctx context.Context, message ChatMessage) (strin
 	if err != nil {
 		return "", errors.WithStack(err)
 	}
-	resp, err := o.Client.Do(req)
+	req.Header.Add("Authorization", fmt.Sprintf("Bearer %s", g.APIKey))
+	resp, err := g.client.Do(req)
 	if err != nil {
 		return "", errors.WithStack(err)
 	}
@@ -123,6 +153,10 @@ func (o *GroqTextProvider) Chat(ctx context.Context, message ChatMessage) (strin
 		return "", errE
 	}
 
+	if response.Error != nil {
+		return "", errors.Errorf("error response: %s", response.Error.Message)
+	}
+
 	if len(response.Choices) != 1 {
 		return "", errors.New("unexpected number of choices")
 	}
@@ -130,10 +164,10 @@ func (o *GroqTextProvider) Chat(ctx context.Context, message ChatMessage) (strin
 		return "", errors.New("not done")
 	}
 
-	if response.Usage.CompletionTokens >= o.maxContextLength {
+	if response.Usage.CompletionTokens >= g.maxContextLength {
 		return "", errors.New("response hit max context length")
 	}
-	if response.Usage.PromptTokens >= o.maxContextLength {
+	if response.Usage.PromptTokens >= g.maxContextLength {
 		return "", errors.New("prompt hit max context length")
 	}
 

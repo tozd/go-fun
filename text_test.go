@@ -123,6 +123,21 @@ func TestText(t *testing.T) {
 						}
 					},
 				},
+				{
+					"groq",
+					&fun.GroqTextProvider{
+						Client:      nil,
+						APIKey:      os.Getenv("GROQ_API_KEY"),
+						Model:       "llama3-8b-8192",
+						Seed:        42,
+						Temperature: 0,
+					},
+					func(t *testing.T) {
+						if os.Getenv("GROQ_API_KEY") == "" {
+							t.Skip("GROQ_API_KEY is not available")
+						}
+					},
+				},
 			}
 
 			for _, provider := range providers {
@@ -222,6 +237,21 @@ func TestTextStruct(t *testing.T) {
 					func(t *testing.T) {
 						if os.Getenv("OLLAMA_HOST") == "" {
 							t.Skip("OLLAMA_HOST is not available")
+						}
+					},
+				},
+				{
+					"groq",
+					&fun.GroqTextProvider{
+						Client:      nil,
+						APIKey:      os.Getenv("GROQ_API_KEY"),
+						Model:       "llama3-8b-8192",
+						Seed:        42,
+						Temperature: 0,
+					},
+					func(t *testing.T) {
+						if os.Getenv("GROQ_API_KEY") == "" {
+							t.Skip("GROQ_API_KEY is not available")
 						}
 					},
 				},
