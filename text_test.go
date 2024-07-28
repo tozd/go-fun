@@ -114,8 +114,9 @@ func TestText(t *testing.T) {
 							Username: "",
 							Password: "",
 						},
-						Seed:        42,
-						Temperature: 0,
+						MaxContextLength: 0,
+						Seed:             42,
+						Temperature:      0,
 					},
 					func(t *testing.T) {
 						if os.Getenv("OLLAMA_HOST") == "" {
@@ -126,11 +127,12 @@ func TestText(t *testing.T) {
 				{
 					"groq",
 					&fun.GroqTextProvider{
-						Client:      nil,
-						APIKey:      os.Getenv("GROQ_API_KEY"),
-						Model:       "llama3-8b-8192",
-						Seed:        42,
-						Temperature: 0,
+						Client:           nil,
+						APIKey:           os.Getenv("GROQ_API_KEY"),
+						Model:            "llama3-8b-8192",
+						MaxContextLength: 0,
+						Seed:             42,
+						Temperature:      0,
 					},
 					func(t *testing.T) {
 						if os.Getenv("GROQ_API_KEY") == "" {
@@ -231,8 +233,9 @@ func TestTextStruct(t *testing.T) {
 							Username: "",
 							Password: "",
 						},
-						Seed:        42,
-						Temperature: 0,
+						MaxContextLength: 0,
+						Seed:             42,
+						Temperature:      0,
 					},
 					func(t *testing.T) {
 						if os.Getenv("OLLAMA_HOST") == "" {
@@ -243,11 +246,12 @@ func TestTextStruct(t *testing.T) {
 				{
 					"groq",
 					&fun.GroqTextProvider{
-						Client:      nil,
-						APIKey:      os.Getenv("GROQ_API_KEY"),
-						Model:       "llama3-8b-8192",
-						Seed:        42,
-						Temperature: 0,
+						Client:           nil,
+						APIKey:           os.Getenv("GROQ_API_KEY"),
+						Model:            "llama3-8b-8192",
+						MaxContextLength: 0,
+						Seed:             42,
+						Temperature:      0,
 					},
 					func(t *testing.T) {
 						if os.Getenv("GROQ_API_KEY") == "" {
