@@ -74,7 +74,7 @@ type groqResponse struct {
 	} `json:"error,omitempty"`
 }
 
-func parseRateLimitHeaders(resp *http.Response) (
+func parseGroqRateLimitHeaders(resp *http.Response) (
 	limitRequests, limitTokens,
 	remainingRequests, remainingTokens int,
 	resetRequests, resetTokens time.Time,
@@ -176,7 +176,7 @@ func (g *GroqTextProvider) Init(ctx context.Context, messages []ChatMessage) err
 			return nil
 		}
 		client.CheckRetry = func(ctx context.Context, resp *http.Response, err error) (bool, error) {
-			limitRequests, limitTokens, remainingRequests, remainingTokens, resetRequests, resetTokens, ok, errE := parseRateLimitHeaders(resp)
+			limitRequests, limitTokens, remainingRequests, remainingTokens, resetRequests, resetTokens, ok, errE := parseGroqRateLimitHeaders(resp)
 			if errE != nil {
 				return false, errE
 			}
