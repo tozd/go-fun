@@ -33,6 +33,14 @@ type groqModel struct {
 	} `json:"error,omitempty"`
 }
 
+type groqRequest struct {
+	Messages    []ChatMessage `json:"messages"`
+	Model       string        `json:"model"`
+	Seed        int           `json:"seed"`
+	Temperature float64       `json:"temperature"`
+	MaxTokens   int           `json:"max_tokens"`
+}
+
 type groqResponse struct {
 	ID                string  `json:"id"`
 	Object            string  `json:"object"`
@@ -244,12 +252,12 @@ func (g *GroqTextProvider) Chat(ctx context.Context, message ChatMessage) (strin
 	messages := slices.Clone(g.messages)
 	messages = append(messages, message)
 
-	request, errE := x.MarshalWithoutEscapeHTML(map[string]interface{}{
-		"messages":    messages,
-		"model":       g.Model,
-		"seed":        g.Seed,
-		"temperature": g.Temperature,
-		"max_tokens":  g.MaxContextLength, // TODO: Can we provide a better estimate?
+	request, errE := x.MarshalWithoutEscapeHTML(groqRequest{
+		Messages:    messages,
+		Model:       g.Model,
+		Seed:        g.Seed,
+		Temperature: g.Temperature,
+		MaxTokens:   g.MaxContextLength, // TODO: Can we provide a better estimate?
 	})
 	if errE != nil {
 		return "", errE
