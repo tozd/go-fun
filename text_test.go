@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"slices"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -191,12 +192,9 @@ func TestTextStruct(t *testing.T) {
 			"just_data",
 			"",
 			[]fun.InputOutput[string, OutputStruct]{
-				// We repeat some training data to reinforce those cases.
-				// (Otherwise they fail when we test training cases.)
 				{"foo=1", OutputStruct{Key: "foo", Value: 1}},
 				{"bar=3", OutputStruct{Key: "bar", Value: 3}},
 				{"foo=1 [bar=3]", OutputStruct{Key: "foo", Value: 1, Children: []OutputStruct{{Key: "bar", Value: 3}}}},
-				{"foo=1 [bar=3 zoo=2]", OutputStruct{Key: "foo", Value: 1, Children: []OutputStruct{{Key: "bar", Value: 3}, {Key: "zoo", Value: 2}}}},
 				{"foo=1 [bar=3 zoo=2]", OutputStruct{Key: "foo", Value: 1, Children: []OutputStruct{{Key: "bar", Value: 3}, {Key: "zoo", Value: 2}}}},
 			},
 			[]fun.InputOutput[string, OutputStruct]{
@@ -268,12 +266,19 @@ func TestTextStruct(t *testing.T) {
 				t.Run(provider.Name, func(t *testing.T) {
 					provider.Enabled(t)
 
+					data := slices.Clone(tt.Data)
+					// TODO: Why is there a differnce on Groq so that we have to repeat the last training data sample.
+					//       And why with repeated sample Ollama starts returning non-JSON comments.
+					if provider.Name == "groq" {
+						data = append(data, data[len(data)-1])
+					}
+
 					f := fun.Text[string, OutputStruct]{
 						Provider:         provider.Provider,
 						InputJSONSchema:  jsonSchemaString,
 						OutputJSONSchema: nil,
 						Prompt:           tt.Prompt,
-						Data:             tt.Data,
+						Data:             data,
 					}
 
 					ctx := context.Background()
