@@ -13,7 +13,7 @@ type keyedRateLimiter struct {
 	limiters map[string]map[string]any
 }
 
-type windowRateLimiter struct {
+type resettingRateLimiter struct {
 	mu        sync.Mutex
 	limit     int
 	remaining int
@@ -21,7 +21,7 @@ type windowRateLimiter struct {
 	resets    time.Time
 }
 
-func (r *windowRateLimiter) Take(ctx context.Context, n int) errors.E {
+func (r *resettingRateLimiter) Take(ctx context.Context, n int) errors.E {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
@@ -43,7 +43,7 @@ func (r *windowRateLimiter) Take(ctx context.Context, n int) errors.E {
 	}
 }
 
-func (r *windowRateLimiter) wait(ctx context.Context, n int) (bool, errors.E) {
+func (r *resettingRateLimiter) wait(ctx context.Context, n int) (bool, errors.E) {
 	now := time.Now()
 	if r.resets.Compare(now) <= 0 {
 		r.remaining = r.limit
@@ -74,7 +74,7 @@ func (r *windowRateLimiter) wait(ctx context.Context, n int) (bool, errors.E) {
 	}
 }
 
-func (r *windowRateLimiter) Set(limit, remaining int, window time.Duration, resets time.Time) {
+func (r *resettingRateLimiter) Set(limit, remaining int, window time.Duration, resets time.Time) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
@@ -84,8 +84,8 @@ func (r *windowRateLimiter) Set(limit, remaining int, window time.Duration, rese
 	r.resets = resets
 }
 
-func newWindowRateLimiter(limit, remaining int, window time.Duration, resets time.Time) *windowRateLimiter {
-	return &windowRateLimiter{
+func newResettingRateLimiter(limit, remaining int, window time.Duration, resets time.Time) *resettingRateLimiter {
+	return &resettingRateLimiter{
 		limit:     limit,
 		remaining: remaining,
 		window:    window,
@@ -93,7 +93,7 @@ func newWindowRateLimiter(limit, remaining int, window time.Duration, resets tim
 	}
 }
 
-type windowRateLimit struct {
+type resettingRateLimit struct {
 	Limit     int
 	Remaining int
 	Window    time.Duration
@@ -121,7 +121,7 @@ func (r *keyedRateLimiter) Take(ctx context.Context, key string, ns map[string]i
 				if err != nil {
 					return errors.WithStack(err)
 				}
-			case *windowRateLimiter:
+			case *resettingRateLimiter:
 				errE := limiter.Take(ctx, n)
 				if errE != nil {
 					return errE
@@ -150,8 +150,8 @@ func (r *keyedRateLimiter) Set(key string, rateLimits map[string]any) {
 			switch rateLimit := rl.(type) {
 			case tokenBucketRateLimit:
 				r.limiters[key][k] = rate.NewLimiter(rateLimit.Limit, rateLimit.Burst)
-			case windowRateLimit:
-				r.limiters[key][k] = newWindowRateLimiter(rateLimit.Limit, rateLimit.Remaining, rateLimit.Window, rateLimit.Resets)
+			case resettingRateLimit:
+				r.limiters[key][k] = newResettingRateLimiter(rateLimit.Limit, rateLimit.Remaining, rateLimit.Window, rateLimit.Resets)
 			default:
 				panic(errors.Errorf("invalid rate limit type: %T", rl))
 			}
@@ -168,8 +168,8 @@ func (r *keyedRateLimiter) Set(key string, rateLimits map[string]any) {
 				if limiter.Burst() != rateLimit.Burst {
 					limiter.SetBurstAt(now, rateLimit.Burst)
 				}
-			case *windowRateLimiter:
-				rateLimit, ok := rl.(windowRateLimit)
+			case *resettingRateLimiter:
+				rateLimit, ok := rl.(resettingRateLimit)
 				if !ok {
 					panic(errors.Errorf("mismatch between limiter type (%T) and rate limit type (%T)", limiter, rl))
 				}

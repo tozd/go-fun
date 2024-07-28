@@ -68,7 +68,8 @@ type groqResponse struct {
 
 func parseRateLimitHeaders(resp *http.Response) (
 	limitRequests, limitTokens,
-	remainingTokens int, resetTokens time.Time,
+	remainingRequests, remainingTokens int,
+	resetRequests, resetTokens time.Time,
 	ok bool, errE errors.E,
 ) {
 	// We use current time and not Date header in response, because Date header has just second
@@ -76,12 +77,14 @@ func parseRateLimitHeaders(resp *http.Response) (
 	// current local time, so that we do not reset the window too soon.
 	now := time.Now()
 
-	limitRequestsStr := resp.Header.Get("X-Ratelimit-Limit-Requests")     // Request per day.
-	limitTokensStr := resp.Header.Get("X-Ratelimit-Limit-Tokens")         // Tokens per minute.
-	remainingTokensStr := resp.Header.Get("X-Ratelimit-Remaining-Tokens") // Remaining tokens in current window (a minute).
-	resetTokensStr := resp.Header.Get("X-Ratelimit-Reset-Tokens")         // When will tokens window reset.
+	limitRequestsStr := resp.Header.Get("X-Ratelimit-Limit-Requests")         // Request per day.
+	limitTokensStr := resp.Header.Get("X-Ratelimit-Limit-Tokens")             // Tokens per minute.
+	remainingRequestsStr := resp.Header.Get("X-Ratelimit-Remaining-Requests") // Remaining requests in current window (a day).
+	remainingTokensStr := resp.Header.Get("X-Ratelimit-Remaining-Tokens")     // Remaining tokens in current window (a minute).
+	resetRequestsStr := resp.Header.Get("X-Ratelimit-Reset-Requests")         // When will requests window reset.
+	resetTokensStr := resp.Header.Get("X-Ratelimit-Reset-Tokens")             // When will tokens window reset.
 
-	if limitRequestsStr == "" || limitTokensStr == "" || remainingTokensStr == "" || resetTokensStr == "" {
+	if limitRequestsStr == "" || limitTokensStr == "" || remainingRequestsStr == "" || remainingTokensStr == "" || resetRequestsStr == "" || resetTokensStr == "" {
 		// ok == false here.
 		return
 	}
@@ -100,11 +103,22 @@ func parseRateLimitHeaders(resp *http.Response) (
 		errE = errors.WithStack(err)
 		return
 	}
+	remainingRequests, err = strconv.Atoi(remainingRequestsStr)
+	if err != nil {
+		errE = errors.WithStack(err)
+		return
+	}
 	remainingTokens, err = strconv.Atoi(remainingTokensStr)
 	if err != nil {
 		errE = errors.WithStack(err)
 		return
 	}
+	resetRequestsDuration, err := time.ParseDuration(resetRequestsStr)
+	if err != nil {
+		errE = errors.WithStack(err)
+		return
+	}
+	resetRequests = now.Add(resetRequestsDuration)
 	resetTokensDuration, err := time.ParseDuration(resetTokensStr)
 	if err != nil {
 		errE = errors.WithStack(err)
@@ -154,26 +168,28 @@ func (g *GroqTextProvider) Init(ctx context.Context, messages []ChatMessage) err
 			return nil
 		}
 		client.CheckRetry = func(ctx context.Context, resp *http.Response, err error) (bool, error) {
-			limitRequests, limitTokens, remainingTokens, resetTokens, ok, errE := parseRateLimitHeaders(resp)
+			limitRequests, limitTokens, remainingRequests, remainingTokens, resetRequests, resetTokens, ok, errE := parseRateLimitHeaders(resp)
 			if errE != nil {
 				return false, errE
 			}
 			if ok {
-				// Requests per minute.
-				// TODO: Remove hard-coded value.
-				rpm := float64(30) / time.Minute.Seconds()
-				// Request per day.
-				rpd := float64(limitRequests) / (24 * time.Hour).Seconds()
 				groqRateLimiter.Set(g.APIKey, map[string]any{
 					"rpm": tokenBucketRateLimit{
-						Limit: rate.Limit(rpm),
-						Burst: 30,
+						// TODO: Correctly implement this rate limit.
+						//       Currently there are not headers for this limit, so we are simulating it with a token
+						//       bucket rate limit with burst 1. This means that if we have a burst of requests and then
+						//       a pause we do not process them as fast as we could.
+						//       See: https://console.groq.com/docs/rate-limits
+						Limit: rate.Limit(rate.Limit(float64(30) / time.Minute.Seconds())), // Requests per minute.
+						Burst: 1,
 					},
-					"rpd": tokenBucketRateLimit{
-						Limit: rate.Limit(rpd),
-						Burst: limitRequests,
+					"rpd": resettingRateLimit{
+						Limit:     limitRequests,
+						Remaining: remainingRequests,
+						Window:    24 * time.Hour,
+						Resets:    resetRequests,
 					},
-					"tpm": windowRateLimit{
+					"tpm": resettingRateLimit{
 						Limit:     limitTokens,
 						Remaining: remainingTokens,
 						Window:    time.Minute,
