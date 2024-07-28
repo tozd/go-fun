@@ -10,6 +10,7 @@ import (
 )
 
 type keyedRateLimiter struct {
+	mu       sync.RWMutex
 	limiters map[string]map[string]any
 }
 
@@ -105,7 +106,10 @@ type tokenBucketRateLimit struct {
 	Burst int
 }
 
-func (r *keyedRateLimiter) Take(ctx context.Context, key string, ns map[string]int) errors.E {
+func (r *keyedRateLimiter) get(key, k string) any {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+
 	if r.limiters == nil {
 		return nil
 	}
@@ -113,9 +117,32 @@ func (r *keyedRateLimiter) Take(ctx context.Context, key string, ns map[string]i
 		return nil
 	}
 
+	return r.limiters[key][k]
+}
+
+func (r *keyedRateLimiter) getOrCreate(key, k string, create func() any) any {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	if r.limiters == nil {
+		r.limiters = make(map[string]map[string]any)
+	}
+	if r.limiters[key] == nil {
+		r.limiters[key] = make(map[string]any)
+	}
+
+	if r.limiters[key][k] == nil {
+		r.limiters[key][k] = create()
+	}
+
+	return r.limiters[key][k]
+}
+
+func (r *keyedRateLimiter) Take(ctx context.Context, key string, ns map[string]int) errors.E {
 	for k, n := range ns {
-		if r.limiters[key][k] != nil {
-			switch limiter := r.limiters[key][k].(type) {
+		limiter := r.get(key, k)
+		if limiter != nil {
+			switch limiter := limiter.(type) {
 			case *rate.Limiter:
 				err := limiter.WaitN(ctx, n)
 				if err != nil {
@@ -127,7 +154,7 @@ func (r *keyedRateLimiter) Take(ctx context.Context, key string, ns map[string]i
 					return errE
 				}
 			default:
-				panic(errors.Errorf("invalid limiter type: %T", r.limiters[key][k]))
+				panic(errors.Errorf("invalid limiter type: %T", limiter))
 			}
 		}
 	}
@@ -136,47 +163,39 @@ func (r *keyedRateLimiter) Take(ctx context.Context, key string, ns map[string]i
 }
 
 func (r *keyedRateLimiter) Set(key string, rateLimits map[string]any) {
-	if r.limiters == nil {
-		r.limiters = make(map[string]map[string]any)
-	}
-	if r.limiters[key] == nil {
-		r.limiters[key] = make(map[string]any)
-	}
-
 	now := time.Now()
 
 	for k, rl := range rateLimits {
-		if r.limiters[key][k] == nil {
+		limiter := r.getOrCreate(key, k, func() any {
 			switch rateLimit := rl.(type) {
 			case tokenBucketRateLimit:
-				r.limiters[key][k] = rate.NewLimiter(rateLimit.Limit, rateLimit.Burst)
+				return rate.NewLimiter(rateLimit.Limit, rateLimit.Burst)
 			case resettingRateLimit:
-				r.limiters[key][k] = newResettingRateLimiter(rateLimit.Limit, rateLimit.Remaining, rateLimit.Window, rateLimit.Resets)
+				return newResettingRateLimiter(rateLimit.Limit, rateLimit.Remaining, rateLimit.Window, rateLimit.Resets)
 			default:
 				panic(errors.Errorf("invalid rate limit type: %T", rl))
 			}
-		} else {
-			switch limiter := r.limiters[key][k].(type) {
-			case *rate.Limiter:
-				rateLimit, ok := rl.(tokenBucketRateLimit)
-				if !ok {
-					panic(errors.Errorf("mismatch between limiter type (%T) and rate limit type (%T)", limiter, rl))
-				}
-				if limiter.Limit() != rateLimit.Limit {
-					limiter.SetLimitAt(now, rateLimit.Limit)
-				}
-				if limiter.Burst() != rateLimit.Burst {
-					limiter.SetBurstAt(now, rateLimit.Burst)
-				}
-			case *resettingRateLimiter:
-				rateLimit, ok := rl.(resettingRateLimit)
-				if !ok {
-					panic(errors.Errorf("mismatch between limiter type (%T) and rate limit type (%T)", limiter, rl))
-				}
-				limiter.Set(rateLimit.Limit, rateLimit.Remaining, rateLimit.Window, rateLimit.Resets)
-			default:
-				panic(errors.Errorf("invalid limiter type: %T", r.limiters[key][k]))
+		})
+		switch l := limiter.(type) {
+		case *rate.Limiter:
+			rateLimit, ok := rl.(tokenBucketRateLimit)
+			if !ok {
+				panic(errors.Errorf("mismatch between limiter type (%T) and rate limit type (%T)", l, rl))
 			}
+			if l.Limit() != rateLimit.Limit {
+				l.SetLimitAt(now, rateLimit.Limit)
+			}
+			if l.Burst() != rateLimit.Burst {
+				l.SetBurstAt(now, rateLimit.Burst)
+			}
+		case *resettingRateLimiter:
+			rateLimit, ok := rl.(resettingRateLimit)
+			if !ok {
+				panic(errors.Errorf("mismatch between limiter type (%T) and rate limit type (%T)", l, rl))
+			}
+			l.Set(rateLimit.Limit, rateLimit.Remaining, rateLimit.Window, rateLimit.Resets)
+		default:
+			panic(errors.Errorf("invalid limiter type: %T", limiter))
 		}
 	}
 }
