@@ -224,7 +224,7 @@ func (g *GroqTextProvider) Init(ctx context.Context, messages []ChatMessage) err
 	defer io.Copy(io.Discard, resp.Body)
 
 	var model groqModel
-	errE := x.DecodeJSONWithoutUnknownFields(resp.Body, &model)
+	errE := x.DecodeJSON(resp.Body, &model)
 	if errE != nil {
 		return errE
 	}
@@ -285,7 +285,7 @@ func (g *GroqTextProvider) Chat(ctx context.Context, message ChatMessage) (strin
 	defer io.Copy(io.Discard, resp.Body)
 
 	var response groqResponse
-	errE = x.DecodeJSONWithoutUnknownFields(resp.Body, &response)
+	errE = x.DecodeJSON(resp.Body, &response)
 	if errE != nil {
 		return "", errE
 	}
