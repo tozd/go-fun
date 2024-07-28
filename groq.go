@@ -124,12 +124,15 @@ func (g *GroqTextProvider) Init(ctx context.Context, messages []ChatMessage) err
 		client.RetryWaitMin = 100 * time.Millisecond
 		client.RetryWaitMax = 5 * time.Second
 		client.PrepareRetry = func(req *http.Request) error {
-			// Rate limit retries.
-			return groqRateLimiter.Take(req.Context(), g.APIKey, map[string]int{
-				"rpm": 1,
-				"rpd": 1,
-				"tpm": g.MaxContextLength, // TODO: Can we provide a better estimate?
-			})
+			if req.URL.Path == "/openai/v1/chat/completions" {
+				// Rate limit retries.
+				return groqRateLimiter.Take(req.Context(), g.APIKey, map[string]int{
+					"rpm": 1,
+					"rpd": 1,
+					"tpm": g.MaxContextLength, // TODO: Can we provide a better estimate?
+				})
+			}
+			return nil
 		}
 		client.CheckRetry = func(ctx context.Context, resp *http.Response, err error) (bool, error) {
 			limitRequests, limitTokens, ok, errE := parseRateLimitHeaders(resp)
@@ -169,15 +172,7 @@ func (g *GroqTextProvider) Init(ctx context.Context, messages []ChatMessage) err
 		return errors.WithStack(err)
 	}
 	req.Header.Add("Authorization", fmt.Sprintf("Bearer %s", g.APIKey))
-	// Rate limit the initial request.
-	errE := groqRateLimiter.Take(req.Context(), g.APIKey, map[string]int{
-		"rpm": 1,
-		"rpd": 1,
-		"tpm": g.MaxContextLength, // TODO: Can we provide a better estimate?
-	})
-	if errE != nil {
-		return errE
-	}
+	// This endpoint does not have rate limiting.
 	resp, err := g.Client.Do(req)
 	if err != nil {
 		return errors.WithStack(err)
@@ -186,7 +181,7 @@ func (g *GroqTextProvider) Init(ctx context.Context, messages []ChatMessage) err
 	defer io.Copy(io.Discard, resp.Body)
 
 	var model groqModel
-	errE = x.DecodeJSONWithoutUnknownFields(resp.Body, &model)
+	errE := x.DecodeJSONWithoutUnknownFields(resp.Body, &model)
 	if errE != nil {
 		return errE
 	}
@@ -230,6 +225,15 @@ func (g *GroqTextProvider) Chat(ctx context.Context, message ChatMessage) (strin
 		return "", errors.WithStack(err)
 	}
 	req.Header.Add("Authorization", fmt.Sprintf("Bearer %s", g.APIKey))
+	// Rate limit the initial request.
+	errE = groqRateLimiter.Take(req.Context(), g.APIKey, map[string]int{
+		"rpm": 1,
+		"rpd": 1,
+		"tpm": g.MaxContextLength, // TODO: Can we provide a better estimate?
+	})
+	if errE != nil {
+		return "", errE
+	}
 	resp, err := g.Client.Do(req)
 	if err != nil {
 		return "", errors.WithStack(err)
