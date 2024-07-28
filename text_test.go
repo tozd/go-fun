@@ -21,6 +21,8 @@ type OutputStruct struct {
 }
 
 func TestText(t *testing.T) {
+	t.Parallel()
+
 	tests := []struct {
 		Name   string
 		Prompt string
@@ -99,6 +101,8 @@ func TestText(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.Name, func(t *testing.T) {
+			t.Parallel()
+
 			providers := []struct {
 				Name     string
 				Provider fun.TextProvider
@@ -145,6 +149,8 @@ func TestText(t *testing.T) {
 
 			for _, provider := range providers {
 				t.Run(provider.Name, func(t *testing.T) {
+					t.Parallel()
+
 					provider.Enabled(t)
 
 					f := fun.Text[string, string]{
@@ -182,6 +188,8 @@ func TestText(t *testing.T) {
 }
 
 func TestTextStruct(t *testing.T) {
+	t.Parallel()
+
 	tests := []struct {
 		Name   string
 		Prompt string
@@ -218,6 +226,8 @@ func TestTextStruct(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.Name, func(t *testing.T) {
+			t.Parallel()
+
 			providers := []struct {
 				Name     string
 				Provider fun.TextProvider
@@ -264,6 +274,8 @@ func TestTextStruct(t *testing.T) {
 
 			for _, provider := range providers {
 				t.Run(provider.Name, func(t *testing.T) {
+					t.Parallel()
+
 					provider.Enabled(t)
 
 					data := slices.Clone(tt.Data)
