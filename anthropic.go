@@ -254,12 +254,16 @@ func (a *AnthropicTextProvider) Chat(ctx context.Context, message ChatMessage) (
 }
 
 func (a *AnthropicTextProvider) estimatedTokens() int {
-	// We estimate tokens from number of messages (including system message) plus 2 for final input and
-	// output message. Each output can be up to anthropicMaxOutputTokens so we assume training outputs
-	// are at most that, with training inputs the same.
-	messages := len(a.messages)
-	if a.system != "" {
-		messages++
+	// We estimate tokens from training messages (including system message) by
+	// dividing number of characters by 4.
+	messages := 0
+	for _, message := range a.messages {
+		messages += len(message.Content) / 4
 	}
-	return (messages + 2) * anthropicMaxOutputTokens
+	if a.system != "" {
+		messages += len(a.system) / 4
+	}
+	// Each output can be up to anthropicMaxOutputTokens so we assume final output
+	// is at most that, with input the same.
+	return messages + 2*anthropicMaxOutputTokens
 }
