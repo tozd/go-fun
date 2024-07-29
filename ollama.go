@@ -6,11 +6,26 @@ import (
 	"net/http"
 	"net/url"
 	"slices"
+	"sync"
 
 	"github.com/hashicorp/go-cleanhttp"
 	"github.com/ollama/ollama/api"
 	"gitlab.com/tozd/go/errors"
 )
+
+var ollamaRateLimiter = map[string]*sync.Mutex{}
+var ollamaRateLimiterMu = sync.Mutex{}
+
+func ollamaRateLimiterLock(key string) *sync.Mutex {
+	ollamaRateLimiterMu.Lock()
+	defer ollamaRateLimiterMu.Unlock()
+
+	if _, ok := ollamaRateLimiter[key]; !ok {
+		ollamaRateLimiter[key] = &sync.Mutex{}
+	}
+
+	return ollamaRateLimiter[key]
+}
 
 var _ TextProvider = (*OllamaTextProvider)(nil)
 
@@ -103,6 +118,12 @@ func (o *OllamaTextProvider) Chat(ctx context.Context, message ChatMessage) (str
 		Role:    message.Role,
 		Content: message.Content,
 	})
+
+	// We allow only one request at a time to an Ollama host.
+	// TODO: Should we do something better? Currently Ollama does not work well with multiple parallel requests.
+	mu := ollamaRateLimiterLock(o.Base)
+	mu.Lock()
+	defer mu.Unlock()
 
 	responses := []api.ChatResponse{}
 
