@@ -42,6 +42,10 @@ type anthropicResponse struct {
 		InputTokens  int `json:"input_tokens"`
 		OutputTokens int `json:"output_tokens"`
 	} `json:"usage"`
+	Error *struct {
+		Message string `json:"message"`
+		Type    string `json:"type"`
+	} `json:"error,omitempty"`
 }
 
 func parseAnthropicRateLimitHeaders(resp *http.Response) (
@@ -228,6 +232,10 @@ func (a *AnthropicTextProvider) Chat(ctx context.Context, message ChatMessage) (
 	errE = x.DecodeJSON(resp.Body, &response)
 	if errE != nil {
 		return "", errE
+	}
+
+	if response.Error != nil {
+		return "", errors.Errorf("error response: %s", response.Error.Message)
 	}
 
 	if len(response.Content) != 1 {
