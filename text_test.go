@@ -145,6 +145,20 @@ func TestText(t *testing.T) {
 						}
 					},
 				},
+				{
+					"anthropic",
+					&fun.AnthropicTextProvider{
+						Client:      nil,
+						APIKey:      os.Getenv("ANTHROPIC_API_KEY"),
+						Model:       "claude-3-haiku-20240307",
+						Temperature: 0,
+					},
+					func(t *testing.T) {
+						if os.Getenv("ANTHROPIC_API_KEY") == "" {
+							t.Skip("ANTHROPIC_API_KEY is not available")
+						}
+					},
+				},
 			}
 
 			for _, provider := range providers {
@@ -267,6 +281,20 @@ func TestTextStruct(t *testing.T) {
 					func(t *testing.T) {
 						if os.Getenv("GROQ_API_KEY") == "" {
 							t.Skip("GROQ_API_KEY is not available")
+						}
+					},
+				},
+				{
+					"anthropic",
+					&fun.AnthropicTextProvider{
+						Client:      nil,
+						APIKey:      os.Getenv("ANTHROPIC_API_KEY"),
+						Model:       "claude-3-haiku-20240307",
+						Temperature: 0,
+					},
+					func(t *testing.T) {
+						if os.Getenv("ANTHROPIC_API_KEY") == "" {
+							t.Skip("ANTHROPIC_API_KEY is not available")
 						}
 					},
 				},
