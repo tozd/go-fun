@@ -78,6 +78,8 @@ var providers = []struct {
 }
 
 func TestText(t *testing.T) {
+	// We do not run test cases in parallel, so that we can run Ollama tests in sequence.
+
 	tests := []struct {
 		Name   string
 		Prompt string
@@ -215,6 +217,8 @@ func TestText(t *testing.T) {
 }
 
 func TestTextStruct(t *testing.T) {
+	// We do not run test cases in parallel, so that we can run Ollama tests in sequence.
+
 	tests := []struct {
 		Name   string
 		Prompt string
