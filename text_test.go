@@ -20,9 +20,64 @@ type OutputStruct struct {
 	Children []OutputStruct `json:"children,omitempty"`
 }
 
-func TestText(t *testing.T) {
-	t.Parallel()
+var providers = []struct {
+	Name     string
+	Provider func(t *testing.T) fun.TextProvider
+}{
+	{
+		"ollama",
+		func(t *testing.T) fun.TextProvider {
+			if os.Getenv("OLLAMA_HOST") == "" {
+				t.Skip("OLLAMA_HOST is not available")
+			}
+			return &fun.OllamaTextProvider{
+				Client: nil,
+				Base:   os.Getenv("OLLAMA_HOST"),
+				Model: fun.OllamaModel{
+					Model:    "llama3:8b",
+					Insecure: false,
+					Username: "",
+					Password: "",
+				},
+				MaxContextLength: 0,
+				Seed:             42,
+				Temperature:      0,
+			}
+		},
+	},
+	{
+		"groq",
+		func(t *testing.T) fun.TextProvider {
+			if os.Getenv("GROQ_API_KEY") == "" {
+				t.Skip("GROQ_API_KEY is not available")
+			}
+			return &fun.GroqTextProvider{
+				Client:           nil,
+				APIKey:           os.Getenv("GROQ_API_KEY"),
+				Model:            "llama3-8b-8192",
+				MaxContextLength: 0,
+				Seed:             42,
+				Temperature:      0,
+			}
+		},
+	},
+	{
+		"anthropic",
+		func(t *testing.T) fun.TextProvider {
+			if os.Getenv("ANTHROPIC_API_KEY") == "" {
+				t.Skip("ANTHROPIC_API_KEY is not available")
+			}
+			return &fun.AnthropicTextProvider{
+				Client:      nil,
+				APIKey:      os.Getenv("ANTHROPIC_API_KEY"),
+				Model:       "claude-3-haiku-20240307",
+				Temperature: 0,
+			}
+		},
+	},
+}
 
+func TestText(t *testing.T) {
 	tests := []struct {
 		Name   string
 		Prompt string
@@ -99,76 +154,22 @@ func TestText(t *testing.T) {
 		},
 	}
 
-	for _, tt := range tests {
-		t.Run(tt.Name, func(t *testing.T) {
+	for _, provider := range providers {
+		provider := provider
+
+		t.Run(provider.Name, func(t *testing.T) {
 			t.Parallel()
 
-			providers := []struct {
-				Name     string
-				Provider fun.TextProvider
-				Enabled  func(t *testing.T)
-			}{
-				{
-					"ollama",
-					&fun.OllamaTextProvider{
-						Client: nil,
-						Base:   os.Getenv("OLLAMA_HOST"),
-						Model: fun.OllamaModel{
-							Model:    "llama3:8b",
-							Insecure: false,
-							Username: "",
-							Password: "",
-						},
-						MaxContextLength: 0,
-						Seed:             42,
-						Temperature:      0,
-					},
-					func(t *testing.T) {
-						if os.Getenv("OLLAMA_HOST") == "" {
-							t.Skip("OLLAMA_HOST is not available")
-						}
-					},
-				},
-				{
-					"groq",
-					&fun.GroqTextProvider{
-						Client:           nil,
-						APIKey:           os.Getenv("GROQ_API_KEY"),
-						Model:            "llama3-8b-8192",
-						MaxContextLength: 0,
-						Seed:             42,
-						Temperature:      0,
-					},
-					func(t *testing.T) {
-						if os.Getenv("GROQ_API_KEY") == "" {
-							t.Skip("GROQ_API_KEY is not available")
-						}
-					},
-				},
-				{
-					"anthropic",
-					&fun.AnthropicTextProvider{
-						Client:      nil,
-						APIKey:      os.Getenv("ANTHROPIC_API_KEY"),
-						Model:       "claude-3-haiku-20240307",
-						Temperature: 0,
-					},
-					func(t *testing.T) {
-						if os.Getenv("ANTHROPIC_API_KEY") == "" {
-							t.Skip("ANTHROPIC_API_KEY is not available")
-						}
-					},
-				},
-			}
+			for _, tt := range tests {
+				tt := tt
 
-			for _, provider := range providers {
-				t.Run(provider.Name, func(t *testing.T) {
-					t.Parallel()
-
-					provider.Enabled(t)
+				t.Run(tt.Name, func(t *testing.T) {
+					if provider.Name != "ollama" {
+						t.Parallel()
+					}
 
 					f := fun.Text[string, string]{
-						Provider:         provider.Provider,
+						Provider:         provider.Provider(t),
 						InputJSONSchema:  jsonSchemaString,
 						OutputJSONSchema: jsonSchemaString,
 						Prompt:           tt.Prompt,
@@ -181,7 +182,13 @@ func TestText(t *testing.T) {
 					require.NoError(t, errE, "% -+#.1v", errE)
 
 					for _, d := range tt.Data {
+						d := d
+
 						t.Run(fmt.Sprintf("input=%s", d.Input), func(t *testing.T) {
+							if provider.Name != "ollama" {
+								t.Parallel()
+							}
+
 							output, errE := f.Call(ctx, d.Input)
 							assert.NoError(t, errE, "% -+#.1v", errE)
 							assert.Equal(t, d.Output, output)
@@ -189,7 +196,13 @@ func TestText(t *testing.T) {
 					}
 
 					for _, c := range tt.Cases {
+						c := c
+
 						t.Run(fmt.Sprintf("input=%s", c.Input), func(t *testing.T) {
+							if provider.Name != "ollama" {
+								t.Parallel()
+							}
+
 							output, errE := f.Call(ctx, c.Input)
 							assert.NoError(t, errE, "% -+#.1v", errE)
 							assert.Equal(t, c.Output, output)
@@ -202,8 +215,6 @@ func TestText(t *testing.T) {
 }
 
 func TestTextStruct(t *testing.T) {
-	t.Parallel()
-
 	tests := []struct {
 		Name   string
 		Prompt string
@@ -238,73 +249,19 @@ func TestTextStruct(t *testing.T) {
 		},
 	}
 
-	for _, tt := range tests {
-		t.Run(tt.Name, func(t *testing.T) {
+	for _, provider := range providers {
+		provider := provider
+
+		t.Run(provider.Name, func(t *testing.T) {
 			t.Parallel()
 
-			providers := []struct {
-				Name     string
-				Provider fun.TextProvider
-				Enabled  func(t *testing.T)
-			}{
-				{
-					"ollama",
-					&fun.OllamaTextProvider{
-						Client: nil,
-						Base:   os.Getenv("OLLAMA_HOST"),
-						Model: fun.OllamaModel{
-							Model:    "llama3:8b",
-							Insecure: false,
-							Username: "",
-							Password: "",
-						},
-						MaxContextLength: 0,
-						Seed:             42,
-						Temperature:      0,
-					},
-					func(t *testing.T) {
-						if os.Getenv("OLLAMA_HOST") == "" {
-							t.Skip("OLLAMA_HOST is not available")
-						}
-					},
-				},
-				{
-					"groq",
-					&fun.GroqTextProvider{
-						Client:           nil,
-						APIKey:           os.Getenv("GROQ_API_KEY"),
-						Model:            "llama3-8b-8192",
-						MaxContextLength: 0,
-						Seed:             42,
-						Temperature:      0,
-					},
-					func(t *testing.T) {
-						if os.Getenv("GROQ_API_KEY") == "" {
-							t.Skip("GROQ_API_KEY is not available")
-						}
-					},
-				},
-				{
-					"anthropic",
-					&fun.AnthropicTextProvider{
-						Client:      nil,
-						APIKey:      os.Getenv("ANTHROPIC_API_KEY"),
-						Model:       "claude-3-haiku-20240307",
-						Temperature: 0,
-					},
-					func(t *testing.T) {
-						if os.Getenv("ANTHROPIC_API_KEY") == "" {
-							t.Skip("ANTHROPIC_API_KEY is not available")
-						}
-					},
-				},
-			}
+			for _, tt := range tests {
+				tt := tt
 
-			for _, provider := range providers {
-				t.Run(provider.Name, func(t *testing.T) {
-					t.Parallel()
-
-					provider.Enabled(t)
+				t.Run(tt.Name, func(t *testing.T) {
+					if provider.Name != "ollama" {
+						t.Parallel()
+					}
 
 					data := slices.Clone(tt.Data)
 					// TODO: Why is there a differnce on Groq so that we have to repeat the last training data sample.
@@ -314,7 +271,7 @@ func TestTextStruct(t *testing.T) {
 					}
 
 					f := fun.Text[string, OutputStruct]{
-						Provider:         provider.Provider,
+						Provider:         provider.Provider(t),
 						InputJSONSchema:  jsonSchemaString,
 						OutputJSONSchema: nil,
 						Prompt:           tt.Prompt,
@@ -327,7 +284,13 @@ func TestTextStruct(t *testing.T) {
 					require.NoError(t, errE, "% -+#.1v", errE)
 
 					for _, d := range tt.Data {
+						d := d
+
 						t.Run(fmt.Sprintf("input=%s", d.Input), func(t *testing.T) {
+							if provider.Name != "ollama" {
+								t.Parallel()
+							}
+
 							output, errE := f.Call(ctx, d.Input)
 							assert.NoError(t, errE, "% -+#.1v", errE)
 							assert.Equal(t, d.Output, output)
@@ -335,7 +298,13 @@ func TestTextStruct(t *testing.T) {
 					}
 
 					for _, c := range tt.Cases {
+						c := c
+
 						t.Run(fmt.Sprintf("input=%s", c.Input), func(t *testing.T) {
+							if provider.Name != "ollama" {
+								t.Parallel()
+							}
+
 							output, errE := f.Call(ctx, c.Input)
 							assert.NoError(t, errE, "% -+#.1v", errE)
 							assert.Equal(t, c.Output, output)
