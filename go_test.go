@@ -6,6 +6,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"gitlab.com/tozd/go/errors"
+
 	"gitlab.com/tozd/go/fun"
 )
 
