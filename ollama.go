@@ -13,8 +13,10 @@ import (
 	"gitlab.com/tozd/go/errors"
 )
 
-var ollamaRateLimiter = map[string]*sync.Mutex{}
-var ollamaRateLimiterMu = sync.Mutex{}
+var (
+	ollamaRateLimiter   = map[string]*sync.Mutex{}
+	ollamaRateLimiterMu = sync.Mutex{}
+)
 
 func ollamaRateLimiterLock(key string) *sync.Mutex {
 	ollamaRateLimiterMu.Lock()

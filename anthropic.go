@@ -247,7 +247,6 @@ func (a *AnthropicTextProvider) Chat(ctx context.Context, message ChatMessage) (
 
 	if response.StopReason == nil {
 		return "", errors.New("missing stop reason")
-
 	}
 	if *response.StopReason != "end_turn" {
 		return "", errors.Errorf("unexpected stop reason: %s", *response.StopReason)
