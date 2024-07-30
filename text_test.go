@@ -240,6 +240,19 @@ func TestTextStruct(t *testing.T) {
 		},
 		{
 			"prompt_and_data",
+			fun.StringToJSONStructurePrompt,
+			[]fun.InputOutput[string, OutputStruct]{
+				{"foo=1", OutputStruct{Key: "foo", Value: 1}},
+				{"bar=3", OutputStruct{Key: "bar", Value: 3}},
+				{"foo=1 [bar=3]", OutputStruct{Key: "foo", Value: 1, Children: []OutputStruct{{Key: "bar", Value: 3}}}},
+				{"foo=1 [bar=3 zoo=2]", OutputStruct{Key: "foo", Value: 1, Children: []OutputStruct{{Key: "bar", Value: 3}, {Key: "zoo", Value: 2}}}},
+			},
+			[]fun.InputOutput[string, OutputStruct]{
+				{"name=42 [first=2 second=1]", OutputStruct{Key: "name", Value: 42, Children: []OutputStruct{{Key: "first", Value: 2}, {Key: "second", Value: 1}}}},
+			},
+		},
+		{
+			"json_only_prompt_and_data",
 			fun.StringToJSONPrompt,
 			[]fun.InputOutput[string, OutputStruct]{
 				{"foo=1", OutputStruct{Key: "foo", Value: 1}},
@@ -268,9 +281,17 @@ func TestTextStruct(t *testing.T) {
 					}
 
 					data := slices.Clone(tt.Data)
-					// TODO: Why is there a differnce on Groq so that we have to repeat the last training data sample.
-					//       And why with repeated sample Ollama starts returning non-JSON comments.
-					if provider.Name == "groq" {
+					// TODO: Why is there a difference between providers so that we have to repeat the last training data sample.
+					//       And why with repeated sample Ollama starts returning non-JSON comments for "just_data".
+					if tt.Name == "just_data" && provider.Name == "groq" {
+						data = append(data, data[len(data)-1])
+					}
+					if tt.Name == "json_only_prompt_and_data" && provider.Name == "groq" {
+						data = append(data, data[len(data)-1])
+						data = append(data, data[len(data)-1])
+					}
+					if tt.Name == "json_only_prompt_and_data" && provider.Name == "ollama" {
+						data = append(data, data[len(data)-1])
 						data = append(data, data[len(data)-1])
 					}
 
