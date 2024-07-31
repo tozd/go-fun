@@ -72,32 +72,32 @@ func parseAnthropicRateLimitHeaders(resp *http.Response) (
 	var err error
 	limitRequests, err = strconv.Atoi(limitRequestsStr)
 	if err != nil {
-		errE = errors.WithStack(err)
+		errE = errors.WithDetails(err, "value", limitRequestsStr)
 		return
 	}
 	limitTokens, err = strconv.Atoi(limitTokensStr)
 	if err != nil {
-		errE = errors.WithStack(err)
+		errE = errors.WithDetails(err, "value", limitTokensStr)
 		return
 	}
 	remainingRequests, err = strconv.Atoi(remainingRequestsStr)
 	if err != nil {
-		errE = errors.WithStack(err)
+		errE = errors.WithDetails(err, "value", remainingRequestsStr)
 		return
 	}
 	remainingTokens, err = strconv.Atoi(remainingTokensStr)
 	if err != nil {
-		errE = errors.WithStack(err)
+		errE = errors.WithDetails(err, "value", remainingTokensStr)
 		return
 	}
 	resetRequests, err = time.Parse(time.RFC3339, resetRequestsStr)
 	if err != nil {
-		errE = errors.WithStack(err)
+		errE = errors.WithDetails(err, "value", resetRequestsStr)
 		return
 	}
 	resetTokens, err = time.Parse(time.RFC3339, resetTokensStr)
 	if err != nil {
-		errE = errors.WithStack(err)
+		errE = errors.WithDetails(err, "value", resetTokensStr)
 		return
 	}
 
@@ -124,13 +124,13 @@ type AnthropicTextProvider struct {
 // Init implements TextProvider interface.
 func (a *AnthropicTextProvider) Init(ctx context.Context, messages []ChatMessage) errors.E {
 	if a.messages != nil {
-		return errors.New("already initialized")
+		return errors.WithStack(ErrAlreadyInitialized)
 	}
 	assistantOnlyMessages := []ChatMessage{}
 	for _, message := range messages {
 		if message.Role == "system" {
 			if a.system != "" {
-				return errors.New("multiple system messages")
+				return errors.WithStack(ErrMultipleSystemMessages)
 			}
 			a.system = message.Content
 		} else {
@@ -229,7 +229,7 @@ func (a *AnthropicTextProvider) Chat(ctx context.Context, message ChatMessage) (
 	}
 	resp, err := a.Client.Do(req)
 	if err != nil {
-		return "", errors.WithStack(err)
+		return "", errors.WrapWith(err, ErrAPIRequestFailed)
 	}
 	defer resp.Body.Close()
 	defer io.Copy(io.Discard, resp.Body)
@@ -241,24 +241,30 @@ func (a *AnthropicTextProvider) Chat(ctx context.Context, message ChatMessage) (
 	}
 
 	if response.Error != nil {
-		return "", errors.Errorf("error response: %s", response.Error.Message)
+		return "", errors.WithDetails(ErrAPIResponseError, "error", response.Error)
 	}
 
 	if len(response.Content) != 1 {
-		return "", errors.New("unexpected number of content")
+		return "", errors.WithDetails(ErrUnexpectedNumberOfMessages, "number", len(response.Content))
 	}
 	if response.Content[0].Type != "text" {
-		return "", errors.New("not text content")
+		return "", errors.WithDetails(ErrNotTextMessage, "type", response.Content[0].Type)
 	}
 
 	if response.StopReason == nil {
-		return "", errors.New("missing stop reason")
+		return "", errors.WithStack(ErrNotDone)
 	}
 	if *response.StopReason != "end_turn" {
-		return "", errors.Errorf("unexpected stop reason: %s", *response.StopReason)
+		return "", errors.WithDetails(ErrNotDone, "reason", *response.StopReason)
 	}
 	if response.Usage.InputTokens+response.Usage.OutputTokens > estimatedTokens {
-		return "", errors.New("used tokens over estimated tokens")
+		return "", errors.WithDetails(
+			ErrUnexpectedNumberOfTokens,
+			"used", response.Usage.InputTokens+response.Usage.OutputTokens,
+			"input", response.Usage.InputTokens,
+			"output", response.Usage.OutputTokens,
+			"estimated", estimatedTokens,
+		)
 	}
 
 	// TODO: Log/expose response.Usage.

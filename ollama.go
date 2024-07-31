@@ -18,6 +18,19 @@ var (
 	ollamaRateLimiterMu = sync.Mutex{}
 )
 
+func getStatusError(err error) errors.E {
+	var statusError api.StatusError
+	if errors.As(err, &statusError) {
+		return errors.WithDetails(
+			ErrAPIRequestFailed,
+			"code", statusError.StatusCode,
+			"status", statusError.Status,
+			"message", statusError.ErrorMessage,
+		)
+	}
+	return errors.WrapWith(err, ErrAPIRequestFailed)
+}
+
 func ollamaRateLimiterLock(key string) *sync.Mutex {
 	ollamaRateLimiterMu.Lock()
 	defer ollamaRateLimiterMu.Unlock()
@@ -59,7 +72,7 @@ type OllamaTextProvider struct {
 // Init implements TextProvider interface.
 func (o *OllamaTextProvider) Init(ctx context.Context, messages []ChatMessage) errors.E {
 	if o.client != nil {
-		return errors.New("already initialized")
+		return errors.WithStack(ErrAlreadyInitialized)
 	}
 
 	base, err := url.Parse(o.Base)
@@ -89,23 +102,23 @@ func (o *OllamaTextProvider) Init(ctx context.Context, messages []ChatMessage) e
 		Username: o.Model.Username,
 		Password: o.Model.Password,
 		Stream:   &stream,
-	}, func(pr api.ProgressResponse) error { return nil })
+	}, func(_ api.ProgressResponse) error { return nil })
 	if err != nil {
-		return errors.WithStack(err)
+		return getStatusError(err)
 	}
 
 	resp, err := o.client.Show(ctx, &api.ShowRequest{
 		Model: o.Model.Model,
 	})
 	if err != nil {
-		return errors.WithStack(err)
+		return getStatusError(err)
 	}
 
 	arch := resp.ModelInfo["general.architecture"].(string)
 	contextLength := int(resp.ModelInfo[fmt.Sprintf("%s.context_length", arch)].(float64))
 
 	if contextLength == 0 {
-		return errors.New("unable to determine max context length")
+		return errors.WithStack(ErrModelMaxContextLength)
 	}
 
 	if o.MaxContextLength == 0 {
@@ -113,7 +126,11 @@ func (o *OllamaTextProvider) Init(ctx context.Context, messages []ChatMessage) e
 	}
 
 	if o.MaxContextLength > contextLength {
-		return errors.New("max context length is larger than what model supports")
+		return errors.WithDetails(
+			ErrMaxContextLengthOverModel,
+			"max", o.MaxContextLength,
+			"model", contextLength,
+		)
 	}
 
 	return nil
@@ -151,18 +168,24 @@ func (o *OllamaTextProvider) Chat(ctx context.Context, message ChatMessage) (str
 		return nil
 	})
 	if err != nil {
-		return "", errors.WithStack(err)
+		return "", getStatusError(err)
 	}
 
 	if len(responses) != 1 {
-		return "", errors.New("unexpected number of responses")
+		return "", errors.WithDetails(ErrUnexpectedNumberOfMessages, "number", len(responses))
 	}
 	if !responses[0].Done {
-		return "", errors.New("not done")
+		return "", errors.WithStack(ErrNotDone)
 	}
 
 	if responses[0].Metrics.PromptEvalCount+responses[0].Metrics.EvalCount >= o.MaxContextLength {
-		return "", errors.New("hit max context length")
+		return "", errors.WithDetails(
+			ErrUnexpectedNumberOfTokens,
+			"prompt", responses[0].Metrics.PromptEvalCount,
+			"eval", responses[0].Metrics.EvalCount,
+			"total", responses[0].Metrics.PromptEvalCount+responses[0].Metrics.EvalCount,
+			"max", o.MaxContextLength,
+		)
 	}
 
 	// TODO: Log/expose responses[0].Metrics.

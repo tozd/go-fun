@@ -103,33 +103,33 @@ func parseGroqRateLimitHeaders(resp *http.Response) (
 	var err error
 	limitRequests, err = strconv.Atoi(limitRequestsStr)
 	if err != nil {
-		errE = errors.WithStack(err)
+		errE = errors.WithDetails(err, "value", limitRequestsStr)
 		return
 	}
 	limitTokens, err = strconv.Atoi(limitTokensStr)
 	if err != nil {
-		errE = errors.WithStack(err)
+		errE = errors.WithDetails(err, "value", limitTokensStr)
 		return
 	}
 	remainingRequests, err = strconv.Atoi(remainingRequestsStr)
 	if err != nil {
-		errE = errors.WithStack(err)
+		errE = errors.WithDetails(err, "value", remainingRequestsStr)
 		return
 	}
 	remainingTokens, err = strconv.Atoi(remainingTokensStr)
 	if err != nil {
-		errE = errors.WithStack(err)
+		errE = errors.WithDetails(err, "value", remainingTokensStr)
 		return
 	}
 	resetRequestsDuration, err := time.ParseDuration(resetRequestsStr)
 	if err != nil {
-		errE = errors.WithStack(err)
+		errE = errors.WithDetails(err, "value", resetRequestsStr)
 		return
 	}
 	resetRequests = now.Add(resetRequestsDuration)
 	resetTokensDuration, err := time.ParseDuration(resetTokensStr)
 	if err != nil {
-		errE = errors.WithStack(err)
+		errE = errors.WithDetails(err, "value", resetTokensStr)
 		return
 	}
 	resetTokens = now.Add(resetTokensDuration)
@@ -158,7 +158,7 @@ type GroqTextProvider struct {
 // Init implements TextProvider interface.
 func (g *GroqTextProvider) Init(ctx context.Context, messages []ChatMessage) errors.E {
 	if g.messages != nil {
-		return errors.New("already initialized")
+		return errors.WithStack(ErrAlreadyInitialized)
 	}
 	g.messages = messages
 
@@ -222,7 +222,7 @@ func (g *GroqTextProvider) Init(ctx context.Context, messages []ChatMessage) err
 	// This endpoint does not have rate limiting.
 	resp, err := g.Client.Do(req)
 	if err != nil {
-		return errors.WithStack(err)
+		return errors.WrapWith(err, ErrAPIRequestFailed)
 	}
 	defer resp.Body.Close()
 	defer io.Copy(io.Discard, resp.Body)
@@ -234,11 +234,11 @@ func (g *GroqTextProvider) Init(ctx context.Context, messages []ChatMessage) err
 	}
 
 	if model.Error != nil {
-		return errors.Errorf("error response: %s", model.Error.Message)
+		return errors.WithDetails(ErrAPIResponseError, "error", model.Error)
 	}
 
 	if !model.Active {
-		return errors.New("model not active")
+		return errors.WithStack(ErrModelNotActive)
 	}
 
 	if g.MaxContextLength == 0 {
@@ -246,7 +246,11 @@ func (g *GroqTextProvider) Init(ctx context.Context, messages []ChatMessage) err
 	}
 
 	if g.MaxContextLength > model.ContextWindow {
-		return errors.New("max context length is larger than what model supports")
+		return errors.WithDetails(
+			ErrMaxContextLengthOverModel,
+			"max", g.MaxContextLength,
+			"model", model.ContextWindow,
+		)
 	}
 
 	return nil
@@ -284,7 +288,7 @@ func (g *GroqTextProvider) Chat(ctx context.Context, message ChatMessage) (strin
 	}
 	resp, err := g.Client.Do(req)
 	if err != nil {
-		return "", errors.WithStack(err)
+		return "", errors.WrapWith(err, ErrAPIRequestFailed)
 	}
 	defer resp.Body.Close()
 	defer io.Copy(io.Discard, resp.Body)
@@ -296,18 +300,24 @@ func (g *GroqTextProvider) Chat(ctx context.Context, message ChatMessage) (strin
 	}
 
 	if response.Error != nil {
-		return "", errors.Errorf("error response: %s", response.Error.Message)
+		return "", errors.WithDetails(ErrAPIResponseError, "error", response.Error)
 	}
 
 	if len(response.Choices) != 1 {
-		return "", errors.New("unexpected number of choices")
+		return "", errors.WithDetails(ErrUnexpectedNumberOfMessages, "number", len(response.Choices))
 	}
 	if response.Choices[0].FinishReason != "stop" {
-		return "", errors.New("not done")
+		return "", errors.WithDetails(ErrNotDone, "reason", response.Choices[0].FinishReason)
 	}
 
 	if response.Usage.TotalTokens >= g.MaxContextLength {
-		return "", errors.New("hit max context length")
+		return "", errors.WithDetails(
+			ErrUnexpectedNumberOfTokens,
+			"prompt", response.Usage.PromptTokens,
+			"completion", response.Usage.CompletionTokens,
+			"total", response.Usage.TotalTokens,
+			"max", g.MaxContextLength,
+		)
 	}
 
 	// TODO: Log/expose response.Usage.
