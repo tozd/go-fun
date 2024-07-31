@@ -5,7 +5,7 @@ variables:
   FF_ENABLE_BASH_EXIT_CODE_CHECK: "true"
   # We always want to run with the Go version installed in a Docker image.
   GOTOOLCHAIN: local
-  CI_DEBUG_SERVICES: true
+  FF_NETWORK_PER_BUILD: 1
 
 test:
   stage: test
