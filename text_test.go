@@ -241,7 +241,7 @@ func TestTextStruct(t *testing.T) {
 		},
 		{
 			"prompt_and_data",
-			fun.StringToJSONStructurePrompt,
+			fun.TextParserToJSONPrompt,
 			[]fun.InputOutput[string, OutputStruct]{
 				{[]string{"foo=1"}, OutputStruct{Key: "foo", Value: 1}},
 				{[]string{"bar=3"}, OutputStruct{Key: "bar", Value: 3}},
@@ -254,7 +254,7 @@ func TestTextStruct(t *testing.T) {
 		},
 		{
 			"json_only_prompt_and_data",
-			fun.StringToJSONPrompt,
+			fun.TextToJSONPrompt,
 			[]fun.InputOutput[string, OutputStruct]{
 				{[]string{"foo=1"}, OutputStruct{Key: "foo", Value: 1}},
 				{[]string{"bar=3"}, OutputStruct{Key: "bar", Value: 3}},

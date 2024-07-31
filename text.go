@@ -13,8 +13,8 @@ import (
 var _ Callee[any, any] = (*Text[any, any])(nil)
 
 const (
-	StringToJSONStructurePrompt = `Be a parser of input strings into JSON. Match the structure of examples. Do not make up new JSON fields and do not add data not found in the input string. Keep data in original language and letter case. Use your knowledge to resolve ambiguousness. Output only JSON.`
-	StringToJSONPrompt          = `Output only JSON.`
+	TextParserToJSONPrompt = `Be a parser of input strings into JSON. Match the structure of examples. Do not make up new JSON fields and do not add data not found in the input string. Keep data in original language and letter case. Use your knowledge to resolve ambiguousness. Output only JSON.`
+	TextToJSONPrompt       = `Output only JSON.`
 )
 
 func compileValidator[T any](jsonSchema []byte) (*jsonschema.Schema, errors.E) {
