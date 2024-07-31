@@ -1,16 +1,17 @@
-# Define functions with code or data
+# Define functions with code, data, or natural language description
 
 [![pkg.go.dev](https://pkg.go.dev/badge/gitlab.com/tozd/go/fun)](https://pkg.go.dev/gitlab.com/tozd/go/fun)
 [![Go Report Card](https://goreportcard.com/badge/gitlab.com/tozd/go/fun)](https://goreportcard.com/report/gitlab.com/tozd/go/fun)
 [![pipeline status](https://gitlab.com/tozd/go/fun/badges/main/pipeline.svg?ignore_skipped=true)](https://gitlab.com/tozd/go/fun/-/pipelines)
 [![coverage report](https://gitlab.com/tozd/go/fun/badges/main/coverage.svg)](https://gitlab.com/tozd/go/fun/-/graphs/main/charts)
 
-A Go package that allows you to define functions with code (the usual way) or data
-(providing examples of inputs and expected outputs which are then used with an AI model).
+A Go package that allows you to define functions with code (the usual way), data
+(providing examples of inputs and expected outputs which are then used with an AI model),
+or natural language description.
 
 Features:
 
-- A common interface to support both code-defined and data-defined functions.
+- A common interface to support both code-defined, data-defined, and description-defined functions.
 - Functions are strongly typed so inputs and outputs can be Go structs and values.
 - Provides [Groq](https://groq.com/), [Anthropic](https://www.anthropic.com/) and
   [Ollama](https://ollama.com/) integrations for AI models.
