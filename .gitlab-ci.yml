@@ -19,7 +19,7 @@ test:
       alias: ollama
 
   variables:
-    DOCKER_HOST: http://ollama:11434
+    OLLAMA_HOST: http://ollama:11434
 
   before_script:
     - apk --update add make bash gcc musl-dev
