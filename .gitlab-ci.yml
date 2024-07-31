@@ -14,6 +14,13 @@ test:
   tags:
     - saas-linux-medium-amd64
 
+  services:
+    - name: ollama/ollama:0.3.0
+      alias: ollama
+
+  variables:
+    DOCKER_HOST: http://ollama:11434
+
   before_script:
     - apk --update add make bash gcc musl-dev
     - (cd /go; go install gotest.tools/gotestsum@v1.10.1)
