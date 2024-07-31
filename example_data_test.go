@@ -17,12 +17,12 @@ func Example_data() {
 
 	ctx := context.Background()
 
-	f := fun.Text[[]int, int]{
+	f := fun.Text[int, int]{
 		Provider: &fun.AnthropicTextProvider{
 			APIKey: os.Getenv("ANTHROPIC_API_KEY"),
 			Model:  "claude-3-haiku-20240307",
 		},
-		Data: []fun.InputOutput[[]int, int]{
+		Data: []fun.InputOutput[int, int]{
 			{[]int{1, 2}, 3},
 			{[]int{10, 12}, 22},
 			{[]int{3, 5}, 8},
@@ -33,7 +33,7 @@ func Example_data() {
 		log.Fatalln(errE)
 	}
 
-	output, errE := f.Call(ctx, []int{38, 4})
+	output, errE := f.Call(ctx, 38, 4)
 	if errE != nil {
 		log.Fatalln(errE)
 	}

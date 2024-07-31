@@ -12,8 +12,8 @@ import (
 
 func TestGo(t *testing.T) {
 	f := fun.Go[string, string]{
-		Fun: func(ctx context.Context, input string) (string, errors.E) {
-			return input + input, nil
+		Fun: func(ctx context.Context, input ...string) (string, errors.E) {
+			return input[0] + input[0], nil
 		},
 	}
 

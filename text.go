@@ -74,7 +74,26 @@ func validate(validator *jsonschema.Schema, value any) errors.E {
 	return errors.WithStack(err)
 }
 
-func toString(data any) (string, errors.E) {
+func toInputString[T any](data []T) (string, errors.E) {
+	if len(data) == 1 {
+		// TODO: Use type assertion on type parameter.
+		//       See: https://github.com/golang/go/issues/45380
+		//       See: https://github.com/golang/go/issues/49206
+		i, ok := any(data[0]).(string)
+		if ok {
+			return i, nil
+		}
+	}
+
+	j, errE := x.MarshalWithoutEscapeHTML(data)
+	if errE != nil {
+		return "", errE
+	}
+
+	return string(j), nil
+}
+
+func toOutputString(data any) (string, errors.E) {
 	i, ok := data.(string)
 	if ok {
 		return i, nil
@@ -89,7 +108,7 @@ func toString(data any) (string, errors.E) {
 }
 
 type InputOutput[Input, Output any] struct {
-	Input  Input
+	Input  []Input
 	Output Output
 }
 
@@ -130,11 +149,13 @@ func (t *Text[Input, Output]) Init(ctx context.Context) errors.E {
 	}
 
 	for _, data := range t.Data {
-		errE := validate(t.inputValidator, data.Input)
-		if errE != nil {
-			return errE
+		for _, i := range data.Input {
+			errE := validate(t.inputValidator, i)
+			if errE != nil {
+				return errE
+			}
 		}
-		input, errE := toString(data.Input)
+		input, errE := toInputString(data.Input)
 		if errE != nil {
 			return errE
 		}
@@ -143,7 +164,7 @@ func (t *Text[Input, Output]) Init(ctx context.Context) errors.E {
 		if errE != nil {
 			return errE
 		}
-		output, errE := toString(data.Output)
+		output, errE := toOutputString(data.Output)
 		if errE != nil {
 			return errE
 		}
@@ -170,13 +191,15 @@ func (t *Text[Input, Output]) Init(ctx context.Context) errors.E {
 	return nil
 }
 
-func (t *Text[Input, Output]) Call(ctx context.Context, input Input) (Output, errors.E) {
-	errE := validate(t.inputValidator, input)
-	if errE != nil {
-		return *new(Output), errE
+func (t *Text[Input, Output]) Call(ctx context.Context, input ...Input) (Output, errors.E) {
+	for _, i := range input {
+		errE := validate(t.inputValidator, i)
+		if errE != nil {
+			return *new(Output), errE
+		}
 	}
 
-	i, errE := toString(input)
+	i, errE := toInputString(input)
 	if errE != nil {
 		return *new(Output), errE
 	}

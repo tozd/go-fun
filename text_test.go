@@ -92,10 +92,10 @@ func TestText(t *testing.T) {
 			"Repeat the input twice, by concatenating the input string without any space. Return just the result.",
 			nil,
 			[]fun.InputOutput[string, string]{
-				{"foo", "foofoo"},
-				{"bar", "barbar"},
-				{"test", "testtest"},
-				{"zzz", "zzzzzz"},
+				{[]string{"foo"}, "foofoo"},
+				{[]string{"bar"}, "barbar"},
+				{[]string{"test"}, "testtest"},
+				{[]string{"zzz"}, "zzzzzz"},
 			},
 		},
 		{
@@ -104,25 +104,25 @@ func TestText(t *testing.T) {
 			[]fun.InputOutput[string, string]{
 				// We repeat some training data to reinforce those cases.
 				// (Otherwise they fail when we test training cases.)
-				{"abc", "abcabc"},
-				{"ddd", "dddddd"},
-				{"cba", "cbacba"},
-				{"zoo", "zoozoo"},
-				{"zoo", "zoozoo"},
-				{"AbC", "AbCAbC"},
-				{"roar", "roarroar"},
-				{"roar", "roarroar"},
-				{"lsdfk", "lsdfklsdfk"},
-				{"ZZZZ", "ZZZZZZZZ"},
-				{"ZZZZ", "ZZZZZZZZ"},
-				{"ZZZZ", "ZZZZZZZZ"},
-				{"long", "longlong"},
+				{[]string{"abc"}, "abcabc"},
+				{[]string{"ddd"}, "dddddd"},
+				{[]string{"cba"}, "cbacba"},
+				{[]string{"zoo"}, "zoozoo"},
+				{[]string{"zoo"}, "zoozoo"},
+				{[]string{"AbC"}, "AbCAbC"},
+				{[]string{"roar"}, "roarroar"},
+				{[]string{"roar"}, "roarroar"},
+				{[]string{"lsdfk"}, "lsdfklsdfk"},
+				{[]string{"ZZZZ"}, "ZZZZZZZZ"},
+				{[]string{"ZZZZ"}, "ZZZZZZZZ"},
+				{[]string{"ZZZZ"}, "ZZZZZZZZ"},
+				{[]string{"long"}, "longlong"},
 			},
 			[]fun.InputOutput[string, string]{
-				{"foo", "foofoo"},
-				{"bar", "barbar"},
-				{"test", "testtest"},
-				// {"zzz", "zzzzzz"}, // Returns "zzz..." with llama3.8b.
+				{[]string{"foo"}, "foofoo"},
+				{[]string{"bar"}, "barbar"},
+				{[]string{"test"}, "testtest"},
+				// {[]string{"zzz"}, "zzzzzz"}, // Returns "zzz..." with llama3.8b.
 			},
 		},
 		{
@@ -131,28 +131,28 @@ func TestText(t *testing.T) {
 			[]fun.InputOutput[string, string]{
 				// We repeat some training data to reinforce those cases.
 				// (Otherwise they fail when we test training cases.)
-				{"abc", "abcabc"},
-				{"ddd", "dddddd"},
-				{"cba", "cbacba"},
-				{"zoo", "zoozoo"},
-				{"zoo", "zoozoo"},
-				{"zoo", "zoozoo"},
-				{"zoo", "zoozoo"},
-				{"zoo", "zoozoo"},
-				{"zoo", "zoozoo"},
-				{"AbC", "AbCAbC"},
-				{"roar", "roarroar"},
-				{"roar", "roarroar"},
-				{"lsdfk", "lsdfklsdfk"},
-				{"ZZZZ", "ZZZZZZZZ"},
-				{"ZZZZ", "ZZZZZZZZ"},
-				{"long", "longlong"},
+				{[]string{"abc"}, "abcabc"},
+				{[]string{"ddd"}, "dddddd"},
+				{[]string{"cba"}, "cbacba"},
+				{[]string{"zoo"}, "zoozoo"},
+				{[]string{"zoo"}, "zoozoo"},
+				{[]string{"zoo"}, "zoozoo"},
+				{[]string{"zoo"}, "zoozoo"},
+				{[]string{"zoo"}, "zoozoo"},
+				{[]string{"zoo"}, "zoozoo"},
+				{[]string{"AbC"}, "AbCAbC"},
+				{[]string{"roar"}, "roarroar"},
+				{[]string{"roar"}, "roarroar"},
+				{[]string{"lsdfk"}, "lsdfklsdfk"},
+				{[]string{"ZZZZ"}, "ZZZZZZZZ"},
+				{[]string{"ZZZZ"}, "ZZZZZZZZ"},
+				{[]string{"long"}, "longlong"},
 			},
 			[]fun.InputOutput[string, string]{
-				{"foo", "foofoo"},
-				{"bar", "barbar"},
-				{"test", "testtest"},
-				// {"zzz", "zzzzzz"}, // Returns "zzzZZZ" with llama3.8b.
+				{[]string{"foo"}, "foofoo"},
+				{[]string{"bar"}, "barbar"},
+				{[]string{"test"}, "testtest"},
+				// {[]string{"zzz"}, "zzzzzz"}, // Returns "zzzZZZ" with llama3.8b.
 			},
 		},
 	}
@@ -192,7 +192,7 @@ func TestText(t *testing.T) {
 								t.Parallel()
 							}
 
-							output, errE := f.Call(ctx, d.Input)
+							output, errE := f.Call(ctx, d.Input...)
 							assert.NoError(t, errE, "% -+#.1v", errE)
 							assert.Equal(t, d.Output, output)
 						})
@@ -206,7 +206,7 @@ func TestText(t *testing.T) {
 								t.Parallel()
 							}
 
-							output, errE := f.Call(ctx, c.Input)
+							output, errE := f.Call(ctx, c.Input...)
 							assert.NoError(t, errE, "% -+#.1v", errE)
 							assert.Equal(t, c.Output, output)
 						})
@@ -230,39 +230,39 @@ func TestTextStruct(t *testing.T) {
 			"just_data",
 			"",
 			[]fun.InputOutput[string, OutputStruct]{
-				{"foo=1", OutputStruct{Key: "foo", Value: 1}},
-				{"bar=3", OutputStruct{Key: "bar", Value: 3}},
-				{"foo=1 [bar=3]", OutputStruct{Key: "foo", Value: 1, Children: []OutputStruct{{Key: "bar", Value: 3}}}},
-				{"foo=1 [bar=3 zoo=2]", OutputStruct{Key: "foo", Value: 1, Children: []OutputStruct{{Key: "bar", Value: 3}, {Key: "zoo", Value: 2}}}},
+				{[]string{"foo=1"}, OutputStruct{Key: "foo", Value: 1}},
+				{[]string{"bar=3"}, OutputStruct{Key: "bar", Value: 3}},
+				{[]string{"foo=1 [bar=3]"}, OutputStruct{Key: "foo", Value: 1, Children: []OutputStruct{{Key: "bar", Value: 3}}}},
+				{[]string{"foo=1 [bar=3 zoo=2]"}, OutputStruct{Key: "foo", Value: 1, Children: []OutputStruct{{Key: "bar", Value: 3}, {Key: "zoo", Value: 2}}}},
 			},
 			[]fun.InputOutput[string, OutputStruct]{
-				{"name=42 [first=2 second=1]", OutputStruct{Key: "name", Value: 42, Children: []OutputStruct{{Key: "first", Value: 2}, {Key: "second", Value: 1}}}},
+				{[]string{"name=42 [first=2 second=1]"}, OutputStruct{Key: "name", Value: 42, Children: []OutputStruct{{Key: "first", Value: 2}, {Key: "second", Value: 1}}}},
 			},
 		},
 		{
 			"prompt_and_data",
 			fun.StringToJSONStructurePrompt,
 			[]fun.InputOutput[string, OutputStruct]{
-				{"foo=1", OutputStruct{Key: "foo", Value: 1}},
-				{"bar=3", OutputStruct{Key: "bar", Value: 3}},
-				{"foo=1 [bar=3]", OutputStruct{Key: "foo", Value: 1, Children: []OutputStruct{{Key: "bar", Value: 3}}}},
-				{"foo=1 [bar=3 zoo=2]", OutputStruct{Key: "foo", Value: 1, Children: []OutputStruct{{Key: "bar", Value: 3}, {Key: "zoo", Value: 2}}}},
+				{[]string{"foo=1"}, OutputStruct{Key: "foo", Value: 1}},
+				{[]string{"bar=3"}, OutputStruct{Key: "bar", Value: 3}},
+				{[]string{"foo=1 [bar=3]"}, OutputStruct{Key: "foo", Value: 1, Children: []OutputStruct{{Key: "bar", Value: 3}}}},
+				{[]string{"foo=1 [bar=3 zoo=2]"}, OutputStruct{Key: "foo", Value: 1, Children: []OutputStruct{{Key: "bar", Value: 3}, {Key: "zoo", Value: 2}}}},
 			},
 			[]fun.InputOutput[string, OutputStruct]{
-				{"name=42 [first=2 second=1]", OutputStruct{Key: "name", Value: 42, Children: []OutputStruct{{Key: "first", Value: 2}, {Key: "second", Value: 1}}}},
+				{[]string{"name=42 [first=2 second=1]"}, OutputStruct{Key: "name", Value: 42, Children: []OutputStruct{{Key: "first", Value: 2}, {Key: "second", Value: 1}}}},
 			},
 		},
 		{
 			"json_only_prompt_and_data",
 			fun.StringToJSONPrompt,
 			[]fun.InputOutput[string, OutputStruct]{
-				{"foo=1", OutputStruct{Key: "foo", Value: 1}},
-				{"bar=3", OutputStruct{Key: "bar", Value: 3}},
-				{"foo=1 [bar=3]", OutputStruct{Key: "foo", Value: 1, Children: []OutputStruct{{Key: "bar", Value: 3}}}},
-				{"foo=1 [bar=3 zoo=2]", OutputStruct{Key: "foo", Value: 1, Children: []OutputStruct{{Key: "bar", Value: 3}, {Key: "zoo", Value: 2}}}},
+				{[]string{"foo=1"}, OutputStruct{Key: "foo", Value: 1}},
+				{[]string{"bar=3"}, OutputStruct{Key: "bar", Value: 3}},
+				{[]string{"foo=1 [bar=3]"}, OutputStruct{Key: "foo", Value: 1, Children: []OutputStruct{{Key: "bar", Value: 3}}}},
+				{[]string{"foo=1 [bar=3 zoo=2]"}, OutputStruct{Key: "foo", Value: 1, Children: []OutputStruct{{Key: "bar", Value: 3}, {Key: "zoo", Value: 2}}}},
 			},
 			[]fun.InputOutput[string, OutputStruct]{
-				{"name=42 [first=2 second=1]", OutputStruct{Key: "name", Value: 42, Children: []OutputStruct{{Key: "first", Value: 2}, {Key: "second", Value: 1}}}},
+				{[]string{"name=42 [first=2 second=1]"}, OutputStruct{Key: "name", Value: 42, Children: []OutputStruct{{Key: "first", Value: 2}, {Key: "second", Value: 1}}}},
 			},
 		},
 	}
@@ -317,7 +317,7 @@ func TestTextStruct(t *testing.T) {
 								t.Parallel()
 							}
 
-							output, errE := f.Call(ctx, d.Input)
+							output, errE := f.Call(ctx, d.Input...)
 							assert.NoError(t, errE, "% -+#.1v", errE)
 							assert.Equal(t, d.Output, output)
 						})
@@ -331,7 +331,7 @@ func TestTextStruct(t *testing.T) {
 								t.Parallel()
 							}
 
-							output, errE := f.Call(ctx, c.Input)
+							output, errE := f.Call(ctx, c.Input...)
 							assert.NoError(t, errE, "% -+#.1v", errE)
 							assert.Equal(t, c.Output, output)
 						})
