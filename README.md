@@ -8,6 +8,14 @@
 A Go package that allows you to define functions with code (the usual way) or data (providing examples of inputs and expected outputs
 which are then used with an AI model).
 
+Features:
+
+- A common interface to support both code-defined and data-defined functions.
+- Functions are strongly typed so inputs and outputs can be Go structs and values.
+- Provides [Groq](https://groq.com/), [Anthropic](https://www.anthropic.com/) and
+  [Ollama](https://ollama.com/) integrations for AI models.
+- Uses adaptive rate limiting to maximize throughput of API calls made to integrated AI models.
+
 ## Installation
 
 This is a Go package. You can add it to your project using `go get`:
