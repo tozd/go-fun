@@ -5,8 +5,8 @@
 [![pipeline status](https://gitlab.com/tozd/go/fun/badges/main/pipeline.svg?ignore_skipped=true)](https://gitlab.com/tozd/go/fun/-/pipelines)
 [![coverage report](https://gitlab.com/tozd/go/fun/badges/main/coverage.svg)](https://gitlab.com/tozd/go/fun/-/graphs/main/charts)
 
-A Go package that allows you to define functions with code (the usual way) or data (providing examples of inputs and expected outputs
-which are then used with an AI model).
+A Go package that allows you to define functions with code (the usual way) or data
+(providing examples of inputs and expected outputs which are then used with an AI model).
 
 Features:
 
