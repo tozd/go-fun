@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"slices"
 	"strconv"
+	"sync"
 	"time"
 
 	"github.com/hashicorp/go-retryablehttp"
@@ -16,7 +17,10 @@ import (
 	"golang.org/x/time/rate"
 )
 
-var groqRateLimiter = keyedRateLimiter{}
+var groqRateLimiter = keyedRateLimiter{ //nolint:gochecknoglobals
+	mu:       sync.RWMutex{},
+	limiters: map[string]map[string]any{},
+}
 
 type groqModel struct {
 	ID            string     `json:"id"`
@@ -74,7 +78,7 @@ type groqResponse struct {
 	} `json:"error,omitempty"`
 }
 
-func parseGroqRateLimitHeaders(resp *http.Response) (
+func parseGroqRateLimitHeaders(resp *http.Response) ( //nolint:nonamedreturns
 	limitRequests, limitTokens,
 	remainingRequests, remainingTokens int,
 	resetRequests, resetTokens time.Time,
@@ -94,7 +98,7 @@ func parseGroqRateLimitHeaders(resp *http.Response) (
 
 	if limitRequestsStr == "" || limitTokensStr == "" || remainingRequestsStr == "" || remainingTokensStr == "" || resetRequestsStr == "" || resetTokensStr == "" {
 		// ok == false here.
-		return
+		return //nolint:nakedret
 	}
 
 	// We have all the headers we want.
@@ -104,37 +108,37 @@ func parseGroqRateLimitHeaders(resp *http.Response) (
 	limitRequests, err = strconv.Atoi(limitRequestsStr)
 	if err != nil {
 		errE = errors.WithDetails(err, "value", limitRequestsStr)
-		return
+		return //nolint:nakedret
 	}
 	limitTokens, err = strconv.Atoi(limitTokensStr)
 	if err != nil {
 		errE = errors.WithDetails(err, "value", limitTokensStr)
-		return
+		return //nolint:nakedret
 	}
 	remainingRequests, err = strconv.Atoi(remainingRequestsStr)
 	if err != nil {
 		errE = errors.WithDetails(err, "value", remainingRequestsStr)
-		return
+		return //nolint:nakedret
 	}
 	remainingTokens, err = strconv.Atoi(remainingTokensStr)
 	if err != nil {
 		errE = errors.WithDetails(err, "value", remainingTokensStr)
-		return
+		return //nolint:nakedret
 	}
 	resetRequestsDuration, err := time.ParseDuration(resetRequestsStr)
 	if err != nil {
 		errE = errors.WithDetails(err, "value", resetRequestsStr)
-		return
+		return //nolint:nakedret
 	}
 	resetRequests = now.Add(resetRequestsDuration)
 	resetTokensDuration, err := time.ParseDuration(resetTokensStr)
 	if err != nil {
 		errE = errors.WithDetails(err, "value", resetTokensStr)
-		return
+		return //nolint:nakedret
 	}
 	resetTokens = now.Add(resetTokensDuration)
 
-	return
+	return //nolint:nakedret
 }
 
 var _ TextProvider = (*GroqTextProvider)(nil)
@@ -166,8 +170,8 @@ func (g *GroqTextProvider) Init(ctx context.Context, messages []ChatMessage) err
 		client := retryablehttp.NewClient()
 		// TODO: Configure logger.
 		client.Logger = nil
-		client.RetryWaitMin = 100 * time.Millisecond
-		client.RetryWaitMax = 5 * time.Second
+		client.RetryWaitMin = retryWaitMin
+		client.RetryWaitMax = retryWaitMax
 		client.PrepareRetry = func(req *http.Request) error {
 			if req.URL.Path == "/openai/v1/chat/completions" {
 				// Rate limit retries.
@@ -192,13 +196,14 @@ func (g *GroqTextProvider) Init(ctx context.Context, messages []ChatMessage) err
 						//       bucket rate limit with burst 1. This means that if we have a burst of requests and then
 						//       a pause we do not process them as fast as we could.
 						//       See: https://console.groq.com/docs/rate-limits
-						Limit: rate.Limit(rate.Limit(float64(30) / time.Minute.Seconds())), // Requests per minute.
+						//nolint:gomnd
+						Limit: rate.Limit(float64(30) / time.Minute.Seconds()), // Requests per minute.
 						Burst: 1,
 					},
 					"rpd": resettingRateLimit{
 						Limit:     limitRequests,
 						Remaining: remainingRequests,
-						Window:    24 * time.Hour,
+						Window:    24 * time.Hour, //nolint:gomnd
 						Resets:    resetRequests,
 					},
 					"tpm": resettingRateLimit{
@@ -209,7 +214,8 @@ func (g *GroqTextProvider) Init(ctx context.Context, messages []ChatMessage) err
 					},
 				})
 			}
-			return retryablehttp.ErrorPropagatedRetryPolicy(ctx, resp, err)
+			check, err := retryablehttp.ErrorPropagatedRetryPolicy(ctx, resp, err)
+			return check, errors.WithStack(err)
 		}
 		g.Client = client.StandardClient()
 	}
@@ -225,7 +231,7 @@ func (g *GroqTextProvider) Init(ctx context.Context, messages []ChatMessage) err
 		return errors.WrapWith(err, ErrAPIRequestFailed)
 	}
 	defer resp.Body.Close()
-	defer io.Copy(io.Discard, resp.Body)
+	defer io.Copy(io.Discard, resp.Body) //nolint:errcheck
 
 	var model groqModel
 	errE := x.DecodeJSON(resp.Body, &model)
@@ -278,7 +284,7 @@ func (g *GroqTextProvider) Chat(ctx context.Context, message ChatMessage) (strin
 	}
 	req.Header.Add("Authorization", fmt.Sprintf("Bearer %s", g.APIKey))
 	// Rate limit the initial request.
-	errE = groqRateLimiter.Take(req.Context(), g.APIKey, map[string]int{
+	errE = groqRateLimiter.Take(ctx, g.APIKey, map[string]int{
 		"rpm": 1,
 		"rpd": 1,
 		"tpm": g.MaxContextLength, // TODO: Can we provide a better estimate?
@@ -291,7 +297,7 @@ func (g *GroqTextProvider) Chat(ctx context.Context, message ChatMessage) (strin
 		return "", errors.WrapWith(err, ErrAPIRequestFailed)
 	}
 	defer resp.Body.Close()
-	defer io.Copy(io.Discard, resp.Body)
+	defer io.Copy(io.Discard, resp.Body) //nolint:errcheck
 
 	var response groqResponse
 	errE = x.DecodeJSON(resp.Body, &response)

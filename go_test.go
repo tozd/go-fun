@@ -11,8 +11,10 @@ import (
 )
 
 func TestGo(t *testing.T) {
+	t.Parallel()
+
 	f := fun.Go[string, string]{
-		Fun: func(ctx context.Context, input ...string) (string, errors.E) {
+		Fun: func(_ context.Context, input ...string) (string, errors.E) {
 			return input[0] + input[0], nil
 		},
 	}

@@ -9,9 +9,7 @@ import (
 	"golang.org/x/time/rate"
 )
 
-var (
-	errTooLargeRequest = errors.Base("max limit smaller than requested n")
-)
+var errTooLargeRequest = errors.Base("max limit smaller than requested n")
 
 type keyedRateLimiter struct {
 	mu       sync.RWMutex
@@ -92,6 +90,7 @@ func (r *resettingRateLimiter) Set(limit, remaining int, window time.Duration, r
 
 func newResettingRateLimiter(limit, remaining int, window time.Duration, resets time.Time) *resettingRateLimiter {
 	return &resettingRateLimiter{
+		mu:        sync.Mutex{},
 		limit:     limit,
 		remaining: remaining,
 		window:    window,

@@ -14,7 +14,7 @@ var _ Callee[any, any] = (*Text[any, any])(nil)
 
 const (
 	// Prompt to parse input string into the target struct.
-	TextParserToJSONPrompt = `Be a parser of input strings into JSON. Match the structure of examples. Do not make up new JSON fields and do not add data not found in the input string. Keep data in original language and letter case. Use your knowledge to resolve ambiguousness. Output only JSON.`
+	TextParserToJSONPrompt = `Be a parser of input strings into JSON. Match the structure of examples. Do not make up new JSON fields and do not add data not found in the input string. Keep data in original language and letter case. Use your knowledge to resolve ambiguousness. Output only JSON.` //nolint:lll
 
 	// Prompt to request only JSON output, which is then converted into the target struct.
 	TextToJSONPrompt = `Output only JSON.`
@@ -174,12 +174,12 @@ func (t *Text[Input, Output]) Init(ctx context.Context) errors.E {
 
 	for _, data := range t.Data {
 		for _, i := range data.Input {
-			errE := validate(t.inputValidator, i)
+			errE = validate(t.inputValidator, i)
 			if errE != nil {
 				return errE
 			}
 		}
-		input, errE := toInputString(data.Input)
+		input, errE := toInputString(data.Input) //nolint:govet
 		if errE != nil {
 			return errE
 		}
@@ -216,7 +216,7 @@ func (t *Text[Input, Output]) Init(ctx context.Context) errors.E {
 }
 
 // Call implements [Callee] interface.
-func (t *Text[Input, Output]) Call(ctx context.Context, input ...Input) (Output, errors.E) {
+func (t *Text[Input, Output]) Call(ctx context.Context, input ...Input) (Output, errors.E) { //nolint:ireturn
 	for _, i := range input {
 		errE := validate(t.inputValidator, i)
 		if errE != nil {
@@ -244,9 +244,9 @@ func (t *Text[Input, Output]) Call(ctx context.Context, input ...Input) (Output,
 	//       See: https://github.com/golang/go/issues/49206
 	switch any(output).(type) {
 	case string:
-		output = any(content).(Output)
+		output = any(content).(Output) //nolint:errcheck,forcetypeassert
 	default:
-		errE := x.UnmarshalWithoutUnknownFields([]byte(content), &output)
+		errE = x.UnmarshalWithoutUnknownFields([]byte(content), &output)
 		if errE != nil {
 			return output, errE
 		}

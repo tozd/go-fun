@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"slices"
 	"strconv"
+	"sync"
 	"time"
 
 	"github.com/hashicorp/go-retryablehttp"
@@ -14,10 +15,18 @@ import (
 	"gitlab.com/tozd/go/x"
 )
 
+const (
+	retryWaitMin = 100 * time.Millisecond //nolint:revive
+	retryWaitMax = 5 * time.Second
+)
+
 // Max output tokens for current set of models.
 const anthropicMaxOutputTokens = 4096
 
-var anthropicRateLimiter = keyedRateLimiter{}
+var anthropicRateLimiter = keyedRateLimiter{ //nolint:gochecknoglobals
+	mu:       sync.RWMutex{},
+	limiters: map[string]map[string]any{},
+}
 
 type anthropicRequest struct {
 	Model       string        `json:"model"`
@@ -48,7 +57,7 @@ type anthropicResponse struct {
 	} `json:"error,omitempty"`
 }
 
-func parseAnthropicRateLimitHeaders(resp *http.Response) (
+func parseAnthropicRateLimitHeaders(resp *http.Response) ( //nolint:nonamedreturns
 	limitRequests, limitTokens,
 	remainingRequests, remainingTokens int,
 	resetRequests, resetTokens time.Time,
@@ -63,7 +72,7 @@ func parseAnthropicRateLimitHeaders(resp *http.Response) (
 
 	if limitRequestsStr == "" || limitTokensStr == "" || remainingRequestsStr == "" || remainingTokensStr == "" || resetRequestsStr == "" || resetTokensStr == "" {
 		// ok == false here.
-		return
+		return //nolint:nakedret
 	}
 
 	// We have all the headers we want.
@@ -73,35 +82,35 @@ func parseAnthropicRateLimitHeaders(resp *http.Response) (
 	limitRequests, err = strconv.Atoi(limitRequestsStr)
 	if err != nil {
 		errE = errors.WithDetails(err, "value", limitRequestsStr)
-		return
+		return //nolint:nakedret
 	}
 	limitTokens, err = strconv.Atoi(limitTokensStr)
 	if err != nil {
 		errE = errors.WithDetails(err, "value", limitTokensStr)
-		return
+		return //nolint:nakedret
 	}
 	remainingRequests, err = strconv.Atoi(remainingRequestsStr)
 	if err != nil {
 		errE = errors.WithDetails(err, "value", remainingRequestsStr)
-		return
+		return //nolint:nakedret
 	}
 	remainingTokens, err = strconv.Atoi(remainingTokensStr)
 	if err != nil {
 		errE = errors.WithDetails(err, "value", remainingTokensStr)
-		return
+		return //nolint:nakedret
 	}
 	resetRequests, err = time.Parse(time.RFC3339, resetRequestsStr)
 	if err != nil {
 		errE = errors.WithDetails(err, "value", resetRequestsStr)
-		return
+		return //nolint:nakedret
 	}
 	resetTokens, err = time.Parse(time.RFC3339, resetTokensStr)
 	if err != nil {
 		errE = errors.WithDetails(err, "value", resetTokensStr)
-		return
+		return //nolint:nakedret
 	}
 
-	return
+	return //nolint:nakedret
 }
 
 var _ TextProvider = (*AnthropicTextProvider)(nil)
@@ -122,7 +131,7 @@ type AnthropicTextProvider struct {
 }
 
 // Init implements TextProvider interface.
-func (a *AnthropicTextProvider) Init(ctx context.Context, messages []ChatMessage) errors.E {
+func (a *AnthropicTextProvider) Init(_ context.Context, messages []ChatMessage) errors.E {
 	if a.messages != nil {
 		return errors.WithStack(ErrAlreadyInitialized)
 	}
@@ -143,8 +152,8 @@ func (a *AnthropicTextProvider) Init(ctx context.Context, messages []ChatMessage
 		client := retryablehttp.NewClient()
 		// TODO: Configure logger.
 		client.Logger = nil
-		client.RetryWaitMin = 100 * time.Millisecond
-		client.RetryWaitMax = 5 * time.Second
+		client.RetryWaitMin = retryWaitMin
+		client.RetryWaitMax = retryWaitMax
 		client.PrepareRetry = func(req *http.Request) error {
 			estimatedTokens := a.estimatedTokens()
 			// Rate limit retries.
@@ -170,11 +179,11 @@ func (a *AnthropicTextProvider) Init(ctx context.Context, messages []ChatMessage
 				}
 				// Token rate limit headers can be returned for both minute or day, whichever is smaller. Except for
 				// the free tier, tokens per day are equal or larger than 1,000,000, so we compare to determine which one it is.
-				if limitTokens >= 1_000_000 {
+				if limitTokens >= 1_000_000 { //nolint:gomnd
 					rateLimits["tpd"] = resettingRateLimit{
 						Limit:     limitTokens,
 						Remaining: remainingTokens,
-						Window:    24 * time.Hour,
+						Window:    24 * time.Hour, //nolint:gomnd
 						Resets:    resetTokens,
 					}
 				} else {
@@ -187,7 +196,8 @@ func (a *AnthropicTextProvider) Init(ctx context.Context, messages []ChatMessage
 				}
 				anthropicRateLimiter.Set(a.APIKey, rateLimits)
 			}
-			return retryablehttp.ErrorPropagatedRetryPolicy(ctx, resp, err)
+			check, err := retryablehttp.ErrorPropagatedRetryPolicy(ctx, resp, err)
+			return check, errors.WithStack(err)
 		}
 		a.Client = client.StandardClient()
 	}
@@ -219,7 +229,7 @@ func (a *AnthropicTextProvider) Chat(ctx context.Context, message ChatMessage) (
 	req.Header.Add("anthropic-version", "2023-06-01")
 	estimatedTokens := a.estimatedTokens()
 	// Rate limit the initial request.
-	errE = anthropicRateLimiter.Take(req.Context(), a.APIKey, map[string]int{
+	errE = anthropicRateLimiter.Take(ctx, a.APIKey, map[string]int{
 		"rpm": 1,
 		"tpd": estimatedTokens,
 		"tpm": estimatedTokens,
@@ -232,7 +242,7 @@ func (a *AnthropicTextProvider) Chat(ctx context.Context, message ChatMessage) (
 		return "", errors.WrapWith(err, ErrAPIRequestFailed)
 	}
 	defer resp.Body.Close()
-	defer io.Copy(io.Discard, resp.Body)
+	defer io.Copy(io.Discard, resp.Body) //nolint:errcheck
 
 	var response anthropicResponse
 	errE = x.DecodeJSON(resp.Body, &response)
@@ -277,10 +287,10 @@ func (a *AnthropicTextProvider) estimatedTokens() int {
 	// dividing number of characters by 4.
 	messages := 0
 	for _, message := range a.messages {
-		messages += len(message.Content) / 4
+		messages += len(message.Content) / 4 //nolint:gomnd
 	}
 	if a.system != "" {
-		messages += len(a.system) / 4
+		messages += len(a.system) / 4 //nolint:gomnd
 	}
 	// Each output can be up to anthropicMaxOutputTokens so we assume final output
 	// is at most that, with input the same.

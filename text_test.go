@@ -28,6 +28,8 @@ var providers = []struct {
 	{
 		"ollama",
 		func(t *testing.T) fun.TextProvider {
+			t.Helper()
+
 			if os.Getenv("OLLAMA_HOST") == "" {
 				t.Skip("OLLAMA_HOST is not available")
 			}
@@ -49,6 +51,8 @@ var providers = []struct {
 	{
 		"groq",
 		func(t *testing.T) fun.TextProvider {
+			t.Helper()
+
 			if os.Getenv("GROQ_API_KEY") == "" {
 				t.Skip("GROQ_API_KEY is not available")
 			}
@@ -65,6 +69,8 @@ var providers = []struct {
 	{
 		"anthropic",
 		func(t *testing.T) fun.TextProvider {
+			t.Helper()
+
 			if os.Getenv("ANTHROPIC_API_KEY") == "" {
 				t.Skip("ANTHROPIC_API_KEY is not available")
 			}
@@ -78,7 +84,7 @@ var providers = []struct {
 	},
 }
 
-func TestText(t *testing.T) {
+func TestText(t *testing.T) { //nolint:paralleltest,tparallel
 	// We do not run test cases in parallel, so that we can run Ollama tests in sequence.
 
 	tests := []struct {
@@ -217,7 +223,7 @@ func TestText(t *testing.T) {
 	}
 }
 
-func TestTextStruct(t *testing.T) {
+func TestTextStruct(t *testing.T) { //nolint:paralleltest,tparallel
 	// We do not run test cases in parallel, so that we can run Ollama tests in sequence.
 
 	tests := []struct {

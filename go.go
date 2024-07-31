@@ -15,11 +15,11 @@ type Go[Input, Output any] struct {
 }
 
 // Init implements [Callee] interface.
-func (*Go[Input, Output]) Init(ctx context.Context) errors.E {
+func (*Go[Input, Output]) Init(_ context.Context) errors.E {
 	return nil
 }
 
 // Call implements [Callee] interface.
-func (f *Go[Input, Output]) Call(ctx context.Context, input ...Input) (Output, errors.E) {
+func (f *Go[Input, Output]) Call(ctx context.Context, input ...Input) (Output, errors.E) { //nolint:ireturn
 	return f.Fun(ctx, input...)
 }

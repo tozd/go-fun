@@ -14,8 +14,8 @@ import (
 )
 
 var (
-	ollamaRateLimiter   = map[string]*sync.Mutex{}
-	ollamaRateLimiterMu = sync.Mutex{}
+	ollamaRateLimiter   = map[string]*sync.Mutex{} //nolint:gochecknoglobals
+	ollamaRateLimiterMu = sync.Mutex{}             //nolint:gochecknoglobals
 )
 
 func getStatusError(err error) errors.E {
@@ -96,7 +96,7 @@ func (o *OllamaTextProvider) Init(ctx context.Context, messages []ChatMessage) e
 	}
 
 	stream := false
-	err = o.client.Pull(ctx, &api.PullRequest{
+	err = o.client.Pull(ctx, &api.PullRequest{ //nolint:exhaustruct
 		Model:    o.Model.Model,
 		Insecure: o.Model.Insecure,
 		Username: o.Model.Username,
@@ -107,25 +107,32 @@ func (o *OllamaTextProvider) Init(ctx context.Context, messages []ChatMessage) e
 		return getStatusError(err)
 	}
 
-	resp, err := o.client.Show(ctx, &api.ShowRequest{
+	resp, err := o.client.Show(ctx, &api.ShowRequest{ //nolint:exhaustruct
 		Model: o.Model.Model,
 	})
 	if err != nil {
 		return getStatusError(err)
 	}
 
-	arch := resp.ModelInfo["general.architecture"].(string)
-	contextLength := int(resp.ModelInfo[fmt.Sprintf("%s.context_length", arch)].(float64))
+	arch, ok := resp.ModelInfo["general.architecture"].(string)
+	if !ok {
+		return errors.WithStack(ErrModelMaxContextLength)
+	}
+	contextLength, ok := resp.ModelInfo[fmt.Sprintf("%s.context_length", arch)].(float64)
+	if !ok {
+		return errors.WithStack(ErrModelMaxContextLength)
+	}
+	contextLengthInt := int(contextLength)
 
-	if contextLength == 0 {
+	if contextLengthInt == 0 {
 		return errors.WithStack(ErrModelMaxContextLength)
 	}
 
 	if o.MaxContextLength == 0 {
-		o.MaxContextLength = contextLength
+		o.MaxContextLength = contextLengthInt
 	}
 
-	if o.MaxContextLength > contextLength {
+	if o.MaxContextLength > contextLengthInt {
 		return errors.WithDetails(
 			ErrMaxContextLengthOverModel,
 			"max", o.MaxContextLength,
@@ -139,7 +146,7 @@ func (o *OllamaTextProvider) Init(ctx context.Context, messages []ChatMessage) e
 // Chat implements TextProvider interface.
 func (o *OllamaTextProvider) Chat(ctx context.Context, message ChatMessage) (string, errors.E) {
 	messages := slices.Clone(o.messages)
-	messages = append(messages, api.Message{
+	messages = append(messages, api.Message{ //nolint:exhaustruct
 		Role:    message.Role,
 		Content: message.Content,
 	})
@@ -153,7 +160,7 @@ func (o *OllamaTextProvider) Chat(ctx context.Context, message ChatMessage) (str
 	responses := []api.ChatResponse{}
 
 	stream := false
-	err := o.client.Chat(ctx, &api.ChatRequest{
+	err := o.client.Chat(ctx, &api.ChatRequest{ //nolint:exhaustruct
 		Model:    o.Model.Model,
 		Messages: messages,
 		Stream:   &stream,

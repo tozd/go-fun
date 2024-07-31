@@ -14,7 +14,7 @@ func Example_go() {
 	ctx := context.Background()
 
 	f := fun.Go[int, int]{
-		Fun: func(ctx context.Context, input ...int) (int, errors.E) {
+		Fun: func(_ context.Context, input ...int) (int, errors.E) {
 			return input[0] + input[1], nil
 		},
 	}
