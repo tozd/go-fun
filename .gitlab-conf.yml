@@ -51,7 +51,7 @@ project:
   # The default branch name. Type: string
   default_branch: main
   # Short project description. Type: string
-  description: High-level function abstraction supporting code and data based function definitions.
+  description: High-level abstraction supporting code and data based function definitions.
   # Enable email notifications. Type: boolean
   emails_enabled: true
   # Enforce auth checks on uploads. Type: boolean
