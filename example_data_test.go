@@ -11,6 +11,7 @@ import (
 
 func Example_data() {
 	if os.Getenv("ANTHROPIC_API_KEY") == "" {
+		fmt.Println("skipped")
 		return
 	}
 

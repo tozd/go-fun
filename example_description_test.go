@@ -11,6 +11,7 @@ import (
 
 func Example_description() {
 	if os.Getenv("GROQ_API_KEY") == "" {
+		fmt.Println("skipped")
 		return
 	}
 
