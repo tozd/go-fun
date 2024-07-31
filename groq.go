@@ -139,7 +139,10 @@ func parseGroqRateLimitHeaders(resp *http.Response) (
 
 var _ TextProvider = (*GroqTextProvider)(nil)
 
-// GroqTextProvider implements TextProvider interface.
+// GroqTextProvider is a [TextProvider] which provides integration with
+// text-based [Groq] AI models.
+//
+// [Groq]: https://groq.com/
 type GroqTextProvider struct {
 	Client           *http.Client
 	APIKey           string
@@ -152,6 +155,7 @@ type GroqTextProvider struct {
 	messages []ChatMessage
 }
 
+// Init implements TextProvider interface.
 func (g *GroqTextProvider) Init(ctx context.Context, messages []ChatMessage) errors.E {
 	if g.messages != nil {
 		return errors.New("already initialized")
@@ -248,6 +252,7 @@ func (g *GroqTextProvider) Init(ctx context.Context, messages []ChatMessage) err
 	return nil
 }
 
+// Chat implements TextProvider interface.
 func (g *GroqTextProvider) Chat(ctx context.Context, message ChatMessage) (string, errors.E) {
 	messages := slices.Clone(g.messages)
 	messages = append(messages, message)

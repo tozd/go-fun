@@ -13,8 +13,11 @@ import (
 var _ Callee[any, any] = (*Text[any, any])(nil)
 
 const (
+	// Prompt to parse input string into the target struct.
 	TextParserToJSONPrompt = `Be a parser of input strings into JSON. Match the structure of examples. Do not make up new JSON fields and do not add data not found in the input string. Keep data in original language and letter case. Use your knowledge to resolve ambiguousness. Output only JSON.`
-	TextToJSONPrompt       = `Output only JSON.`
+
+	// Prompt to request only JSON output, which is then converted into the target struct.
+	TextToJSONPrompt = `Output only JSON.`
 )
 
 func compileValidator[T any](jsonSchema []byte) (*jsonschema.Schema, errors.E) {
@@ -107,26 +110,47 @@ func toOutputString(data any) (string, errors.E) {
 	return string(j), nil
 }
 
+// InputOutput describes one example (variadic) input with corresponding output.
 type InputOutput[Input, Output any] struct {
 	Input  []Input
 	Output Output
 }
 
-// Text implements Callee interface with its logic defined by given training inputs and
-// outputs and a TextProvider.
+// Text implements [Callee] interface with its logic defined by given example data inputs
+// and outputs, or a natural language description, or both.
+//
+// It uses a text-based AI model provided by a [TextProvider].
+//
+// For non-string Input types, it marshals them to JSON before
+// providing them to the AI model, and for non-string Output types,
+// it unmarshals model outputs from JSON to Output type.
+// For this to work, Input and Output types should have a
+// JSON representation.
 type Text[Input, Output any] struct {
+	// Provider is a text-based AI model.
 	Provider TextProvider
 
-	InputJSONSchema  []byte
+	// InputJSONSchema is a JSON schema to validate inputs against.
+	// If not provided and Input type is a not a string,
+	// it is automatically generated from the Input type.
+	InputJSONSchema []byte
+
+	// OutputJSONSchema is a JSON schema to validate outputs against.
+	// If not provided and Output type is a not a string,
+	// it is automatically generated from the Output type.
 	OutputJSONSchema []byte
 
+	// Prompt is a natural language description of the logic.
 	Prompt string
-	Data   []InputOutput[Input, Output]
+
+	// Data is example inputs with corresponding outputs for the function.
+	Data []InputOutput[Input, Output]
 
 	inputValidator  *jsonschema.Schema
 	outputValidator *jsonschema.Schema
 }
 
+// Init implements [Callee] interface.
 func (t *Text[Input, Output]) Init(ctx context.Context) errors.E {
 	validator, errE := compileValidator[Input](t.InputJSONSchema)
 	if errE != nil {
@@ -191,6 +215,7 @@ func (t *Text[Input, Output]) Init(ctx context.Context) errors.E {
 	return nil
 }
 
+// Call implements [Callee] interface.
 func (t *Text[Input, Output]) Call(ctx context.Context, input ...Input) (Output, errors.E) {
 	for _, i := range input {
 		errE := validate(t.inputValidator, i)

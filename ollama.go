@@ -31,6 +31,7 @@ func ollamaRateLimiterLock(key string) *sync.Mutex {
 
 var _ TextProvider = (*OllamaTextProvider)(nil)
 
+// OllamaModel describes a model for [OllamaTextProvider].
 type OllamaModel struct {
 	Model    string
 	Insecure bool
@@ -38,7 +39,10 @@ type OllamaModel struct {
 	Password string
 }
 
-// OllamaTextProvider implements TextProvider interface.
+// OllamaTextProvider is a [TextProvider] which provides integration with
+// text-based [Ollama] AI models.
+//
+// [Ollama]: https://ollama.com/
 type OllamaTextProvider struct {
 	Client           *http.Client
 	Base             string
@@ -52,6 +56,7 @@ type OllamaTextProvider struct {
 	messages []api.Message
 }
 
+// Init implements TextProvider interface.
 func (o *OllamaTextProvider) Init(ctx context.Context, messages []ChatMessage) errors.E {
 	if o.client != nil {
 		return errors.New("already initialized")
@@ -114,6 +119,7 @@ func (o *OllamaTextProvider) Init(ctx context.Context, messages []ChatMessage) e
 	return nil
 }
 
+// Chat implements TextProvider interface.
 func (o *OllamaTextProvider) Chat(ctx context.Context, message ChatMessage) (string, errors.E) {
 	messages := slices.Clone(o.messages)
 	messages = append(messages, api.Message{

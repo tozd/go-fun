@@ -106,6 +106,10 @@ func parseAnthropicRateLimitHeaders(resp *http.Response) (
 
 var _ TextProvider = (*AnthropicTextProvider)(nil)
 
+// AnthropicTextProvider is a [TextProvider] which provides integration with
+// text-based [Anthropic] AI models.
+//
+// [Anthropic]: https://www.anthropic.com/
 type AnthropicTextProvider struct {
 	Client *http.Client
 	APIKey string
@@ -117,6 +121,7 @@ type AnthropicTextProvider struct {
 	messages []ChatMessage
 }
 
+// Init implements TextProvider interface.
 func (a *AnthropicTextProvider) Init(ctx context.Context, messages []ChatMessage) errors.E {
 	if a.messages != nil {
 		return errors.New("already initialized")
@@ -190,6 +195,7 @@ func (a *AnthropicTextProvider) Init(ctx context.Context, messages []ChatMessage
 	return nil
 }
 
+// Chat implements TextProvider interface.
 func (a *AnthropicTextProvider) Chat(ctx context.Context, message ChatMessage) (string, errors.E) {
 	messages := slices.Clone(a.messages)
 	messages = append(messages, message)
