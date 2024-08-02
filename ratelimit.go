@@ -53,6 +53,13 @@ func (r *resettingRateLimiter) Take(ctx context.Context, n int) (time.Duration, 
 func (r *resettingRateLimiter) wait(ctx context.Context, n int) (bool, time.Duration, errors.E) {
 	now := time.Now()
 
+	// Check if ctx is already cancelled.
+	select {
+	case <-ctx.Done():
+		return false, 0, errors.WithStack(ctx.Err())
+	default:
+	}
+
 	if r.resets.Compare(now) <= 0 {
 		r.remaining = r.limit
 		r.resets = now.Add(r.window)
