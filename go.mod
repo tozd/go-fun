@@ -9,7 +9,9 @@ require (
 	github.com/ollama/ollama v0.3.0
 	github.com/rs/zerolog v1.33.0
 	github.com/santhosh-tekuri/jsonschema/v6 v6.0.1
+	github.com/tidwall/gjson v1.17.3
 	gitlab.com/tozd/go/errors v0.8.1
+	gitlab.com/tozd/go/zerolog v0.6.0
 )
 
 require (
@@ -17,12 +19,15 @@ require (
 	github.com/google/uuid v1.3.1 // indirect
 	github.com/mattn/go-colorable v0.1.13 // indirect
 	github.com/mattn/go-isatty v0.0.20 // indirect
+	github.com/tidwall/match v1.1.1 // indirect
+	github.com/tidwall/pretty v1.2.0 // indirect
 )
 
 require (
 	dario.cat/mergo v1.0.0 // indirect
 	github.com/Microsoft/go-winio v0.6.1 // indirect
 	github.com/ProtonMail/go-crypto v0.0.0-20230923063757-afb1ddc0824c // indirect
+	github.com/alecthomas/kong v0.9.0
 	github.com/bahlo/generic-list-go v0.2.0 // indirect
 	github.com/buger/jsonparser v1.1.1 // indirect
 	github.com/cloudflare/circl v1.3.6 // indirect
@@ -47,6 +52,7 @@ require (
 	github.com/whilp/git-urls v1.0.0 // indirect
 	github.com/wk8/go-ordered-map/v2 v2.1.8 // indirect
 	github.com/xanzy/ssh-agent v0.3.3 // indirect
+	gitlab.com/tozd/go/cli v0.3.0
 	gitlab.com/tozd/go/x v0.0.0-20240414153458-c60a59ee413b
 	gitlab.com/tozd/identifier v0.3.0
 	golang.org/x/crypto v0.23.0 // indirect
