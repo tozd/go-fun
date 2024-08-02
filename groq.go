@@ -187,6 +187,7 @@ func (g *GroqTextProvider) Init(ctx context.Context, messages []ChatMessage) err
 		}
 		client.CheckRetry = func(ctx context.Context, resp *http.Response, err error) (bool, error) {
 			if resp.StatusCode == http.StatusTooManyRequests {
+				// We read the body and provide it back.
 				body, _ := io.ReadAll(resp.Body)
 				resp.Body.Close()
 				resp.Body = io.NopCloser(bytes.NewReader(body))

@@ -166,6 +166,7 @@ func (a *AnthropicTextProvider) Init(_ context.Context, messages []ChatMessage) 
 			})
 		}
 		client.CheckRetry = func(ctx context.Context, resp *http.Response, err error) (bool, error) {
+			// We read the body and provide it back.
 			if resp.StatusCode == http.StatusTooManyRequests {
 				body, _ := io.ReadAll(resp.Body)
 				resp.Body.Close()
