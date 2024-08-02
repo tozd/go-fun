@@ -39,7 +39,7 @@ func (r *resettingRateLimiter) Take(ctx context.Context, n int) (time.Duration, 
 	}
 }
 
-func (r *resettingRateLimiter) reserve(ctx context.Context, n int, now time.Time) (bool, time.Time, errors.E) {
+func (r *resettingRateLimiter) reserve(n int, now time.Time) (bool, time.Time, errors.E) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
@@ -74,7 +74,7 @@ func (r *resettingRateLimiter) wait(ctx context.Context, n int) (bool, time.Dura
 	default:
 	}
 
-	ok, resets, errE := r.reserve(ctx, n, now)
+	ok, resets, errE := r.reserve(n, now)
 	if ok || errE != nil {
 		return ok, 0, errE
 	}
