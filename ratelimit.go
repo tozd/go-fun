@@ -5,6 +5,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/rs/zerolog"
 	"gitlab.com/tozd/go/errors"
 	"golang.org/x/time/rate"
 )
@@ -24,31 +25,34 @@ type resettingRateLimiter struct {
 	resets    time.Time
 }
 
-func (r *resettingRateLimiter) Take(ctx context.Context, n int) errors.E {
+func (r *resettingRateLimiter) Take(ctx context.Context, n int) (time.Duration, errors.E) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
 	if r.limit < n {
-		return errors.WithDetails(
+		return 0, errors.WithDetails(
 			errTooLargeRequest,
 			"limit", r.limit,
 			"n", n,
 		)
 	}
 
+	delay := time.Duration(0)
 	for {
-		ok, errE := r.wait(ctx, n)
+		ok, d, errE := r.wait(ctx, n)
+		delay += d
 		if errE != nil {
-			return errE
+			return delay, errE
 		}
 		if ok {
-			return nil
+			return delay, nil
 		}
 	}
 }
 
-func (r *resettingRateLimiter) wait(ctx context.Context, n int) (bool, errors.E) {
+func (r *resettingRateLimiter) wait(ctx context.Context, n int) (bool, time.Duration, errors.E) {
 	now := time.Now()
+
 	if r.resets.Compare(now) <= 0 {
 		r.remaining = r.limit
 		r.resets = now.Add(r.window)
@@ -56,25 +60,25 @@ func (r *resettingRateLimiter) wait(ctx context.Context, n int) (bool, errors.E)
 
 	if r.remaining >= n {
 		r.remaining -= n
-		return true, nil
+		return true, 0, nil
 	}
 
 	// We do not use now from above but current time.Now to be more precise.
-	wait := time.Until(r.resets)
-	if wait <= 0 {
+	delay := time.Until(r.resets)
+	if delay <= 0 {
 		// We do not have to wait at all.
-		return false, nil
+		return false, 0, nil
 	}
-	timer := time.NewTimer(wait)
+	timer := time.NewTimer(delay)
 	defer timer.Stop()
 
 	select {
 	case <-timer.C:
 		// We have waited enough.
-		return false, nil
+		return false, delay, nil
 	case <-ctx.Done():
 		// Context was canceled.
-		return false, errors.WithStack(ctx.Err())
+		return false, time.Since(now), errors.WithStack(ctx.Err())
 	}
 }
 
@@ -110,6 +114,51 @@ type tokenBucketRateLimit struct {
 	Burst int
 }
 
+// This re-implements rate.Limiter.wait but with returning the wait time.
+// See:https://github.com/golang/go/issues/68719
+func wait(ctx context.Context, limiter *rate.Limiter, n int) (time.Duration, errors.E) {
+	now := time.Now()
+
+	// Check if ctx is already cancelled.
+	select {
+	case <-ctx.Done():
+		return 0, errors.WithStack(ctx.Err())
+	default:
+	}
+
+	r := limiter.ReserveN(now, n)
+	if !r.OK() {
+		return 0, errors.Errorf("rate: Wait(n=%d) exceeds limiter's burst", n)
+	}
+
+	// Wait if necessary.
+	delay := r.DelayFrom(now)
+	if delay == 0 {
+		return 0, nil
+	}
+
+	// Determine wait limit.
+	if deadline, ok := ctx.Deadline(); ok && deadline.Before(now.Add(delay)) {
+		// We cancel the reservation because we will not be using it.
+		r.CancelAt(now)
+		return delay, errors.Errorf("rate: Wait(n=%d) would exceed context deadline", n)
+	}
+
+	timer := time.NewTimer(delay)
+	defer timer.Stop()
+
+	select {
+	case <-timer.C:
+		// We can proceed.
+		return delay, nil
+	case <-ctx.Done():
+		// Context was canceled before we could proceed. Cancel the
+		// reservation, which may permit other events to proceed sooner.
+		r.Cancel()
+		return time.Since(now), errors.WithStack(ctx.Err())
+	}
+}
+
 func (r *keyedRateLimiter) get(key, k string) any {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
@@ -143,24 +192,32 @@ func (r *keyedRateLimiter) getOrCreate(key, k string, create func() any) any {
 }
 
 func (r *keyedRateLimiter) Take(ctx context.Context, key string, ns map[string]int) errors.E {
+	delay := time.Duration(0)
+
 	for k, n := range ns {
 		limiter := r.get(key, k)
 		if limiter != nil {
 			switch limiter := limiter.(type) {
 			case *rate.Limiter:
-				err := limiter.WaitN(ctx, n)
+				d, err := wait(ctx, limiter, n)
 				if err != nil {
 					return errors.WithStack(err)
 				}
+				delay += d
 			case *resettingRateLimiter:
-				errE := limiter.Take(ctx, n)
+				d, errE := limiter.Take(ctx, n)
 				if errE != nil {
 					return errE
 				}
+				delay += d
 			default:
 				panic(errors.Errorf("invalid limiter type: %T", limiter))
 			}
 		}
+	}
+
+	if delay != 0 {
+		zerolog.Ctx(ctx).Debug().Dur("delay", delay).Msg("rate limited")
 	}
 
 	return nil
