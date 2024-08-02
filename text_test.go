@@ -7,6 +7,7 @@ import (
 	"slices"
 	"testing"
 
+	"github.com/rs/zerolog"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -185,7 +186,7 @@ func TestText(t *testing.T) { //nolint:paralleltest,tparallel
 						Data:             tt.Data,
 					}
 
-					ctx := context.Background()
+					ctx := zerolog.New(zerolog.NewTestWriter(t)).WithContext(context.Background())
 
 					errE := f.Init(ctx)
 					require.NoError(t, errE, "% -+#.1v", errE)
@@ -310,7 +311,7 @@ func TestTextStruct(t *testing.T) { //nolint:paralleltest,tparallel
 						Data:             data,
 					}
 
-					ctx := context.Background()
+					ctx := zerolog.New(zerolog.NewTestWriter(t)).WithContext(context.Background())
 
 					errE := f.Init(ctx)
 					require.NoError(t, errE, "% -+#.1v", errE)

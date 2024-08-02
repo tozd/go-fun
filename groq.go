@@ -169,7 +169,7 @@ func (g *GroqTextProvider) Init(ctx context.Context, messages []ChatMessage) err
 
 	if g.Client == nil {
 		client := retryablehttp.NewClient()
-		// TODO: Configure logger.
+		// TODO: Configure logger which should log to a logger in ctx.
 		//       See: https://github.com/hashicorp/go-retryablehttp/issues/182
 		client.Logger = nil
 		client.RetryWaitMin = retryWaitMin
@@ -186,6 +186,12 @@ func (g *GroqTextProvider) Init(ctx context.Context, messages []ChatMessage) err
 			return nil
 		}
 		client.CheckRetry = func(ctx context.Context, resp *http.Response, err error) (bool, error) {
+			if resp.StatusCode == http.StatusTooManyRequests {
+				body, _ := io.ReadAll(resp.Body)
+				resp.Body.Close()
+				resp.Body = io.NopCloser(bytes.NewReader(body))
+				zerolog.Ctx(ctx).Warn().Str("body", string(body)).Msg("hit rate limit")
+			}
 			limitRequests, limitTokens, remainingRequests, remainingTokens, resetRequests, resetTokens, ok, errE := parseGroqRateLimitHeaders(resp)
 			if errE != nil {
 				return false, errE

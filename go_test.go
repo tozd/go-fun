@@ -4,6 +4,7 @@ import (
 	"context"
 	"testing"
 
+	"github.com/rs/zerolog"
 	"github.com/stretchr/testify/assert"
 	"gitlab.com/tozd/go/errors"
 
@@ -19,7 +20,7 @@ func TestGo(t *testing.T) {
 		},
 	}
 
-	ctx := context.Background()
+	ctx := zerolog.New(zerolog.NewTestWriter(t)).WithContext(context.Background())
 
 	errE := f.Init(ctx)
 	assert.NoError(t, errE, "% -+#.1v", errE)
