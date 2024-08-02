@@ -26,17 +26,6 @@ type resettingRateLimiter struct {
 }
 
 func (r *resettingRateLimiter) Take(ctx context.Context, n int) (time.Duration, errors.E) {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-
-	if r.limit < n {
-		return 0, errors.WithDetails(
-			errTooLargeRequest,
-			"limit", r.limit,
-			"n", n,
-		)
-	}
-
 	delay := time.Duration(0)
 	for {
 		ok, d, errE := r.wait(ctx, n)
@@ -50,6 +39,31 @@ func (r *resettingRateLimiter) Take(ctx context.Context, n int) (time.Duration, 
 	}
 }
 
+func (r *resettingRateLimiter) reserve(ctx context.Context, n int, now time.Time) (bool, time.Time, errors.E) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	if r.limit < n {
+		return false, time.Time{}, errors.WithDetails(
+			errTooLargeRequest,
+			"limit", r.limit,
+			"n", n,
+		)
+	}
+
+	if r.resets.Compare(now) <= 0 {
+		r.remaining = r.limit
+		r.resets = now.Add(r.window)
+	}
+
+	if r.remaining >= n {
+		r.remaining -= n
+		return true, time.Time{}, nil
+	}
+
+	return false, r.resets, nil
+}
+
 func (r *resettingRateLimiter) wait(ctx context.Context, n int) (bool, time.Duration, errors.E) {
 	now := time.Now()
 
@@ -60,18 +74,12 @@ func (r *resettingRateLimiter) wait(ctx context.Context, n int) (bool, time.Dura
 	default:
 	}
 
-	if r.resets.Compare(now) <= 0 {
-		r.remaining = r.limit
-		r.resets = now.Add(r.window)
+	ok, resets, errE := r.reserve(ctx, n, now)
+	if ok || errE != nil {
+		return ok, 0, errE
 	}
 
-	if r.remaining >= n {
-		r.remaining -= n
-		return true, 0, nil
-	}
-
-	// We do not use now from above but current time.Now to be more precise.
-	delay := time.Until(r.resets)
+	delay := resets.Sub(now)
 	if delay <= 0 {
 		// We do not have to wait at all.
 		return false, 0, nil
