@@ -7,8 +7,16 @@ toolchain go1.22.5
 require (
 	github.com/hashicorp/go-cleanhttp v0.5.2
 	github.com/ollama/ollama v0.3.0
+	github.com/rs/zerolog v1.33.0
 	github.com/santhosh-tekuri/jsonschema/v6 v6.0.1
 	gitlab.com/tozd/go/errors v0.8.1
+)
+
+require (
+	github.com/btcsuite/btcutil v1.0.2 // indirect
+	github.com/google/uuid v1.3.1 // indirect
+	github.com/mattn/go-colorable v0.1.13 // indirect
+	github.com/mattn/go-isatty v0.0.20 // indirect
 )
 
 require (
@@ -40,6 +48,7 @@ require (
 	github.com/wk8/go-ordered-map/v2 v2.1.8 // indirect
 	github.com/xanzy/ssh-agent v0.3.3 // indirect
 	gitlab.com/tozd/go/x v0.0.0-20240414153458-c60a59ee413b
+	gitlab.com/tozd/identifier v0.3.0
 	golang.org/x/crypto v0.23.0 // indirect
 	golang.org/x/mod v0.14.0 // indirect
 	golang.org/x/net v0.25.0 // indirect

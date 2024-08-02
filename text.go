@@ -5,9 +5,11 @@ import (
 	"context"
 
 	jsonschemaGen "github.com/invopop/jsonschema"
+	"github.com/rs/zerolog"
 	"github.com/santhosh-tekuri/jsonschema/v6"
 	"gitlab.com/tozd/go/errors"
 	"gitlab.com/tozd/go/x"
+	"gitlab.com/tozd/identifier"
 )
 
 var _ Callee[any, any] = (*Text[any, any])(nil)
@@ -152,6 +154,9 @@ type Text[Input, Output any] struct {
 
 // Init implements [Callee] interface.
 func (t *Text[Input, Output]) Init(ctx context.Context) errors.E {
+	logger := zerolog.Ctx(ctx).With().Str("fun", identifier.New().String()).Logger()
+	ctx = logger.WithContext(ctx)
+
 	validator, errE := compileValidator[Input](t.InputJSONSchema)
 	if errE != nil {
 		return errE
@@ -217,6 +222,9 @@ func (t *Text[Input, Output]) Init(ctx context.Context) errors.E {
 
 // Call implements [Callee] interface.
 func (t *Text[Input, Output]) Call(ctx context.Context, input ...Input) (Output, errors.E) { //nolint:ireturn
+	logger := zerolog.Ctx(ctx).With().Str("fun", identifier.New().String()).Logger()
+	ctx = logger.WithContext(ctx)
+
 	for _, i := range input {
 		errE := validate(t.inputValidator, i)
 		if errE != nil {

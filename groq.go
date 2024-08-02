@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/hashicorp/go-retryablehttp"
+	"github.com/rs/zerolog"
 	"gitlab.com/tozd/go/errors"
 	"gitlab.com/tozd/go/x"
 	"golang.org/x/time/rate"
@@ -169,6 +170,7 @@ func (g *GroqTextProvider) Init(ctx context.Context, messages []ChatMessage) err
 	if g.Client == nil {
 		client := retryablehttp.NewClient()
 		// TODO: Configure logger.
+		//       See: https://github.com/hashicorp/go-retryablehttp/issues/182
 		client.Logger = nil
 		client.RetryWaitMin = retryWaitMin
 		client.RetryWaitMax = retryWaitMax
@@ -227,8 +229,13 @@ func (g *GroqTextProvider) Init(ctx context.Context, messages []ChatMessage) err
 	req.Header.Add("Authorization", fmt.Sprintf("Bearer %s", g.APIKey))
 	// This endpoint does not have rate limiting.
 	resp, err := g.Client.Do(req)
+	requestID := resp.Header.Get("X-Request-Id")
 	if err != nil {
-		return errors.WrapWith(err, ErrAPIRequestFailed)
+		errE := errors.WrapWith(err, ErrAPIRequestFailed)
+		if requestID != "" {
+			errors.Details(errE)["apiRequest"] = requestID
+		}
+		return errE
 	}
 	defer resp.Body.Close()
 	defer io.Copy(io.Discard, resp.Body) //nolint:errcheck
@@ -236,15 +243,26 @@ func (g *GroqTextProvider) Init(ctx context.Context, messages []ChatMessage) err
 	var model groqModel
 	errE := x.DecodeJSON(resp.Body, &model)
 	if errE != nil {
+		if requestID != "" {
+			errors.Details(errE)["apiRequest"] = requestID
+		}
 		return errE
 	}
 
 	if model.Error != nil {
-		return errors.WithDetails(ErrAPIResponseError, "error", model.Error)
+		errE := errors.WithDetails(ErrAPIResponseError, "error", model.Error)
+		if requestID != "" {
+			errors.Details(errE)["apiRequest"] = requestID
+		}
+		return errE
 	}
 
 	if !model.Active {
-		return errors.WithStack(ErrModelNotActive)
+		errE := errors.WithStack(ErrModelNotActive)
+		if requestID != "" {
+			errors.Details(errE)["apiRequest"] = requestID
+		}
+		return errE
 	}
 
 	if g.MaxContextLength == 0 {
@@ -252,11 +270,15 @@ func (g *GroqTextProvider) Init(ctx context.Context, messages []ChatMessage) err
 	}
 
 	if g.MaxContextLength > model.ContextWindow {
-		return errors.WithDetails(
+		errE := errors.WithDetails(
 			ErrMaxContextLengthOverModel,
 			"max", g.MaxContextLength,
 			"model", model.ContextWindow,
 		)
+		if requestID != "" {
+			errors.Details(errE)["apiRequest"] = requestID
+		}
+		return errE
 	}
 
 	return nil
@@ -293,8 +315,13 @@ func (g *GroqTextProvider) Chat(ctx context.Context, message ChatMessage) (strin
 		return "", errE
 	}
 	resp, err := g.Client.Do(req)
+	requestID := resp.Header.Get("X-Request-Id")
 	if err != nil {
-		return "", errors.WrapWith(err, ErrAPIRequestFailed)
+		errE = errors.WrapWith(err, ErrAPIRequestFailed)
+		if requestID != "" {
+			errors.Details(errE)["apiRequest"] = requestID
+		}
+		return "", errE
 	}
 	defer resp.Body.Close()
 	defer io.Copy(io.Discard, resp.Body) //nolint:errcheck
@@ -302,31 +329,63 @@ func (g *GroqTextProvider) Chat(ctx context.Context, message ChatMessage) (strin
 	var response groqResponse
 	errE = x.DecodeJSON(resp.Body, &response)
 	if errE != nil {
+		if requestID != "" {
+			errors.Details(errE)["apiRequest"] = requestID
+		}
 		return "", errE
 	}
 
 	if response.Error != nil {
-		return "", errors.WithDetails(ErrAPIResponseError, "error", response.Error)
+		errE = errors.WithDetails(ErrAPIResponseError, "error", response.Error)
+		if requestID != "" {
+			errors.Details(errE)["apiRequest"] = requestID
+		}
+		return "", errE
 	}
 
 	if len(response.Choices) != 1 {
-		return "", errors.WithDetails(ErrUnexpectedNumberOfMessages, "number", len(response.Choices))
+		errE = errors.WithDetails(ErrUnexpectedNumberOfMessages, "number", len(response.Choices))
+		if requestID != "" {
+			errors.Details(errE)["apiRequest"] = requestID
+		}
+		return "", errE
 	}
 	if response.Choices[0].FinishReason != "stop" {
-		return "", errors.WithDetails(ErrNotDone, "reason", response.Choices[0].FinishReason)
+		errE = errors.WithDetails(ErrNotDone, "reason", response.Choices[0].FinishReason)
+		if requestID != "" {
+			errors.Details(errE)["apiRequest"] = requestID
+		}
+		return "", errE
 	}
 
 	if response.Usage.TotalTokens >= g.MaxContextLength {
-		return "", errors.WithDetails(
+		errE = errors.WithDetails(
 			ErrUnexpectedNumberOfTokens,
 			"prompt", response.Usage.PromptTokens,
-			"completion", response.Usage.CompletionTokens,
+			"response", response.Usage.CompletionTokens,
 			"total", response.Usage.TotalTokens,
 			"max", g.MaxContextLength,
 		)
+		if requestID != "" {
+			errors.Details(errE)["apiRequest"] = requestID
+		}
+		return "", errE
 	}
 
-	// TODO: Log/expose response.Usage.
+	tokens := zerolog.Dict()
+	tokens.Int("max", g.MaxContextLength)
+	tokens.Int("prompt", response.Usage.PromptTokens)
+	tokens.Int("response", response.Usage.CompletionTokens)
+	tokens.Int("total", response.Usage.TotalTokens)
+	duration := zerolog.Dict()
+	duration.Dur("prompt", time.Duration(response.Usage.PromptTime*float64(time.Second)))
+	duration.Dur("response", time.Duration(response.Usage.CompletionTime*float64(time.Second)))
+	duration.Dur("total", time.Duration(response.Usage.TotalTime*float64(time.Second)))
+	e := zerolog.Ctx(ctx).Info().Dict("duration", duration).Str("model", g.Model).Dict("tokens", tokens)
+	if requestID != "" {
+		e = e.Str("apiRequest", requestID)
+	}
+	e.Msg("usage")
 
 	return response.Choices[0].Message.Content, nil
 }

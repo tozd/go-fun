@@ -3,7 +3,9 @@ package fun
 import (
 	"context"
 
+	"github.com/rs/zerolog"
 	"gitlab.com/tozd/go/errors"
+	"gitlab.com/tozd/identifier"
 )
 
 var _ Callee[any, any] = (*Go[any, any])(nil)
@@ -21,5 +23,8 @@ func (*Go[Input, Output]) Init(_ context.Context) errors.E {
 
 // Call implements [Callee] interface.
 func (f *Go[Input, Output]) Call(ctx context.Context, input ...Input) (Output, errors.E) { //nolint:ireturn
+	logger := zerolog.Ctx(ctx).With().Str("fun", identifier.New().String()).Logger()
+	ctx = logger.WithContext(ctx)
+
 	return f.Fun(ctx, input...)
 }

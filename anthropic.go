@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/hashicorp/go-retryablehttp"
+	"github.com/rs/zerolog"
 	"gitlab.com/tozd/go/errors"
 	"gitlab.com/tozd/go/x"
 )
@@ -151,6 +152,7 @@ func (a *AnthropicTextProvider) Init(_ context.Context, messages []ChatMessage) 
 	if a.Client == nil {
 		client := retryablehttp.NewClient()
 		// TODO: Configure logger.
+		//       See: https://github.com/hashicorp/go-retryablehttp/issues/182
 		client.Logger = nil
 		client.RetryWaitMin = retryWaitMin
 		client.RetryWaitMax = retryWaitMax
@@ -238,8 +240,13 @@ func (a *AnthropicTextProvider) Chat(ctx context.Context, message ChatMessage) (
 		return "", errE
 	}
 	resp, err := a.Client.Do(req)
+	requestID := resp.Header.Get("Request-Id")
 	if err != nil {
-		return "", errors.WrapWith(err, ErrAPIRequestFailed)
+		errE = errors.WrapWith(err, ErrAPIRequestFailed)
+		if requestID != "" {
+			errors.Details(errE)["apiRequest"] = requestID
+		}
+		return "", errE
 	}
 	defer resp.Body.Close()
 	defer io.Copy(io.Discard, resp.Body) //nolint:errcheck
@@ -247,37 +254,73 @@ func (a *AnthropicTextProvider) Chat(ctx context.Context, message ChatMessage) (
 	var response anthropicResponse
 	errE = x.DecodeJSON(resp.Body, &response)
 	if errE != nil {
+		if requestID != "" {
+			errors.Details(errE)["apiRequest"] = requestID
+		}
 		return "", errE
 	}
 
 	if response.Error != nil {
-		return "", errors.WithDetails(ErrAPIResponseError, "error", response.Error)
+		errE = errors.WithDetails(ErrAPIResponseError, "error", response.Error)
+		if requestID != "" {
+			errors.Details(errE)["apiRequest"] = requestID
+		}
+		return "", errE
 	}
 
 	if len(response.Content) != 1 {
-		return "", errors.WithDetails(ErrUnexpectedNumberOfMessages, "number", len(response.Content))
+		errE = errors.WithDetails(ErrUnexpectedNumberOfMessages, "number", len(response.Content))
+		if requestID != "" {
+			errors.Details(errE)["apiRequest"] = requestID
+		}
+		return "", errE
 	}
 	if response.Content[0].Type != "text" {
-		return "", errors.WithDetails(ErrNotTextMessage, "type", response.Content[0].Type)
+		errE = errors.WithDetails(ErrNotTextMessage, "type", response.Content[0].Type)
+		if requestID != "" {
+			errors.Details(errE)["apiRequest"] = requestID
+		}
+		return "", errE
 	}
 
 	if response.StopReason == nil {
-		return "", errors.WithStack(ErrNotDone)
+		errE = errors.WithStack(ErrNotDone)
+		if requestID != "" {
+			errors.Details(errE)["apiRequest"] = requestID
+		}
+		return "", errE
 	}
 	if *response.StopReason != "end_turn" {
-		return "", errors.WithDetails(ErrNotDone, "reason", *response.StopReason)
+		errE = errors.WithDetails(ErrNotDone, "reason", *response.StopReason)
+		if requestID != "" {
+			errors.Details(errE)["apiRequest"] = requestID
+		}
+		return "", errE
 	}
 	if response.Usage.InputTokens+response.Usage.OutputTokens > estimatedTokens {
-		return "", errors.WithDetails(
+		errE = errors.WithDetails(
 			ErrUnexpectedNumberOfTokens,
-			"used", response.Usage.InputTokens+response.Usage.OutputTokens,
-			"input", response.Usage.InputTokens,
-			"output", response.Usage.OutputTokens,
-			"estimated", estimatedTokens,
+			"prompt", response.Usage.InputTokens,
+			"response", response.Usage.OutputTokens,
+			"total", response.Usage.InputTokens+response.Usage.OutputTokens,
+			"max", estimatedTokens,
 		)
+		if requestID != "" {
+			errors.Details(errE)["apiRequest"] = requestID
+		}
+		return "", errE
 	}
 
-	// TODO: Log/expose response.Usage.
+	tokens := zerolog.Dict()
+	tokens.Int("max", estimatedTokens)
+	tokens.Int("prompt", response.Usage.InputTokens)
+	tokens.Int("response", response.Usage.OutputTokens)
+	tokens.Int("total", response.Usage.InputTokens+response.Usage.OutputTokens)
+	e := zerolog.Ctx(ctx).Info().Str("model", a.Model).Dict("tokens", tokens)
+	if requestID != "" {
+		e = e.Str("apiRequest", requestID)
+	}
+	e.Msg("usage")
 
 	return response.Content[0].Text, nil
 }

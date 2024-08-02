@@ -10,6 +10,7 @@ import (
 
 	"github.com/hashicorp/go-cleanhttp"
 	"github.com/ollama/ollama/api"
+	"github.com/rs/zerolog"
 	"gitlab.com/tozd/go/errors"
 )
 
@@ -189,13 +190,23 @@ func (o *OllamaTextProvider) Chat(ctx context.Context, message ChatMessage) (str
 		return "", errors.WithDetails(
 			ErrUnexpectedNumberOfTokens,
 			"prompt", responses[0].Metrics.PromptEvalCount,
-			"eval", responses[0].Metrics.EvalCount,
+			"response", responses[0].Metrics.EvalCount,
 			"total", responses[0].Metrics.PromptEvalCount+responses[0].Metrics.EvalCount,
 			"max", o.MaxContextLength,
 		)
 	}
 
-	// TODO: Log/expose responses[0].Metrics.
+	tokens := zerolog.Dict()
+	tokens.Int("max", o.MaxContextLength)
+	tokens.Int("prompt", responses[0].Metrics.PromptEvalCount)
+	tokens.Int("response", responses[0].Metrics.EvalCount)
+	tokens.Int("total", responses[0].Metrics.PromptEvalCount+responses[0].Metrics.EvalCount)
+	duration := zerolog.Dict()
+	duration.Dur("load", responses[0].Metrics.LoadDuration)
+	duration.Dur("prompt", responses[0].Metrics.PromptEvalDuration)
+	duration.Dur("response", responses[0].Metrics.EvalDuration)
+	duration.Dur("total", responses[0].Metrics.TotalDuration)
+	zerolog.Ctx(ctx).Info().Dict("duration", duration).Str("model", o.Model.Model).Dict("tokens", tokens).Msg("usage")
 
 	return responses[0].Message.Content, nil
 }
