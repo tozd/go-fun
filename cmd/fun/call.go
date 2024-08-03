@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"io/fs"
+	"math"
 	"os"
 	"os/signal"
 	"path/filepath"
@@ -40,9 +41,11 @@ type CallCommand struct {
 	Provider         string               `               enum:"ollama,groq,anthropic" help:"AI model provider. Possible: ${enum}."                                                                                               required:"" short:"p"`
 	Model            string               `                                            help:"AI model to use."                                                                                                                    required:"" short:"m"`
 	Parallel         int                  `default:"1"                                 help:"How many input files to process in parallel. Default: ${default}."                                                placeholder:"INT"`
+	Batches          int                  `default:"1"                                 help:"Split input files into batches. Default: ${default}."                                                             placeholder:"INT"              short:"B"`
+	Batch            int                  `default:"0"                                 help:"Process only files in the batch with this 0-based index. Default: ${default}."                                    placeholder:"INT"              short:"b"`
 }
 
-func (c *CallCommand) Run(logger zerolog.Logger) errors.E {
+func (c *CallCommand) Run(logger zerolog.Logger) errors.E { //nolint:maintidx
 	// We stop the process gracefully on ctrl-c and TERM signal.
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
@@ -150,8 +153,22 @@ func (c *CallCommand) Run(logger zerolog.Logger) errors.E {
 		return errors.WithStack(err)
 	}
 
-	logger.Info().Int("inputs", len(files)).Str("model", c.Model).
+	batch := files
+	if c.Batches > 1 {
+		if c.Batch < 0 || c.Batch >= c.Batches {
+			errE := errors.New("invalid batch index")
+			errors.Details(errE)["batch"] = c.Batch
+			errors.Details(errE)["batches"] = c.Batches
+			return errE
+		}
+		batchSize := int(math.Ceil(float64(len(files)) / float64(c.Batches)))
+		batch = files[c.Batch*batchSize : min((c.Batch+1)*batchSize, len(files))]
+	}
+
+	logger.Info().Int("all", len(files)).Str("model", c.Model).
 		Str("provider", c.Provider).Int("parallel", c.Parallel).
+		Int("batches", c.Batches).Int("batch", c.Batch).
+		Int("inputs", len(batch)).
 		Msg("running")
 
 	count := x.Counter(0)
@@ -173,7 +190,7 @@ func (c *CallCommand) Run(logger zerolog.Logger) errors.E {
 
 	g.Go(func() error {
 		defer close(filesChan)
-		for _, inputPath := range files {
+		for _, inputPath := range batch {
 			select {
 			case <-ctx.Done():
 				// Context has been canceled.
