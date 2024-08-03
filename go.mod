@@ -11,7 +11,7 @@ require (
 	github.com/santhosh-tekuri/jsonschema/v6 v6.0.1
 	github.com/tidwall/gjson v1.17.3
 	gitlab.com/tozd/go/errors v0.8.1
-	gitlab.com/tozd/go/zerolog v0.6.0
+	gitlab.com/tozd/go/zerolog v0.6.1-0.20240513232002-554c46897da2
 	golang.org/x/sync v0.5.0
 )
 
