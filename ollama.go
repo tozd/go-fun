@@ -58,10 +58,11 @@ type OllamaModel struct {
 //
 // [Ollama]: https://ollama.com/
 type OllamaTextProvider struct {
-	Client           *http.Client
-	Base             string
-	Model            OllamaModel
-	MaxContextLength int
+	Client            *http.Client
+	Base              string
+	Model             OllamaModel
+	MaxContextLength  int
+	MaxResponseLength int
 
 	Seed        int
 	Temperature float64
@@ -132,12 +133,23 @@ func (o *OllamaTextProvider) Init(ctx context.Context, messages []ChatMessage) e
 	if o.MaxContextLength == 0 {
 		o.MaxContextLength = contextLengthInt
 	}
-
 	if o.MaxContextLength > contextLengthInt {
 		return errors.WithDetails(
 			ErrMaxContextLengthOverModel,
-			"max", o.MaxContextLength,
-			"model", contextLength,
+			"maxTotal", o.MaxContextLength,
+			"model", contextLengthInt,
+		)
+	}
+
+	if o.MaxResponseLength == 0 {
+		// -2 = fill context.
+		o.MaxResponseLength = -2 //nolint:gomnd
+	}
+	if o.MaxResponseLength > 0 && o.MaxResponseLength > o.MaxContextLength {
+		return errors.WithDetails(
+			ErrMaxResponseLengthOverContext,
+			"maxTotal", o.MaxContextLength,
+			"maxResponse", o.MaxResponseLength,
 		)
 	}
 
@@ -167,7 +179,7 @@ func (o *OllamaTextProvider) Chat(ctx context.Context, message ChatMessage) (str
 		Stream:   &stream,
 		Options: map[string]interface{}{
 			"num_ctx":     o.MaxContextLength,
-			"num_predict": o.MaxContextLength,
+			"num_predict": o.MaxResponseLength,
 			"seed":        o.Seed,
 			"temperature": o.Temperature,
 		},
@@ -192,12 +204,14 @@ func (o *OllamaTextProvider) Chat(ctx context.Context, message ChatMessage) (str
 			"prompt", responses[0].Metrics.PromptEvalCount,
 			"response", responses[0].Metrics.EvalCount,
 			"total", responses[0].Metrics.PromptEvalCount+responses[0].Metrics.EvalCount,
-			"max", o.MaxContextLength,
+			"maxTotal", o.MaxContextLength,
+			"maxResponse", o.MaxResponseLength,
 		)
 	}
 
 	tokens := zerolog.Dict()
-	tokens.Int("max", o.MaxContextLength)
+	tokens.Int("maxTotal", o.MaxContextLength)
+	tokens.Int("maxResponse", o.MaxResponseLength)
 	tokens.Int("prompt", responses[0].Metrics.PromptEvalCount)
 	tokens.Int("response", responses[0].Metrics.EvalCount)
 	tokens.Int("total", responses[0].Metrics.PromptEvalCount+responses[0].Metrics.EvalCount)

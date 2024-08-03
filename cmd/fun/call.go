@@ -65,21 +65,23 @@ func (c *CallCommand) Run(logger zerolog.Logger) errors.E { //nolint:maintidx
 				Username: "",
 				Password: "",
 			},
-			MaxContextLength: 0,
-			Seed:             defaultSeed,
-			Temperature:      0,
+			MaxContextLength:  0,
+			MaxResponseLength: 0,
+			Seed:              defaultSeed,
+			Temperature:       0,
 		}
 	case "groq":
 		if os.Getenv("GROQ_API_KEY") == "" {
 			return errors.New("GROQ_API_KEY environment variable is missing")
 		}
 		provider = &fun.GroqTextProvider{
-			Client:           nil,
-			APIKey:           os.Getenv("GROQ_API_KEY"),
-			Model:            c.Model,
-			MaxContextLength: 0,
-			Seed:             defaultSeed,
-			Temperature:      0,
+			Client:            nil,
+			APIKey:            os.Getenv("GROQ_API_KEY"),
+			Model:             c.Model,
+			MaxContextLength:  0,
+			MaxResponseLength: 0,
+			Seed:              defaultSeed,
+			Temperature:       0,
 		}
 	case "anthropic":
 		if os.Getenv("ANTHROPIC_API_KEY") == "" {

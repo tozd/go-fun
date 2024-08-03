@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"slices"
 	"strconv"
+	"strings"
 	"sync"
 	"time"
 
@@ -150,10 +151,11 @@ var _ TextProvider = (*GroqTextProvider)(nil)
 //
 // [Groq]: https://groq.com/
 type GroqTextProvider struct {
-	Client           *http.Client
-	APIKey           string
-	Model            string
-	MaxContextLength int
+	Client            *http.Client
+	APIKey            string
+	Model             string
+	MaxContextLength  int
+	MaxResponseLength int
 
 	Seed        int
 	Temperature float64
@@ -197,7 +199,7 @@ func (g *GroqTextProvider) Init(ctx context.Context, messages []ChatMessage) err
 				body, _ := io.ReadAll(resp.Body)
 				resp.Body.Close()
 				resp.Body = io.NopCloser(bytes.NewReader(body))
-				if resp.Header.Get("Content-Type") == "application/json" && json.Valid(body) {
+				if resp.Header.Get("Content-Type") == applicationJSONHeader && json.Valid(body) {
 					zerolog.Ctx(ctx).Warn().RawJSON("body", body).Msg("hit rate limit")
 				} else {
 					zerolog.Ctx(ctx).Warn().Str("body", string(body)).Msg("hit rate limit")
@@ -289,12 +291,26 @@ func (g *GroqTextProvider) Init(ctx context.Context, messages []ChatMessage) err
 	if g.MaxContextLength == 0 {
 		g.MaxContextLength = model.ContextWindow
 	}
-
 	if g.MaxContextLength > model.ContextWindow {
 		errE := errors.WithDetails(
 			ErrMaxContextLengthOverModel,
-			"max", g.MaxContextLength,
+			"maxTotal", g.MaxContextLength,
 			"model", model.ContextWindow,
+		)
+		if requestID != "" {
+			errors.Details(errE)["apiRequest"] = requestID
+		}
+		return errE
+	}
+
+	if g.MaxResponseLength == 0 {
+		g.MaxResponseLength = g.maxResponseTokens(model)
+	}
+	if g.MaxResponseLength > g.MaxContextLength {
+		errE := errors.WithDetails(
+			ErrMaxResponseLengthOverContext,
+			"maxTotal", g.MaxContextLength,
+			"maxResponse", g.MaxResponseLength,
 		)
 		if requestID != "" {
 			errors.Details(errE)["apiRequest"] = requestID
@@ -315,7 +331,7 @@ func (g *GroqTextProvider) Chat(ctx context.Context, message ChatMessage) (strin
 		Model:       g.Model,
 		Seed:        g.Seed,
 		Temperature: g.Temperature,
-		MaxTokens:   g.MaxContextLength, // TODO: Can we provide a better estimate?
+		MaxTokens:   g.MaxResponseLength, // TODO: Can we provide a better estimate?
 	})
 	if errE != nil {
 		return "", errE
@@ -388,7 +404,8 @@ func (g *GroqTextProvider) Chat(ctx context.Context, message ChatMessage) (strin
 			"prompt", response.Usage.PromptTokens,
 			"response", response.Usage.CompletionTokens,
 			"total", response.Usage.TotalTokens,
-			"max", g.MaxContextLength,
+			"maxTotal", g.MaxContextLength,
+			"maxResponse", g.MaxResponseLength,
 		)
 		if requestID != "" {
 			errors.Details(errE)["apiRequest"] = requestID
@@ -397,7 +414,8 @@ func (g *GroqTextProvider) Chat(ctx context.Context, message ChatMessage) (strin
 	}
 
 	tokens := zerolog.Dict()
-	tokens.Int("max", g.MaxContextLength)
+	tokens.Int("maxTotal", g.MaxContextLength)
+	tokens.Int("maxResponse", g.MaxResponseLength)
 	tokens.Int("prompt", response.Usage.PromptTokens)
 	tokens.Int("response", response.Usage.CompletionTokens)
 	tokens.Int("total", response.Usage.TotalTokens)
@@ -412,4 +430,15 @@ func (g *GroqTextProvider) Chat(ctx context.Context, message ChatMessage) (strin
 	e.Msg("usage")
 
 	return response.Choices[0].Message.Content, nil
+}
+
+func (g *GroqTextProvider) maxResponseTokens(model groqModel) int {
+	// "During preview launch, we are limiting all 3.1 models to max_tokens of 8k and 405b to 16k input tokens."
+	// See: https://console.groq.com/docs/models
+	if strings.Contains(model.ID, "llama-3.1-405b") {
+		return 16000 //nolint:gomnd
+	} else if strings.Contains(model.ID, "llama-3.1") {
+		return 8000 //nolint:gomnd
+	}
+	return model.ContextWindow
 }

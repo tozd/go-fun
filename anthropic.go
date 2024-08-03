@@ -22,6 +22,8 @@ const (
 	retryWaitMax = 5 * time.Second
 )
 
+const applicationJSONHeader = "application/json"
+
 func retryErrorHandler(resp *http.Response, err error, numTries int) (*http.Response, error) {
 	var body []byte
 	if resp != nil {
@@ -36,7 +38,7 @@ func retryErrorHandler(resp *http.Response, err error, numTries int) (*http.Resp
 	}
 	errors.Details(errE)["attempts"] = numTries
 	if body != nil {
-		if resp.Header.Get("Content-Type") == "application/json" && json.Valid(body) {
+		if resp.Header.Get("Content-Type") == applicationJSONHeader && json.Valid(body) {
 			errors.Details(errE)["body"] = json.RawMessage(body)
 		} else {
 			errors.Details(errE)["body"] = string(body)
@@ -46,7 +48,7 @@ func retryErrorHandler(resp *http.Response, err error, numTries int) (*http.Resp
 }
 
 // Max output tokens for current set of models.
-const anthropicMaxOutputTokens = 4096
+const anthropicMaxResponseTokens = 4096
 
 var anthropicRateLimiter = keyedRateLimiter{ //nolint:gochecknoglobals
 	mu:       sync.RWMutex{},
@@ -200,7 +202,7 @@ func (a *AnthropicTextProvider) Init(_ context.Context, messages []ChatMessage) 
 				body, _ := io.ReadAll(resp.Body)
 				resp.Body.Close()
 				resp.Body = io.NopCloser(bytes.NewReader(body))
-				if resp.Header.Get("Content-Type") == "application/json" && json.Valid(body) {
+				if resp.Header.Get("Content-Type") == applicationJSONHeader && json.Valid(body) {
 					zerolog.Ctx(ctx).Warn().RawJSON("body", body).Msg("hit rate limit")
 				} else {
 					zerolog.Ctx(ctx).Warn().Str("body", string(body)).Msg("hit rate limit")
@@ -256,7 +258,7 @@ func (a *AnthropicTextProvider) Chat(ctx context.Context, message ChatMessage) (
 	request, errE := x.MarshalWithoutEscapeHTML(anthropicRequest{
 		Model:       a.Model,
 		Messages:    messages,
-		MaxTokens:   anthropicMaxOutputTokens,
+		MaxTokens:   anthropicMaxResponseTokens,
 		System:      a.system,
 		Temperature: a.Temperature,
 	})
@@ -347,7 +349,8 @@ func (a *AnthropicTextProvider) Chat(ctx context.Context, message ChatMessage) (
 			"prompt", response.Usage.InputTokens,
 			"response", response.Usage.OutputTokens,
 			"total", response.Usage.InputTokens+response.Usage.OutputTokens,
-			"max", estimatedTokens,
+			"maxTotal", estimatedTokens,
+			"maxResponse", anthropicMaxResponseTokens,
 		)
 		if requestID != "" {
 			errors.Details(errE)["apiRequest"] = requestID
@@ -356,7 +359,8 @@ func (a *AnthropicTextProvider) Chat(ctx context.Context, message ChatMessage) (
 	}
 
 	tokens := zerolog.Dict()
-	tokens.Int("max", estimatedTokens)
+	tokens.Int("maxTotal", estimatedTokens)
+	tokens.Int("maxResponse", anthropicMaxResponseTokens)
 	tokens.Int("prompt", response.Usage.InputTokens)
 	tokens.Int("response", response.Usage.OutputTokens)
 	tokens.Int("total", response.Usage.InputTokens+response.Usage.OutputTokens)
@@ -379,7 +383,7 @@ func (a *AnthropicTextProvider) estimatedTokens() int {
 	if a.system != "" {
 		messages += len(a.system) / 4 //nolint:gomnd
 	}
-	// Each output can be up to anthropicMaxOutputTokens so we assume final output
+	// Each output can be up to anthropicMaxResponseTokens so we assume final output
 	// is at most that, with input the same.
-	return messages + 2*anthropicMaxOutputTokens
+	return messages + 2*anthropicMaxResponseTokens
 }
