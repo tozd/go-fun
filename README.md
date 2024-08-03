@@ -140,8 +140,26 @@ echo "Solve the exercise. Output only the number." > prompt.txt
 fun call --input data --output results --provider anthropic --model claude-3-haiku-20240307 --in .txt --out .txt --prompt prompt.txt
 ```
 
-For the `data/1.txt` input file you should now get `results/1.txt` output file with
-contents `3`.
+For the `data/1.txt` input file you should now get `results/1.txt` output file with contents `3`.
+
+The issue is that sadly the function might sometimes output more than just the number.
+We can detect those cases using [JSON Schema](https://json-schema.org/)
+to validate outputs. We can use a JSON Schema to validate that the
+[output is an integer](./testdata/number-schema.json). We will see warnings in cases when
+outputs do not validate and corresponding output files will not be created.
+
+```sh
+echo '{"type": "integer"}' > schema.json
+fun call --input data --output results --provider anthropic --model claude-3-haiku-20240307 --in .txt --out .txt --prompt prompt.txt --output-schema schema.json
+```
+
+We can also use a JSON Schema to validate that the
+[output is a string matching a regex](./testdata/string-schema.json):
+
+```sh
+echo '{"type": "string", "pattern": "^[0-9]+$"}' > schema.json
+fun call --input data --output results --provider anthropic --model claude-3-haiku-20240307 --in .txt --out .txt --prompt prompt.txt --output-schema schema.json
+```
 
 ## GitHub mirror
 
