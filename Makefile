@@ -1,6 +1,12 @@
 SHELL = /bin/bash -o pipefail
 
-.PHONY: test test-ci lint lint-ci fmt fmt-ci clean release lint-docs audit encrypt decrypt sops
+.PHONY: build build-static test test-ci lint lint-ci fmt fmt-ci clean release lint-docs audit encrypt decrypt sops
+
+build:
+	go build -trimpath -ldflags "-s -w" -o fun gitlab.com/tozd/go/fun/cmd/fun
+
+build-static:
+	go build -trimpath -ldflags "-s -w -linkmode external -extldflags '-static'" -o fun gitlab.com/tozd/go/fun/cmd/fun
 
 test:
 	gotestsum --format pkgname --packages ./... -- -race -timeout 10m -cover -covermode atomic
@@ -25,7 +31,7 @@ fmt-ci: fmt
 	git diff --exit-code --color=always
 
 clean:
-	rm -f coverage.* codeclimate.json tests.xml
+	rm -f coverage.* codeclimate.json tests.xml fun
 
 release:
 	npx --yes --package 'release-it@15.4.2' --package '@release-it/keep-a-changelog@3.1.0' -- release-it
