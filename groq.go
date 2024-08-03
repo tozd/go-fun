@@ -172,6 +172,7 @@ func (g *GroqTextProvider) Init(ctx context.Context, messages []ChatMessage) err
 		client := retryablehttp.NewClient()
 		// TODO: Configure logger which should log to a logger in ctx.
 		//       See: https://github.com/hashicorp/go-retryablehttp/issues/182
+		//       See: https://gitlab.com/tozd/go/fun/-/issues/1
 		client.Logger = nil
 		client.RetryWaitMin = retryWaitMin
 		client.RetryWaitMax = retryWaitMax
@@ -235,6 +236,7 @@ func (g *GroqTextProvider) Init(ctx context.Context, messages []ChatMessage) err
 			check, err := retryablehttp.ErrorPropagatedRetryPolicy(ctx, resp, err)
 			return check, errors.WithStack(err)
 		}
+		client.ErrorHandler = retryErrorHandler
 		g.Client = client.StandardClient()
 	}
 

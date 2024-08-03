@@ -22,6 +22,29 @@ const (
 	retryWaitMax = 5 * time.Second
 )
 
+func retryErrorHandler(resp *http.Response, err error, numTries int) (*http.Response, error) {
+	var body []byte
+	if resp != nil {
+		body, _ = io.ReadAll(resp.Body)
+		resp.Body.Close()
+	}
+	var errE errors.E
+	if err != nil {
+		errE = errors.WrapWith(err, ErrRetryGiveUp)
+	} else {
+		errE = errors.WithStack(ErrRetryGiveUp)
+	}
+	errors.Details(errE)["attempts"] = numTries
+	if body != nil {
+		if resp.Header.Get("Content-Type") == "application/json" && json.Valid(body) {
+			errors.Details(errE)["body"] = json.RawMessage(body)
+		} else {
+			errors.Details(errE)["body"] = string(body)
+		}
+	}
+	return resp, errE
+}
+
 // Max output tokens for current set of models.
 const anthropicMaxOutputTokens = 4096
 
@@ -154,6 +177,7 @@ func (a *AnthropicTextProvider) Init(_ context.Context, messages []ChatMessage) 
 		client := retryablehttp.NewClient()
 		// TODO: Configure logger which should log to a logger in ctx.
 		//       See: https://github.com/hashicorp/go-retryablehttp/issues/182
+		//       See: https://gitlab.com/tozd/go/fun/-/issues/1
 		client.Logger = nil
 		client.RetryWaitMin = retryWaitMin
 		client.RetryWaitMax = retryWaitMax
@@ -217,6 +241,7 @@ func (a *AnthropicTextProvider) Init(_ context.Context, messages []ChatMessage) 
 			check, err := retryablehttp.ErrorPropagatedRetryPolicy(ctx, resp, err)
 			return check, errors.WithStack(err)
 		}
+		client.ErrorHandler = retryErrorHandler
 		a.Client = client.StandardClient()
 	}
 
