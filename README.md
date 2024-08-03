@@ -87,7 +87,61 @@ You have to provide example inputs and outputs or a prompt, and you can provide 
     only on a particular batch. Useful if you want to distribute execution across multiple
     machines.
 
-For details on all CLI arguments possible, run `fun --help`.
+For details on all CLI arguments possible, run `fun --help`:
+
+```sh
+fun --help
+```
+
+If you have Go available, you can run it without installation:
+
+```sh
+go run gitlab.com/tozd/go/fun/cmd/go/fun@latest --help
+```
+
+Or with Docker:
+
+```sh
+docker run -i registry.gitlab.com/tozd/go/fun/branch/main:latest --help
+```
+
+The above command runs the latest development version (`main` branch).
+See [releases page](https://gitlab.com/tozd/go/fun/-/releases) for a Docker image for the latest stable version.
+
+#### Example
+
+If you have a large JSON file with the following structure:
+
+```yaml
+{
+  "exercises": [
+    {
+      "serial": 1,
+      "text": "Ariel was playing basketball. 1 of her shots went in the hoop. 2 of the shots did not go in the hoop. How many shots were there in total?"
+    },
+    // ...
+  ]
+}
+```
+
+To create for each exercise a `.txt` file with filename based on the `serial` field
+(e.g., `1.txt`) and contents based on the `text` field, in the `data` output directory,
+you could run:
+
+```sh
+fun extract --input exercises.json --output data --out=.txt 'exercises.#.{id:serial,data:text}'
+```
+
+To solve all exercises, you can then run:
+
+```sh
+export ANTHROPIC_API_KEY='...'
+echo "Solve the exercise. Output only the number." > prompt.txt
+fun call --input data --output results --provider anthropic --model claude-3-haiku-20240307 --in .txt --out .txt --prompt prompt.txt
+```
+
+For the `data/1.txt` input file you should now get `results/1.txt` output file with
+contents `3`.
 
 ## GitHub mirror
 
