@@ -1,3 +1,11 @@
+# We prefer this order semantically, but in fact we
+# run test and build jobs simultaneously.
+stages:
+  - test
+  - build
+  - deploy
+  - sync
+
 variables:
   GIT_SUBMODULE_STRATEGY: recursive
   # We want full history so that "git describe" always works correctly.
@@ -5,7 +13,11 @@ variables:
   FF_ENABLE_BASH_EXIT_CODE_CHECK: "true"
   # We always want to run with the Go version installed in a Docker image.
   GOTOOLCHAIN: local
+  DOCKER_PIPELINE_IMAGE_NAME: "$CI_REGISTRY_IMAGE/pipeline:$CI_PIPELINE_ID"
+  DOCKER_DRIVER: overlay2
+  DOCKER_BUILDKIT: "1"
   FF_NETWORK_PER_BUILD: 1
+  PACKAGE_REGISTRY_URL: "${CI_API_V4_URL}/projects/${CI_PROJECT_ID}/packages/generic"
 
 test:
   stage: test
@@ -161,6 +173,135 @@ commits:
   script:
     - '! git log --oneline "-G^(<<<<<<<|=======|>>>>>>>)" | grep "^"'
 
+docker:
+  stage: build
+
+  image: docker:23-git
+
+  services:
+    - docker:23-dind
+
+  before_script:
+    - docker info
+    - echo "$CI_JOB_TOKEN" | docker login --username gitlab-ci-token --password-stdin "$CI_REGISTRY"
+
+  script:
+    - export BUILD_TIMESTAMP="$(date -u +%FT%TZ)"
+    - echo BUILD_TIMESTAMP "$BUILD_TIMESTAMP"
+    - export VERSION="$(git describe --tags --always --dirty=+)"
+    - echo VERSION "$VERSION"
+    - docker build
+        --target production
+        --tag "$DOCKER_PIPELINE_IMAGE_NAME"
+        --tag "$CI_REGISTRY_IMAGE/commit:$CI_COMMIT_SHA"
+        --label "org.opencontainers.image.version=$VERSION"
+        --label "org.opencontainers.image.created=$BUILD_TIMESTAMP"
+        --label "org.opencontainers.image.revision=$CI_COMMIT_SHA"
+        --label "org.opencontainers.image.url=$CI_PROJECT_URL" .
+    - docker build
+        --target debug
+        --tag "$DOCKER_PIPELINE_IMAGE_NAME-debug"
+        --tag "$CI_REGISTRY_IMAGE/commit:$CI_COMMIT_SHA-debug"
+        --label "org.opencontainers.image.version=$VERSION"
+        --label "org.opencontainers.image.created=$BUILD_TIMESTAMP"
+        --label "org.opencontainers.image.revision=$CI_COMMIT_SHA"
+        --label "org.opencontainers.image.url=$CI_PROJECT_URL" .
+    - docker push "$DOCKER_PIPELINE_IMAGE_NAME"
+    - docker push "$CI_REGISTRY_IMAGE/commit:$CI_COMMIT_SHA"
+    - docker push "$DOCKER_PIPELINE_IMAGE_NAME-debug"
+    - docker push "$CI_REGISTRY_IMAGE/commit:$CI_COMMIT_SHA-debug"
+    - export IMAGE_ID=$(docker create "$DOCKER_PIPELINE_IMAGE_NAME")
+    - docker cp "$IMAGE_ID:/fun" fun-linux-amd64
+    - docker rm "$IMAGE_ID"
+
+  artifacts:
+    expose_as: binaries
+    name: binaries
+    paths:
+      - fun-linux-amd64
+    expire_in: never
+
+  # We want to run it as soon as possible and do not wait for test stage to finish.
+  needs: []
+
+push_branch:
+  stage: deploy
+
+  image: docker:23
+
+  services:
+    - docker:23-dind
+
+  before_script:
+    - docker info
+    - echo "$CI_JOB_TOKEN" | docker login --username gitlab-ci-token --password-stdin "$CI_REGISTRY"
+
+  # TODO: Improve so that pulling is not necessary. See: https://gitlab.com/gitlab-org/gitlab/-/issues/15252
+  script:
+    - docker pull "$DOCKER_PIPELINE_IMAGE_NAME"
+    - docker tag "$DOCKER_PIPELINE_IMAGE_NAME" "$CI_REGISTRY_IMAGE/branch/$CI_COMMIT_REF_SLUG:latest"
+    - docker tag "$DOCKER_PIPELINE_IMAGE_NAME" "$CI_REGISTRY_IMAGE/branch/$CI_COMMIT_REF_SLUG:$CI_COMMIT_SHA"
+    - docker pull "$DOCKER_PIPELINE_IMAGE_NAME-debug"
+    - docker tag "$DOCKER_PIPELINE_IMAGE_NAME-debug" "$CI_REGISTRY_IMAGE/branch/$CI_COMMIT_REF_SLUG:latest-debug"
+    - docker tag "$DOCKER_PIPELINE_IMAGE_NAME-debug" "$CI_REGISTRY_IMAGE/branch/$CI_COMMIT_REF_SLUG:$CI_COMMIT_SHA-debug"
+    - docker push "$CI_REGISTRY_IMAGE/branch/$CI_COMMIT_REF_SLUG:latest"
+    - docker push "$CI_REGISTRY_IMAGE/branch/$CI_COMMIT_REF_SLUG:$CI_COMMIT_SHA"
+    - docker push "$CI_REGISTRY_IMAGE/branch/$CI_COMMIT_REF_SLUG:latest-debug"
+    - docker push "$CI_REGISTRY_IMAGE/branch/$CI_COMMIT_REF_SLUG:$CI_COMMIT_SHA-debug"
+
+  rules:
+    - if: $CI_COMMIT_BRANCH
+
+  # We do not need build artifacts in this job.
+  dependencies: []
+
+push_tag:
+  stage: deploy
+
+  image: docker:23
+
+  services:
+    - docker:23-dind
+
+  before_script:
+    - docker info
+    - echo "$CI_JOB_TOKEN" | docker login --username gitlab-ci-token --password-stdin "$CI_REGISTRY"
+
+  # TODO: Improve so that pulling is not necessary. See: https://gitlab.com/gitlab-org/gitlab/-/issues/15252
+  script:
+    - docker pull "$DOCKER_PIPELINE_IMAGE_NAME"
+    - docker tag "$DOCKER_PIPELINE_IMAGE_NAME" "$CI_REGISTRY_IMAGE/tag/$CI_COMMIT_REF_SLUG:latest"
+    - docker tag "$DOCKER_PIPELINE_IMAGE_NAME" "$CI_REGISTRY_IMAGE/tag/$CI_COMMIT_REF_SLUG:$CI_COMMIT_SHA"
+    - docker pull "$DOCKER_PIPELINE_IMAGE_NAME-debug"
+    - docker tag "$DOCKER_PIPELINE_IMAGE_NAME-debug" "$CI_REGISTRY_IMAGE/tag/$CI_COMMIT_REF_SLUG:latest-debug"
+    - docker tag "$DOCKER_PIPELINE_IMAGE_NAME-debug" "$CI_REGISTRY_IMAGE/tag/$CI_COMMIT_REF_SLUG:$CI_COMMIT_SHA-debug"
+    - docker push "$CI_REGISTRY_IMAGE/tag/$CI_COMMIT_REF_SLUG:latest"
+    - docker push "$CI_REGISTRY_IMAGE/tag/$CI_COMMIT_REF_SLUG:$CI_COMMIT_SHA"
+    - docker push "$CI_REGISTRY_IMAGE/tag/$CI_COMMIT_REF_SLUG:latest-debug"
+    - docker push "$CI_REGISTRY_IMAGE/tag/$CI_COMMIT_REF_SLUG:$CI_COMMIT_SHA-debug"
+
+  rules:
+    # Only on protected tags. Protected tags start with "v".
+    - if: '$CI_COMMIT_TAG && $CI_COMMIT_REF_NAME =~ /^v/'
+
+  # We do not need build artifacts in this job.
+  dependencies: []
+
+upload_binaries:
+  stage: deploy
+
+  image: curlimages/curl:8.1.2
+
+  script:
+    - 'curl --header "JOB-TOKEN: $CI_JOB_TOKEN" --upload-file fun-linux-amd64 "$PACKAGE_REGISTRY_URL/linux-amd64/${CI_COMMIT_REF_NAME#v}/fun"'
+
+  rules:
+    # Only on protected tags. Protected tags start with "v".
+    - if: '$CI_COMMIT_TAG && $CI_COMMIT_REF_NAME =~ /^v/'
+
+  dependencies:
+    - docker
+
 publish:
   stage: deploy
 
@@ -177,7 +318,7 @@ publish:
   dependencies: []
 
 sync_releases:
-  stage: deploy
+  stage: sync
 
   image:
     name: registry.gitlab.com/tozd/gitlab/release/tag/v0-6-0:latest-debug
@@ -195,7 +336,7 @@ sync_releases:
   dependencies: []
 
 sync_config:
-  stage: deploy
+  stage: sync
 
   image:
     name: registry.gitlab.com/tozd/gitlab/config/tag/v0-5-0:latest-debug
