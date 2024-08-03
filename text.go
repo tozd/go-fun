@@ -30,7 +30,7 @@ func compileValidator[T any](jsonSchema []byte) (*jsonschema.Schema, errors.E) {
 		dummy := new(T)
 		switch any(*dummy).(type) {
 		case string:
-			// Nothing. One can provide InputJSONSchema if they want to validate input strings.
+			// Nothing.
 			return nil, nil
 		default:
 			// We construct JSON Schema from Go struct.
@@ -67,9 +67,15 @@ func validate(validator *jsonschema.Schema, value any) errors.E {
 		return nil
 	}
 
-	data, errE := x.MarshalWithoutEscapeHTML(value)
-	if errE != nil {
-		return errE
+	var data []byte
+	var errE errors.E
+	if v, ok := value.(string); ok {
+		data = []byte(v)
+	} else {
+		data, errE = x.MarshalWithoutEscapeHTML(value)
+		if errE != nil {
+			return errE
+		}
 	}
 	v, err := jsonschema.UnmarshalJSON(bytes.NewReader(data))
 	if err != nil {
@@ -137,7 +143,7 @@ type Text[Input, Output any] struct {
 	// it is automatically generated from the Input type.
 	InputJSONSchema []byte
 
-	// OutputJSONSchema is a JSON Scchema to validate outputs against.
+	// OutputJSONSchema is a JSON chema to validate outputs against.
 	// If not provided and Output type is a not a string,
 	// it is automatically generated from the Output type.
 	OutputJSONSchema []byte
