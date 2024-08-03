@@ -167,7 +167,7 @@ func (a *AnthropicTextProvider) Init(_ context.Context, messages []ChatMessage) 
 		}
 		client.CheckRetry = func(ctx context.Context, resp *http.Response, err error) (bool, error) {
 			if err != nil {
-				check, err := retryablehttp.ErrorPropagatedRetryPolicy(ctx, resp, err)
+				check, err := retryablehttp.ErrorPropagatedRetryPolicy(ctx, resp, err) //nolint:govet
 				return check, errors.WithStack(err)
 			}
 			// We read the body and provide it back.
