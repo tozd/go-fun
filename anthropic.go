@@ -166,6 +166,10 @@ func (a *AnthropicTextProvider) Init(_ context.Context, messages []ChatMessage) 
 			})
 		}
 		client.CheckRetry = func(ctx context.Context, resp *http.Response, err error) (bool, error) {
+			if err != nil {
+				check, err := retryablehttp.ErrorPropagatedRetryPolicy(ctx, resp, err)
+				return check, errors.WithStack(err)
+			}
 			// We read the body and provide it back.
 			if resp.StatusCode == http.StatusTooManyRequests {
 				body, _ := io.ReadAll(resp.Body)
@@ -247,7 +251,10 @@ func (a *AnthropicTextProvider) Chat(ctx context.Context, message ChatMessage) (
 		return "", errE
 	}
 	resp, err := a.Client.Do(req)
-	requestID := resp.Header.Get("Request-Id")
+	var requestID string
+	if resp != nil {
+		requestID = resp.Header.Get("Request-Id")
+	}
 	if err != nil {
 		errE = errors.WrapWith(err, ErrAPIRequestFailed)
 		if requestID != "" {

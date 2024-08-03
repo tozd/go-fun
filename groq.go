@@ -186,6 +186,10 @@ func (g *GroqTextProvider) Init(ctx context.Context, messages []ChatMessage) err
 			return nil
 		}
 		client.CheckRetry = func(ctx context.Context, resp *http.Response, err error) (bool, error) {
+			if err != nil {
+				check, err := retryablehttp.ErrorPropagatedRetryPolicy(ctx, resp, err)
+				return check, errors.WithStack(err)
+			}
 			if resp.StatusCode == http.StatusTooManyRequests {
 				// We read the body and provide it back.
 				body, _ := io.ReadAll(resp.Body)
@@ -236,7 +240,10 @@ func (g *GroqTextProvider) Init(ctx context.Context, messages []ChatMessage) err
 	req.Header.Add("Authorization", fmt.Sprintf("Bearer %s", g.APIKey))
 	// This endpoint does not have rate limiting.
 	resp, err := g.Client.Do(req)
-	requestID := resp.Header.Get("X-Request-Id")
+	var requestID string
+	if resp != nil {
+		requestID = resp.Header.Get("X-Request-Id")
+	}
 	if err != nil {
 		errE := errors.WrapWith(err, ErrAPIRequestFailed)
 		if requestID != "" {
@@ -322,7 +329,10 @@ func (g *GroqTextProvider) Chat(ctx context.Context, message ChatMessage) (strin
 		return "", errE
 	}
 	resp, err := g.Client.Do(req)
-	requestID := resp.Header.Get("X-Request-Id")
+	var requestID string
+	if resp != nil {
+		requestID = resp.Header.Get("X-Request-Id")
+	}
 	if err != nil {
 		errE = errors.WrapWith(err, ErrAPIRequestFailed)
 		if requestID != "" {

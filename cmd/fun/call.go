@@ -4,9 +4,11 @@ import (
 	"context"
 	"io/fs"
 	"os"
+	"os/signal"
 	"path/filepath"
 	"slices"
 	"strings"
+	"syscall"
 
 	"github.com/alecthomas/kong"
 	"github.com/rs/zerolog"
@@ -32,6 +34,10 @@ type CallCommand struct {
 }
 
 func (c *CallCommand) Run(logger zerolog.Logger) errors.E {
+	// We stop the process gracefully on ctrl-c and TERM signal.
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer stop()
+
 	var provider fun.TextProvider
 	switch c.Provider {
 	case "ollama":
@@ -119,8 +125,7 @@ func (c *CallCommand) Run(logger zerolog.Logger) errors.E {
 		Data:             data,
 	}
 
-	ctx := logger.WithContext(context.Background())
-	errE := fn.Init(ctx)
+	errE := fn.Init(logger.WithContext(ctx))
 	if errE != nil {
 		return errE
 	}
@@ -137,6 +142,10 @@ func (c *CallCommand) Run(logger zerolog.Logger) errors.E {
 	}
 
 	for _, inputPath := range files {
+		if ctx.Err() != nil {
+			return errors.WithStack(ctx.Err())
+		}
+
 		relPath, err := filepath.Rel(c.InputDir, inputPath)
 		if err != nil {
 			return errors.WithStack(err)
@@ -145,8 +154,8 @@ func (c *CallCommand) Run(logger zerolog.Logger) errors.E {
 
 		l := logger.With().Str("file", relPath).Logger()
 
-		errE := c.processFile(l, fn, inputPath, outputPath)
-		if errE != nil {
+		errE := c.processFile(l.WithContext(ctx), fn, inputPath, outputPath)
+		if errE != nil && !errors.Is(errE, context.Canceled) && !errors.Is(errE, context.DeadlineExceeded) {
 			l.Warn().Err(errE).Msg("error processing file")
 		}
 	}
@@ -154,7 +163,7 @@ func (c *CallCommand) Run(logger zerolog.Logger) errors.E {
 	return nil
 }
 
-func (c *CallCommand) processFile(logger zerolog.Logger, fn fun.Callee[string, string], inputPath, outputPath string) (errE errors.E) { //nolint:nonamedreturns
+func (c *CallCommand) processFile(ctx context.Context, fn fun.Callee[string, string], inputPath, outputPath string) (errE errors.E) { //nolint:nonamedreturns
 	f, err := os.OpenFile(outputPath, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o644) //nolint:gomnd
 	if errors.Is(err, fs.ErrExist) {
 		// We skip files which already exist.
@@ -170,7 +179,7 @@ func (c *CallCommand) processFile(logger zerolog.Logger, fn fun.Callee[string, s
 		if errE != nil {
 			errE2 := os.Remove(outputPath)
 			if errE2 != nil {
-				logger.Error().Err(errE2).Msg("unable to remove output file after error")
+				zerolog.Ctx(ctx).Error().Err(errE2).Msg("unable to remove output file after error")
 			}
 		}
 	}()
@@ -180,7 +189,6 @@ func (c *CallCommand) processFile(logger zerolog.Logger, fn fun.Callee[string, s
 		return errors.WithStack(err)
 	}
 
-	ctx := logger.WithContext(context.Background())
 	output, errE := fn.Call(ctx, string(inputData))
 	if errE != nil {
 		return errE
