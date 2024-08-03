@@ -3,7 +3,7 @@ package main
 import (
 	"io"
 	"os"
-	"path"
+	"path/filepath"
 
 	"github.com/rs/zerolog"
 	"github.com/tidwall/gjson"
@@ -49,7 +49,7 @@ func (c *ExtractCommand) Run(_ zerolog.Logger) errors.E {
 		}
 		data := value.Get(c.DataField).String()
 
-		errE = writeFile(path.Join(c.OutputDir, id+c.OutputExtension), data)
+		errE = writeFile(filepath.Join(c.OutputDir, id+c.OutputExtension), data)
 		return errE == nil
 	})
 

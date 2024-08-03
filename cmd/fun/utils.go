@@ -12,8 +12,8 @@ func writeFile(path, data string) errors.E {
 		return errors.WithStack(err)
 	}
 	_, err = f.WriteString(data)
-	if err1 := f.Close(); err1 != nil && err == nil {
-		err = err1
+	if err2 := f.Close(); err2 != nil && err == nil {
+		err = err2
 	}
 	return errors.WithStack(err)
 }
