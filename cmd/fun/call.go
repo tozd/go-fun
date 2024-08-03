@@ -267,6 +267,9 @@ func (c *CallCommand) processFile(ctx context.Context, fn fun.Callee[string, str
 
 	output, errE := fn.Call(ctx, string(inputData))
 	if errE != nil {
+		if output != "" {
+			errors.Details(errE)["output"] = output
+		}
 		return errE
 	}
 
