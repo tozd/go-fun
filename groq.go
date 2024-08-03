@@ -3,6 +3,7 @@ package fun
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
@@ -195,7 +196,11 @@ func (g *GroqTextProvider) Init(ctx context.Context, messages []ChatMessage) err
 				body, _ := io.ReadAll(resp.Body)
 				resp.Body.Close()
 				resp.Body = io.NopCloser(bytes.NewReader(body))
-				zerolog.Ctx(ctx).Warn().Str("body", string(body)).Msg("hit rate limit")
+				if resp.Header.Get("Content-Type") == "application/json" && json.Valid(body) {
+					zerolog.Ctx(ctx).Warn().RawJSON("body", body).Msg("hit rate limit")
+				} else {
+					zerolog.Ctx(ctx).Warn().Str("body", string(body)).Msg("hit rate limit")
+				}
 			}
 			limitRequests, limitTokens, remainingRequests, remainingTokens, resetRequests, resetTokens, ok, errE := parseGroqRateLimitHeaders(resp)
 			if errE != nil {

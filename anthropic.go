@@ -3,6 +3,7 @@ package fun
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"io"
 	"net/http"
 	"slices"
@@ -175,7 +176,11 @@ func (a *AnthropicTextProvider) Init(_ context.Context, messages []ChatMessage) 
 				body, _ := io.ReadAll(resp.Body)
 				resp.Body.Close()
 				resp.Body = io.NopCloser(bytes.NewReader(body))
-				zerolog.Ctx(ctx).Warn().Str("body", string(body)).Msg("hit rate limit")
+				if resp.Header.Get("Content-Type") == "application/json" && json.Valid(body) {
+					zerolog.Ctx(ctx).Warn().RawJSON("body", body).Msg("hit rate limit")
+				} else {
+					zerolog.Ctx(ctx).Warn().Str("body", string(body)).Msg("hit rate limit")
+				}
 			}
 			limitRequests, limitTokens, remainingRequests, remainingTokens, resetRequests, resetTokens, ok, errE := parseAnthropicRateLimitHeaders(resp)
 			if errE != nil {
