@@ -15,12 +15,17 @@ import (
 	"github.com/rs/zerolog"
 	"gitlab.com/tozd/go/errors"
 	"gitlab.com/tozd/go/x"
+	"golang.org/x/sync/errgroup"
 
 	"gitlab.com/tozd/go/fun"
 )
 
-const defaultSeed = 42
-const progressPrintRate = 30 * time.Second
+const (
+	defaultSeed       = 42
+	progressPrintRate = 30 * time.Second
+)
+
+var errFileSkipped = errors.Base("file skipped")
 
 //nolint:lll
 type CallCommand struct {
@@ -34,6 +39,7 @@ type CallCommand struct {
 	OutputJSONSchema kong.FileContentFlag `                                            help:"Path to a file with JSON Schema to validate outputs."                                        name:"output-schema" placeholder:"PATH"`
 	Provider         string               `               enum:"ollama,groq,anthropic" help:"AI model provider. Possible: ${enum}."                                                                                               required:"" short:"p"`
 	Model            string               `                                            help:"AI model to use."                                                                                                                    required:"" short:"m"`
+	Parallel         int                  `default:"1"                                 help:"How many input files to process in parallel. Default: ${default}."                                                placeholder:"INT"`
 }
 
 func (c *CallCommand) Run(logger zerolog.Logger) errors.E {
@@ -146,50 +152,77 @@ func (c *CallCommand) Run(logger zerolog.Logger) errors.E {
 
 	count := x.Counter(0)
 	failed := x.Counter(0)
+	skipped := x.Counter(0)
 	ticker := x.NewTicker(ctx, &count, int64(len(files)), progressPrintRate)
 	defer ticker.Stop()
 	go func() {
 		for p := range ticker.C {
 			logger.Info().
-				Int64("failed", failed.Count()).Int64("count", p.Count).
+				Int64("failed", failed.Count()).Int64("skipped", skipped.Count()).Int64("count", p.Count).
 				Str("eta", p.Remaining().Truncate(time.Second).String()).
 				Send()
 		}
 	}()
 
-	for _, inputPath := range files {
-		if ctx.Err() != nil {
-			return errors.WithStack(ctx.Err())
-		}
+	filesChan := make(chan string, c.Parallel)
+	g, ctx := errgroup.WithContext(ctx)
 
-		relPath, err := filepath.Rel(c.InputDir, inputPath)
-		if err != nil {
-			return errors.WithStack(err)
-		}
-		outputPath := filepath.Join(c.OutputDir, strings.TrimSuffix(relPath, c.InputExtension)+c.OutputExtension)
-
-		l := logger.With().Str("file", relPath).Logger()
-
-		errE := c.processFile(l.WithContext(ctx), fn, inputPath, outputPath)
-		if errE != nil {
-			if errors.Is(errE, context.Canceled) || errors.Is(errE, context.DeadlineExceeded) {
-				continue
+	g.Go(func() error {
+		defer close(filesChan)
+		for _, inputPath := range files {
+			select {
+			case <-ctx.Done():
+				// Context has been canceled.
+				return errors.WithStack(ctx.Err())
+			case filesChan <- inputPath:
 			}
-			l.Warn().Err(errE).Msg("error processing file")
-			failed.Increment()
-			continue
 		}
-		count.Increment()
+		return nil
+	})
+
+	for i := 0; i < int(c.Parallel); i++ {
+		g.Go(func() error {
+			// Loop ends when filesChan is closed, which happens when context is cancelled, too.
+			for inputPath := range filesChan {
+				if ctx.Err() != nil {
+					return errors.WithStack(ctx.Err())
+				}
+
+				relPath, err := filepath.Rel(c.InputDir, inputPath)
+				if err != nil {
+					return errors.WithStack(err)
+				}
+				outputPath := filepath.Join(c.OutputDir, strings.TrimSuffix(relPath, c.InputExtension)+c.OutputExtension)
+
+				l := logger.With().Str("file", relPath).Logger()
+
+				count.Increment()
+
+				errE := c.processFile(l.WithContext(ctx), fn, inputPath, outputPath)
+				if errE != nil {
+					if errors.Is(errE, context.Canceled) || errors.Is(errE, context.DeadlineExceeded) {
+						continue
+					}
+					if errors.Is(errE, errFileSkipped) {
+						skipped.Increment()
+						continue
+					}
+					l.Warn().Err(errE).Msg("error processing file")
+					failed.Increment()
+				}
+			}
+			return nil
+		})
 	}
 
-	return nil
+	return errors.WithStack(g.Wait())
 }
 
 func (c *CallCommand) processFile(ctx context.Context, fn fun.Callee[string, string], inputPath, outputPath string) (errE errors.E) { //nolint:nonamedreturns
 	f, err := os.OpenFile(outputPath, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o644) //nolint:gomnd
 	if errors.Is(err, fs.ErrExist) {
 		// We skip files which already exist.
-		return nil
+		return errors.WrapWith(err, errFileSkipped)
 	} else if err != nil {
 		return errors.WithStack(err)
 	}

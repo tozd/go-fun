@@ -12,6 +12,7 @@ require (
 	github.com/tidwall/gjson v1.17.3
 	gitlab.com/tozd/go/errors v0.8.1
 	gitlab.com/tozd/go/zerolog v0.6.0
+	golang.org/x/sync v0.5.0
 )
 
 require (
