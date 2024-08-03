@@ -72,7 +72,14 @@ test_e2e:
   script:
     - go run ./cmd/fun extract --input testdata/exercises.json --output data --out=.txt 'exercises.#.{id:serial,data:text}'
     - go run ./cmd/fun call --input data --output results --provider "$PROVIDER" --model "$MODEL" --in .txt --out .txt --prompt testdata/prompt.txt --output-schema testdata/number-schema.json
-    - diff -aur --color=always testdata/expected/ results/
+    - diff -aur --color=always "testdata/expected-$MODEL/" results/
+
+  artifacts:
+    when: always
+    paths:
+      - data
+      - results
+    expire_in: never
 
   parallel:
     matrix:
