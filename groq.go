@@ -76,7 +76,7 @@ type groqResponse struct {
 	Error *struct {
 		Message string `json:"message"`
 		Type    string `json:"type"`
-		Code    string `json:"code"`
+		Code    string `json:"code,omitempty"`
 	} `json:"error,omitempty"`
 }
 
@@ -269,7 +269,7 @@ func (g *GroqTextProvider) Init(ctx context.Context, messages []ChatMessage) err
 	}
 
 	if model.Error != nil {
-		errE := errors.WithDetails(ErrAPIResponseError, "error", model.Error)
+		errE = errors.WithDetails(ErrAPIResponseError, "body", model.Error)
 		if requestID != "" {
 			errors.Details(errE)["apiRequest"] = requestID
 		}
@@ -358,7 +358,7 @@ func (g *GroqTextProvider) Chat(ctx context.Context, message ChatMessage) (strin
 	}
 
 	if response.Error != nil {
-		errE = errors.WithDetails(ErrAPIResponseError, "error", response.Error)
+		errE = errors.WithDetails(ErrAPIResponseError, "body", response.Error)
 		if requestID != "" {
 			errors.Details(errE)["apiRequest"] = requestID
 		}

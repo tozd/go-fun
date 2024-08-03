@@ -26,7 +26,7 @@ func getStatusError(err error) errors.E {
 			ErrAPIRequestFailed,
 			"code", statusError.StatusCode,
 			"status", statusError.Status,
-			"message", statusError.ErrorMessage,
+			"errorMessage", statusError.ErrorMessage,
 		)
 	}
 	return errors.WrapWith(err, ErrAPIRequestFailed)

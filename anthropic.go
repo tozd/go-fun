@@ -280,7 +280,7 @@ func (a *AnthropicTextProvider) Chat(ctx context.Context, message ChatMessage) (
 	}
 
 	if response.Error != nil {
-		errE = errors.WithDetails(ErrAPIResponseError, "error", response.Error)
+		errE = errors.WithDetails(ErrAPIResponseError, "payload", response.Error)
 		if requestID != "" {
 			errors.Details(errE)["apiRequest"] = requestID
 		}
