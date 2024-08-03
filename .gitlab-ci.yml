@@ -66,7 +66,7 @@ test_e2e:
     OLLAMA_HOST: http://ollama:11434
 
   before_script:
-    - apk --update add make bash gcc musl-dev
+    - apk --update add make bash gcc musl-dev diffutils
     - go version
 
   script:
