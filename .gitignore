@@ -1,6 +1,7 @@
 tests.xml
 coverage.*
 codeclimate.json
+/fun
 /keys.txt
 /data/
 /results/

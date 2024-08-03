@@ -1,12 +1,24 @@
 SHELL = /bin/bash -o pipefail
 
+# We use ifeq instead of ?= so that we set variables
+# also when they are defined, but empty.
+ifeq ($(VERSION),)
+ VERSION = `git describe --tags --always --dirty=+`
+endif
+ifeq ($(BUILD_TIMESTAMP),)
+ BUILD_TIMESTAMP = `date -u +%FT%TZ`
+endif
+ifeq ($(REVISION),)
+ REVISION = `git rev-parse HEAD`
+endif
+
 .PHONY: build build-static test test-ci lint lint-ci fmt fmt-ci clean release lint-docs audit encrypt decrypt sops
 
 build:
-	go build -trimpath -ldflags "-s -w" -o fun gitlab.com/tozd/go/fun/cmd/fun
+	go build -trimpath -ldflags "-s -w -X gitlab.com/tozd/go/cli.Version=${VERSION} -X gitlab.com/tozd/go/cli.BuildTimestamp=${BUILD_TIMESTAMP} -X gitlab.com/tozd/go/cli.Revision=${REVISION}" -o fun gitlab.com/tozd/go/fun/cmd/fun
 
 build-static:
-	go build -trimpath -ldflags "-s -w -linkmode external -extldflags '-static'" -o fun gitlab.com/tozd/go/fun/cmd/fun
+	go build -trimpath -ldflags "-s -w -linkmode external -extldflags '-static' -X gitlab.com/tozd/go/cli.Version=${VERSION} -X gitlab.com/tozd/go/cli.BuildTimestamp=${BUILD_TIMESTAMP} -X gitlab.com/tozd/go/cli.Revision=${REVISION}" -o fun gitlab.com/tozd/go/fun/cmd/fun
 
 test:
 	gotestsum --format pkgname --packages ./... -- -race -timeout 10m -cover -covermode atomic

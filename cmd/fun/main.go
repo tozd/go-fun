@@ -10,6 +10,8 @@ import (
 type App struct {
 	zerolog.LoggingConfig
 
+	Version kong.VersionFlag `help:"Show program's version and exit." short:"V" yaml:"-"`
+
 	Extract ExtractCommand `cmd:"" help:"Extract data from JSON into files."`
 	Call    CallCommand    `cmd:"" help:"Call function on files defined with data and/or natural language description."`
 }

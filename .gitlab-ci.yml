@@ -194,6 +194,7 @@ docker:
         --target production
         --tag "$DOCKER_PIPELINE_IMAGE_NAME"
         --tag "$CI_REGISTRY_IMAGE/commit:$CI_COMMIT_SHA"
+        --build-arg BUILD_TIMESTAMP
         --label "org.opencontainers.image.version=$VERSION"
         --label "org.opencontainers.image.created=$BUILD_TIMESTAMP"
         --label "org.opencontainers.image.revision=$CI_COMMIT_SHA"
@@ -202,6 +203,7 @@ docker:
         --target debug
         --tag "$DOCKER_PIPELINE_IMAGE_NAME-debug"
         --tag "$CI_REGISTRY_IMAGE/commit:$CI_COMMIT_SHA-debug"
+        --build-arg BUILD_TIMESTAMP
         --label "org.opencontainers.image.version=$VERSION"
         --label "org.opencontainers.image.created=$BUILD_TIMESTAMP"
         --label "org.opencontainers.image.revision=$CI_COMMIT_SHA"

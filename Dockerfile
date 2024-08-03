@@ -7,8 +7,11 @@ RUN apk --update add make bash git gcc musl-dev tzdata && \
   adduser -D -H -g "" -s /sbin/nologin -u 1000 user
 COPY . /go/src/fun
 WORKDIR /go/src/fun
+# We want Docker image for build timestamp label to match the one in
+# the binary so we take a timestamp once outside and pass it in.
+ARG BUILD_TIMESTAMP
 RUN \
-  make build-static && \
+  BUILD_TIMESTAMP=$BUILD_TIMESTAMP make build-static && \
   mv fun /go/bin/fun
 
 FROM alpine:3.18 AS debug
