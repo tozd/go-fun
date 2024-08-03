@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Added `fun` CLI tool.
 - Logging using [zerolog](https://github.com/rs/zerolog).
 
 ## [0.1.0] - 2024-07-31
