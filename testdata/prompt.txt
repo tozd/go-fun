@@ -1,0 +1,1 @@
+Solve the exercise. Output only the number.

@@ -110,7 +110,7 @@ See [releases page](https://gitlab.com/tozd/go/fun/-/releases) for a Docker imag
 
 #### Example
 
-If you have a large JSON file with the following structure:
+If you have a [large JSON file](./testdata/exercises.json) with the following structure:
 
 ```yaml
 {
