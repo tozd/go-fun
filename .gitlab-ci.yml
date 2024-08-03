@@ -72,7 +72,7 @@ test_e2e:
   script:
     - go run ./cmd/fun extract --input testdata/exercises.json --output data --out=.txt 'exercises.#.{id:serial,data:text}'
     - go run ./cmd/fun call --input data --output results --provider "$PROVIDER" --model "$MODEL" --in .txt --out .txt --prompt testdata/prompt.txt
-    - diff -Naur --color testdata/expected/ results/
+    - diff -Naur --color=always testdata/expected/ results/
 
   parallel:
     matrix:
