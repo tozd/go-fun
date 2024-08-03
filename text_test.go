@@ -14,6 +14,8 @@ import (
 	"gitlab.com/tozd/go/fun"
 )
 
+var jsonSchemaString = []byte(`{"type": "string"}`)
+
 type OutputStruct struct {
 	Key      string         `json:"key"`
 	Value    int            `json:"value"`
@@ -178,8 +180,8 @@ func TestText(t *testing.T) { //nolint:paralleltest,tparallel
 
 					f := fun.Text[string, string]{
 						Provider:         provider.Provider(t),
-						InputJSONSchema:  nil,
-						OutputJSONSchema: nil,
+						InputJSONSchema:  jsonSchemaString,
+						OutputJSONSchema: jsonSchemaString,
 						Prompt:           tt.Prompt,
 						Data:             tt.Data,
 					}
@@ -303,7 +305,7 @@ func TestTextStruct(t *testing.T) { //nolint:paralleltest,tparallel
 
 					f := fun.Text[string, OutputStruct]{
 						Provider:         provider.Provider(t),
-						InputJSONSchema:  nil,
+						InputJSONSchema:  jsonSchemaString,
 						OutputJSONSchema: nil,
 						Prompt:           tt.Prompt,
 						Data:             data,
