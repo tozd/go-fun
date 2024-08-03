@@ -59,31 +59,31 @@ See full package documentation with examples on [pkg.go.dev](https://pkg.go.dev/
 
 `fun` tool calls a function on files. You can provide:
 
-* Examples of inputs and expected outputs as files (as pairs of files with same basename
+- Examples of inputs and expected outputs as files (as pairs of files with same basename
   but different file extensions).
-* Natural language description of the function, a prompt.
-* Input files on which to run the function.
-* Files with input and output JSON Schemas to validate inputs and outputs, respectively.
+- Natural language description of the function, a prompt.
+- Input files on which to run the function.
+- Files with input and output JSON Schemas to validate inputs and outputs, respectively.
 
 You have to provide example inputs and outputs or a prompt, and you can provide both.
 
 `fun` has two sub-commands:
 
-* `extract` supports extracting parts of one JSON into multiple files using
+- `extract` supports extracting parts of one JSON into multiple files using
   [GJSON query](https://github.com/tidwall/gjson/blob/master/SYNTAX.md).
   Because `fun` calls the function on files this is useful to preprocess a large JSON
   file to create files to then call the function on.
-  * The query should return an array of objects with ID and data fields
+  - The query should return an array of objects with ID and data fields
     (by default named `id` and `data`).
-* `call` then calls the function on files in the input directory and writes results
+- `call` then calls the function on files in the input directory and writes results
   into files in the output directory.
-  * Corresponding output files will have the same
+  - Corresponding output files will have the same
     basename as input files but with the output file extension (configurable) so it is
     safe to use the same directory both for input and output files.
-  * `fun` calls the function only for files which do not yet exist in the output directory
+  - `fun` calls the function only for files which do not yet exist in the output directory
     so it is safe to run `fun` multiple times if previous run of `fun` had issues or was
     interrupted.
-  * `fun` supports splitting input files into batches so one run of `fun` can operate
+  - `fun` supports splitting input files into batches so one run of `fun` can operate
     only on a particular batch. Useful if you want to distribute execution across multiple
     machines.
 
