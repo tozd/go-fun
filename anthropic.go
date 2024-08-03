@@ -30,9 +30,9 @@ func retryErrorHandler(resp *http.Response, err error, numTries int) (*http.Resp
 	}
 	var errE errors.E
 	if err != nil {
-		errE = errors.WrapWith(err, ErrRetryGiveUp)
+		errE = errors.WrapWith(err, ErrGaveUpRetry)
 	} else {
-		errE = errors.WithStack(ErrRetryGiveUp)
+		errE = errors.WithStack(ErrGaveUpRetry)
 	}
 	errors.Details(errE)["attempts"] = numTries
 	if body != nil {

@@ -5,7 +5,7 @@ import "gitlab.com/tozd/go/errors"
 var (
 	ErrAlreadyInitialized         = errors.Base("already initialized")
 	ErrMultipleSystemMessages     = errors.Base("multiple system messages")
-	ErrRetryGiveUp                = errors.Base("giving up retrying")
+	ErrGaveUpRetry                = errors.Base("gave up retrying")
 	ErrAPIRequestFailed           = errors.Base("API request failed")
 	ErrAPIResponseError           = errors.Base("API response error")
 	ErrModelNotActive             = errors.Base("model not active")
