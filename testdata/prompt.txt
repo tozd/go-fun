@@ -1,1 +1,1 @@
-Solve the exercise. Output only the number.
+You MUST output only final number, nothing more.

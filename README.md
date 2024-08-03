@@ -136,7 +136,7 @@ To solve all exercises, you can then run:
 
 ```sh
 export ANTHROPIC_API_KEY='...'
-echo "Solve the exercise. Output only the number." > prompt.txt
+echo "You MUST output only final number, nothing more." > prompt.txt
 fun call --input data --output results --provider anthropic --model claude-3-haiku-20240307 --in .txt --out .txt --prompt prompt.txt
 ```
 
