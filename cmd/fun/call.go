@@ -9,15 +9,18 @@ import (
 	"slices"
 	"strings"
 	"syscall"
+	"time"
 
 	"github.com/alecthomas/kong"
 	"github.com/rs/zerolog"
 	"gitlab.com/tozd/go/errors"
+	"gitlab.com/tozd/go/x"
 
 	"gitlab.com/tozd/go/fun"
 )
 
 const defaultSeed = 42
+const progressPrintRate = 30 * time.Second
 
 //nolint:lll
 type CallCommand struct {
@@ -141,6 +144,19 @@ func (c *CallCommand) Run(logger zerolog.Logger) errors.E {
 		return errors.WithStack(err)
 	}
 
+	count := x.Counter(0)
+	failed := x.Counter(0)
+	ticker := x.NewTicker(ctx, &count, int64(len(files)), progressPrintRate)
+	defer ticker.Stop()
+	go func() {
+		for p := range ticker.C {
+			logger.Info().
+				Int64("failed", failed.Count()).Int64("count", p.Count).
+				Str("eta", p.Remaining().Truncate(time.Second).String()).
+				Send()
+		}
+	}()
+
 	for _, inputPath := range files {
 		if ctx.Err() != nil {
 			return errors.WithStack(ctx.Err())
@@ -155,9 +171,15 @@ func (c *CallCommand) Run(logger zerolog.Logger) errors.E {
 		l := logger.With().Str("file", relPath).Logger()
 
 		errE := c.processFile(l.WithContext(ctx), fn, inputPath, outputPath)
-		if errE != nil && !errors.Is(errE, context.Canceled) && !errors.Is(errE, context.DeadlineExceeded) {
+		if errE != nil {
+			if errors.Is(errE, context.Canceled) || errors.Is(errE, context.DeadlineExceeded) {
+				continue
+			}
 			l.Warn().Err(errE).Msg("error processing file")
+			failed.Increment()
+			continue
 		}
+		count.Increment()
 	}
 
 	return nil
