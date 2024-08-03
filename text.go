@@ -3,6 +3,8 @@ package fun
 import (
 	"bytes"
 	"context"
+	"encoding/json"
+	"slices"
 
 	jsonschemaGen "github.com/invopop/jsonschema"
 	"github.com/rs/zerolog"
@@ -24,23 +26,13 @@ const (
 
 func compileValidator[T any](jsonSchema []byte) (*jsonschema.Schema, errors.E) {
 	if jsonSchema == nil {
-		// TODO: Use type assertion on type parameter.
-		//       See: https://github.com/golang/go/issues/45380
-		//       See: https://github.com/golang/go/issues/49206
-		dummy := new(T)
-		switch any(*dummy).(type) {
-		case string:
-			// Nothing. One can provide InputJSONSchema if they want to validate input strings.
-			return nil, nil
-		default:
-			// We construct JSON Schema from Go struct.
-			schema := jsonschemaGen.Reflect(dummy)
-			js, errE := x.MarshalWithoutEscapeHTML(schema)
-			if errE != nil {
-				return nil, errE
-			}
-			jsonSchema = js
+		// We construct JSON Schema from Go value.
+		schema := jsonschemaGen.Reflect(new(T))
+		js, errE := x.MarshalWithoutEscapeHTML(schema)
+		if errE != nil {
+			return nil, errE
 		}
+		jsonSchema = js
 	}
 
 	schema, err := jsonschema.UnmarshalJSON(bytes.NewReader(jsonSchema))
@@ -67,9 +59,20 @@ func validate(validator *jsonschema.Schema, value any) errors.E {
 		return nil
 	}
 
-	data, errE := x.MarshalWithoutEscapeHTML(value)
-	if errE != nil {
-		return errE
+	var data []byte
+	var errE errors.E
+	// If type is a string, we want to support when string is a valid JSON that one can validate it as-is. At the same time we want to support using
+	// JSON Schema to validate strings themselves (in which case we first have to marshal the string into JSON string with quotes). The issue with this
+	// approach is if a) value is of string type b) user has a JSON Schema expecting non-string to validate JSON as string c) string is expected to be
+	// JSON to validate, but d) input is not valid JSON. In that case instead of failing at UnmarshalJSON call below, we will marshal it into the JSON
+	// string and then probably JSON Schema will fail to validate it. Hopefully we are not too smart here and this heuristic will work out well in practice.
+	if v, ok := value.(string); ok && !slices.Equal(validator.Types.ToStrings(), []string{"string"}) && json.Valid([]byte(v)) {
+		data = []byte(v)
+	} else {
+		data, errE = x.MarshalWithoutEscapeHTML(value)
+		if errE != nil {
+			return errE
+		}
 	}
 	v, err := jsonschema.UnmarshalJSON(bytes.NewReader(data))
 	if err != nil {
@@ -133,13 +136,11 @@ type Text[Input, Output any] struct {
 	Provider TextProvider
 
 	// InputJSONSchema is a JSON Schema to validate inputs against.
-	// If not provided and Input type is a not a string,
-	// it is automatically generated from the Input type.
+	// If not provided it is automatically generated from the Input type.
 	InputJSONSchema []byte
 
-	// OutputJSONSchema is a JSON Scchema to validate outputs against.
-	// If not provided and Output type is a not a string,
-	// it is automatically generated from the Output type.
+	// OutputJSONSchema is a JSON Schema to validate outputs against.
+	// If not provided it is automatically generated from the Output type.
 	OutputJSONSchema []byte
 
 	// Prompt is a natural language description of the logic.
