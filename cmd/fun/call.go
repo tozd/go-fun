@@ -150,6 +150,10 @@ func (c *CallCommand) Run(logger zerolog.Logger) errors.E {
 		return errors.WithStack(err)
 	}
 
+	logger.Info().Int("inputs", len(files)).Str("model", c.Model).
+		Str("provider", c.Provider).Int("parallel", c.Parallel).
+		Msg("running")
+
 	count := x.Counter(0)
 	failed := x.Counter(0)
 	skipped := x.Counter(0)
