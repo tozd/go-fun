@@ -180,7 +180,7 @@ func (c *CallCommand) Run(logger zerolog.Logger) errors.E {
 		return nil
 	})
 
-	for i := 0; i < int(c.Parallel); i++ {
+	for i := 0; i < c.Parallel; i++ {
 		g.Go(func() error {
 			// Loop ends when filesChan is closed, which happens when context is cancelled, too.
 			for inputPath := range filesChan {
