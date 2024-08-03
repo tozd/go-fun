@@ -206,7 +206,7 @@ func (o *OllamaTextProvider) Chat(ctx context.Context, message ChatMessage) (str
 	duration.Dur("prompt", responses[0].Metrics.PromptEvalDuration)
 	duration.Dur("response", responses[0].Metrics.EvalDuration)
 	duration.Dur("total", responses[0].Metrics.TotalDuration)
-	zerolog.Ctx(ctx).Info().Dict("duration", duration).Str("model", o.Model.Model).Dict("tokens", tokens).Msg("usage")
+	zerolog.Ctx(ctx).Debug().Dict("duration", duration).Str("model", o.Model.Model).Dict("tokens", tokens).Msg("usage")
 
 	return responses[0].Message.Content, nil
 }

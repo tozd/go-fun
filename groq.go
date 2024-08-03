@@ -398,7 +398,7 @@ func (g *GroqTextProvider) Chat(ctx context.Context, message ChatMessage) (strin
 	duration.Dur("prompt", time.Duration(response.Usage.PromptTime*float64(time.Second)))
 	duration.Dur("response", time.Duration(response.Usage.CompletionTime*float64(time.Second)))
 	duration.Dur("total", time.Duration(response.Usage.TotalTime*float64(time.Second)))
-	e := zerolog.Ctx(ctx).Info().Dict("duration", duration).Str("model", g.Model).Dict("tokens", tokens)
+	e := zerolog.Ctx(ctx).Debug().Dict("duration", duration).Str("model", g.Model).Dict("tokens", tokens)
 	if requestID != "" {
 		e = e.Str("apiRequest", requestID)
 	}

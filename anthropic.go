@@ -330,7 +330,7 @@ func (a *AnthropicTextProvider) Chat(ctx context.Context, message ChatMessage) (
 	tokens.Int("prompt", response.Usage.InputTokens)
 	tokens.Int("response", response.Usage.OutputTokens)
 	tokens.Int("total", response.Usage.InputTokens+response.Usage.OutputTokens)
-	e := zerolog.Ctx(ctx).Info().Str("model", a.Model).Dict("tokens", tokens)
+	e := zerolog.Ctx(ctx).Debug().Str("model", a.Model).Dict("tokens", tokens)
 	if requestID != "" {
 		e = e.Str("apiRequest", requestID)
 	}
