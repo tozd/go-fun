@@ -132,12 +132,12 @@ type Text[Input, Output any] struct {
 	// Provider is a text-based AI model.
 	Provider TextProvider
 
-	// InputJSONSchema is a JSON schema to validate inputs against.
+	// InputJSONSchema is a JSON Schema to validate inputs against.
 	// If not provided and Input type is a not a string,
 	// it is automatically generated from the Input type.
 	InputJSONSchema []byte
 
-	// OutputJSONSchema is a JSON schema to validate outputs against.
+	// OutputJSONSchema is a JSON Scchema to validate outputs against.
 	// If not provided and Output type is a not a string,
 	// it is automatically generated from the Output type.
 	OutputJSONSchema []byte
