@@ -174,12 +174,13 @@ func (c *CallCommand) Run(logger zerolog.Logger) errors.E { //nolint:maintidx
 	count := x.Counter(0)
 	failed := x.Counter(0)
 	skipped := x.Counter(0)
+	done := x.Counter(0)
 	ticker := x.NewTicker(ctx, &count, int64(len(files)), progressPrintRate)
 	defer ticker.Stop()
 	go func() {
 		for p := range ticker.C {
 			logger.Info().
-				Int64("failed", failed.Count()).Int64("skipped", skipped.Count()).Int64("count", p.Count).
+				Int64("failed", failed.Count()).Int64("skipped", skipped.Count()).Int64("done", done.Count()).Int64("count", p.Count).
 				Str("eta", p.Remaining().Truncate(time.Second).String()).
 				Send()
 		}
@@ -222,7 +223,7 @@ func (c *CallCommand) Run(logger zerolog.Logger) errors.E { //nolint:maintidx
 				errE := c.processFile(l.WithContext(ctx), fn, inputPath, outputPath)
 				if errE != nil {
 					if errors.Is(errE, context.Canceled) || errors.Is(errE, context.DeadlineExceeded) {
-						continue
+						return errE
 					}
 					if errors.Is(errE, errFileSkipped) {
 						skipped.Increment()
@@ -230,7 +231,9 @@ func (c *CallCommand) Run(logger zerolog.Logger) errors.E { //nolint:maintidx
 					}
 					l.Warn().Err(errE).Msg("error processing file")
 					failed.Increment()
+					continue
 				}
+				done.Increment()
 			}
 			return nil
 		})
