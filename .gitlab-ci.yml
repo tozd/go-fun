@@ -331,8 +331,7 @@ sync_releases:
     entrypoint: [""]
 
   script:
-    # On branch jobs, just update or remove releases, thus releases are created only on tag jobs.
-    - /gitlab-release ${CI_COMMIT_BRANCH:+--no-create}
+    - /gitlab-release
 
   rules:
     # Protected tags start with "v".
