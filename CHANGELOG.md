@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.0] - 2024-08-04
+
 ### Added
 
 - Added `fun` CLI tool.
@@ -18,7 +20,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - First public release.
 
-[unreleased]: https://gitlab.com/tozd/go/fun/-/compare/v0.1.0...main
+[unreleased]: https://gitlab.com/tozd/go/fun/-/compare/v0.2.0...main
+[0.2.0]: https://gitlab.com/tozd/go/fun/-/compare/v0.1.0...v0.2.0
 [0.1.0]: https://gitlab.com/tozd/go/fun/-/tags/v0.1.0
 
 <!-- markdownlint-disable-file MD024 -->
