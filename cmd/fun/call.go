@@ -241,7 +241,9 @@ func (c *CallCommand) Run(logger zerolog.Logger) errors.E { //nolint:maintidx
 		})
 	}
 
-	return errors.WithStack(g.Wait())
+	errE = errors.WithStack(g.Wait())
+	logger.Info().Int64("failed", failed.Count()).Int64("skipped", skipped.Count()).Int64("done", done.Count()).Int64("count", count.Count()).Msg("done")
+	return errE
 }
 
 func (c *CallCommand) processFile(ctx context.Context, fn fun.Callee[string, string], inputPath, outputPath string) (errE errors.E) { //nolint:nonamedreturns
