@@ -158,7 +158,7 @@ func (c *CallCommand) Run(logger zerolog.Logger) errors.E { //nolint:maintidx
 	batch := files
 	if c.Batches > 1 {
 		if c.Batch < 0 || c.Batch >= c.Batches {
-			errE := errors.New("invalid batch index")
+			errE = errors.New("invalid batch index")
 			errors.Details(errE)["batch"] = c.Batch
 			errors.Details(errE)["batches"] = c.Batches
 			return errE
@@ -222,7 +222,7 @@ func (c *CallCommand) Run(logger zerolog.Logger) errors.E { //nolint:maintidx
 
 				count.Increment()
 
-				errE := c.processFile(l.WithContext(ctx), fn, inputPath, outputPath)
+				errE := c.processFile(l.WithContext(ctx), fn, inputPath, outputPath) //nolint:govet
 				if errE != nil {
 					if errors.Is(errE, context.Canceled) || errors.Is(errE, context.DeadlineExceeded) {
 						return errE
