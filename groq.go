@@ -289,13 +289,13 @@ func (g *GroqTextProvider) Init(ctx context.Context, messages []ChatMessage) err
 	}
 
 	if g.MaxContextLength == 0 {
-		g.MaxContextLength = model.ContextWindow
+		g.MaxContextLength = g.maxContextLength(model)
 	}
-	if g.MaxContextLength > model.ContextWindow {
+	if g.MaxContextLength > g.maxContextLength(model) {
 		errE := errors.WithDetails(
 			ErrMaxContextLengthOverModel,
 			"maxTotal", g.MaxContextLength,
-			"model", model.ContextWindow,
+			"model", g.maxContextLength(model),
 		)
 		if requestID != "" {
 			errors.Details(errE)["apiRequest"] = requestID
@@ -432,6 +432,14 @@ func (g *GroqTextProvider) Chat(ctx context.Context, message ChatMessage) (strin
 	return response.Choices[0].Message.Content, nil
 }
 
+func (g *GroqTextProvider) maxContextLength(model groqModel) int {
+	// llama3-70b-8192 has only 6000 tokens per minute limit so a larger context length cannot be used.
+	if model.ID == "llama3-70b-8192" {
+		return 6000 //nolint:gomnd
+	}
+	return model.ContextWindow
+}
+
 func (g *GroqTextProvider) maxResponseTokens(model groqModel) int {
 	// "During preview launch, we are limiting all 3.1 models to max_tokens of 8k and 405b to 16k input tokens."
 	// See: https://console.groq.com/docs/models
@@ -440,5 +448,5 @@ func (g *GroqTextProvider) maxResponseTokens(model groqModel) int {
 	} else if strings.Contains(model.ID, "llama-3.1") {
 		return 8000 //nolint:gomnd
 	}
-	return model.ContextWindow
+	return g.maxContextLength(model)
 }
