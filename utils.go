@@ -1,11 +1,15 @@
 package fun
 
 import (
+	"bytes"
+	"context"
 	"encoding/json"
 	"io"
 	"net/http"
 	"time"
 
+	"github.com/hashicorp/go-retryablehttp"
+	"github.com/rs/zerolog"
 	"gitlab.com/tozd/go/errors"
 )
 
@@ -37,4 +41,47 @@ func retryErrorHandler(resp *http.Response, err error, numTries int) (*http.Resp
 		}
 	}
 	return resp, errE
+}
+
+func newClient(
+	prepareRetry retryablehttp.PrepareRetry,
+	parseRateLimitHeaders func(resp *http.Response) (int, int, int, int, time.Time, time.Time, bool, errors.E),
+	setRateLimit func(int, int, int, int, time.Time, time.Time),
+) *http.Client {
+	client := retryablehttp.NewClient()
+	// TODO: Configure logger which should log to a logger in ctx.
+	//       See: https://github.com/hashicorp/go-retryablehttp/issues/182
+	//       See: https://gitlab.com/tozd/go/fun/-/issues/1
+	client.Logger = nil
+	client.RetryWaitMin = retryWaitMin
+	client.RetryWaitMax = retryWaitMax
+	client.PrepareRetry = prepareRetry
+	client.CheckRetry = func(ctx context.Context, resp *http.Response, err error) (bool, error) {
+		if err != nil {
+			check, err := retryablehttp.ErrorPropagatedRetryPolicy(ctx, resp, err) //nolint:govet
+			return check, errors.WithStack(err)
+		}
+		if resp.StatusCode == http.StatusTooManyRequests {
+			// We read the body and provide it back.
+			body, _ := io.ReadAll(resp.Body)
+			resp.Body.Close()
+			resp.Body = io.NopCloser(bytes.NewReader(body))
+			if resp.Header.Get("Content-Type") == applicationJSONHeader && json.Valid(body) {
+				zerolog.Ctx(ctx).Warn().RawJSON("body", body).Msg("hit rate limit")
+			} else {
+				zerolog.Ctx(ctx).Warn().Str("body", string(body)).Msg("hit rate limit")
+			}
+		}
+		limitRequests, limitTokens, remainingRequests, remainingTokens, resetRequests, resetTokens, ok, errE := parseRateLimitHeaders(resp)
+		if errE != nil {
+			return false, errE
+		}
+		if ok {
+			setRateLimit(limitRequests, limitTokens, remainingRequests, remainingTokens, resetRequests, resetTokens)
+		}
+		check, err := retryablehttp.ErrorPropagatedRetryPolicy(ctx, resp, err)
+		return check, errors.WithStack(err)
+	}
+	client.ErrorHandler = retryErrorHandler
+	return client.StandardClient()
 }

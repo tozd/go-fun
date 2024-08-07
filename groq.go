@@ -3,7 +3,6 @@ package fun
 import (
 	"bytes"
 	"context"
-	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
@@ -13,7 +12,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/hashicorp/go-retryablehttp"
 	"github.com/rs/zerolog"
 	"gitlab.com/tozd/go/errors"
 	"gitlab.com/tozd/go/x"
@@ -171,45 +169,20 @@ func (g *GroqTextProvider) Init(ctx context.Context, messages []ChatMessage) err
 	g.messages = messages
 
 	if g.Client == nil {
-		client := retryablehttp.NewClient()
-		// TODO: Configure logger which should log to a logger in ctx.
-		//       See: https://github.com/hashicorp/go-retryablehttp/issues/182
-		//       See: https://gitlab.com/tozd/go/fun/-/issues/1
-		client.Logger = nil
-		client.RetryWaitMin = retryWaitMin
-		client.RetryWaitMax = retryWaitMax
-		client.PrepareRetry = func(req *http.Request) error {
-			if req.URL.Path == "/openai/v1/chat/completions" {
-				// Rate limit retries.
-				return groqRateLimiter.Take(req.Context(), g.APIKey, map[string]int{
-					"rpm": 1,
-					"rpd": 1,
-					"tpm": g.MaxContextLength, // TODO: Can we provide a better estimate?
-				})
-			}
-			return nil
-		}
-		client.CheckRetry = func(ctx context.Context, resp *http.Response, err error) (bool, error) {
-			if err != nil {
-				check, err := retryablehttp.ErrorPropagatedRetryPolicy(ctx, resp, err) //nolint:govet
-				return check, errors.WithStack(err)
-			}
-			if resp.StatusCode == http.StatusTooManyRequests {
-				// We read the body and provide it back.
-				body, _ := io.ReadAll(resp.Body)
-				resp.Body.Close()
-				resp.Body = io.NopCloser(bytes.NewReader(body))
-				if resp.Header.Get("Content-Type") == applicationJSONHeader && json.Valid(body) {
-					zerolog.Ctx(ctx).Warn().RawJSON("body", body).Msg("hit rate limit")
-				} else {
-					zerolog.Ctx(ctx).Warn().Str("body", string(body)).Msg("hit rate limit")
+		g.Client = newClient(
+			func(req *http.Request) error {
+				if req.URL.Path == "/openai/v1/chat/completions" {
+					// Rate limit retries.
+					return groqRateLimiter.Take(req.Context(), g.APIKey, map[string]int{
+						"rpm": 1,
+						"rpd": 1,
+						"tpm": g.MaxContextLength, // TODO: Can we provide a better estimate?
+					})
 				}
-			}
-			limitRequests, limitTokens, remainingRequests, remainingTokens, resetRequests, resetTokens, ok, errE := parseGroqRateLimitHeaders(resp)
-			if errE != nil {
-				return false, errE
-			}
-			if ok {
+				return nil
+			},
+			parseGroqRateLimitHeaders,
+			func(limitRequests, limitTokens, remainingRequests, remainingTokens int, resetRequests, resetTokens time.Time) {
 				groqRateLimiter.Set(g.APIKey, map[string]any{
 					"rpm": tokenBucketRateLimit{
 						// TODO: Correctly implement this rate limit.
@@ -234,12 +207,8 @@ func (g *GroqTextProvider) Init(ctx context.Context, messages []ChatMessage) err
 						Resets:    resetTokens,
 					},
 				})
-			}
-			check, err := retryablehttp.ErrorPropagatedRetryPolicy(ctx, resp, err)
-			return check, errors.WithStack(err)
-		}
-		client.ErrorHandler = retryErrorHandler
-		g.Client = client.StandardClient()
+			},
+		)
 	}
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, fmt.Sprintf("https://api.groq.com/openai/v1/models/%s", g.Model), nil)

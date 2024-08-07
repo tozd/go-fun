@@ -3,7 +3,6 @@ package fun
 import (
 	"bytes"
 	"context"
-	"encoding/json"
 	"io"
 	"net/http"
 	"slices"
@@ -11,7 +10,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/hashicorp/go-retryablehttp"
 	"github.com/rs/zerolog"
 	"gitlab.com/tozd/go/errors"
 	"gitlab.com/tozd/go/x"
@@ -20,7 +18,7 @@ import (
 // Max output tokens for current set of models.
 const anthropicMaxResponseTokens = 4096
 
-var anthropicRateLimiter = keyedRateLimiter{ //nolint:gochecknoglobals
+var anthropicRateLimiter = &keyedRateLimiter{ //nolint:gochecknoglobals
 	mu:       sync.RWMutex{},
 	limiters: map[string]map[string]any{},
 }
@@ -146,43 +144,18 @@ func (a *AnthropicTextProvider) Init(_ context.Context, messages []ChatMessage) 
 	a.messages = assistantOnlyMessages
 
 	if a.Client == nil {
-		client := retryablehttp.NewClient()
-		// TODO: Configure logger which should log to a logger in ctx.
-		//       See: https://github.com/hashicorp/go-retryablehttp/issues/182
-		//       See: https://gitlab.com/tozd/go/fun/-/issues/1
-		client.Logger = nil
-		client.RetryWaitMin = retryWaitMin
-		client.RetryWaitMax = retryWaitMax
-		client.PrepareRetry = func(req *http.Request) error {
-			estimatedTokens := a.estimatedTokens()
-			// Rate limit retries.
-			return anthropicRateLimiter.Take(req.Context(), a.APIKey, map[string]int{
-				"rpm": 1,
-				"tpd": estimatedTokens,
-				"tpm": estimatedTokens,
-			})
-		}
-		client.CheckRetry = func(ctx context.Context, resp *http.Response, err error) (bool, error) {
-			if err != nil {
-				check, err := retryablehttp.ErrorPropagatedRetryPolicy(ctx, resp, err) //nolint:govet
-				return check, errors.WithStack(err)
-			}
-			// We read the body and provide it back.
-			if resp.StatusCode == http.StatusTooManyRequests {
-				body, _ := io.ReadAll(resp.Body)
-				resp.Body.Close()
-				resp.Body = io.NopCloser(bytes.NewReader(body))
-				if resp.Header.Get("Content-Type") == applicationJSONHeader && json.Valid(body) {
-					zerolog.Ctx(ctx).Warn().RawJSON("body", body).Msg("hit rate limit")
-				} else {
-					zerolog.Ctx(ctx).Warn().Str("body", string(body)).Msg("hit rate limit")
-				}
-			}
-			limitRequests, limitTokens, remainingRequests, remainingTokens, resetRequests, resetTokens, ok, errE := parseAnthropicRateLimitHeaders(resp)
-			if errE != nil {
-				return false, errE
-			}
-			if ok {
+		a.Client = newClient(
+			func(req *http.Request) error {
+				estimatedTokens := a.estimatedTokens()
+				// Rate limit retries.
+				return anthropicRateLimiter.Take(req.Context(), a.APIKey, map[string]int{
+					"rpm": 1,
+					"tpd": estimatedTokens,
+					"tpm": estimatedTokens,
+				})
+			},
+			parseAnthropicRateLimitHeaders,
+			func(limitRequests, limitTokens, remainingRequests, remainingTokens int, resetRequests, resetTokens time.Time) {
 				rateLimits := map[string]any{
 					"rpm": resettingRateLimit{
 						Limit:     limitRequests,
@@ -209,12 +182,8 @@ func (a *AnthropicTextProvider) Init(_ context.Context, messages []ChatMessage) 
 					}
 				}
 				anthropicRateLimiter.Set(a.APIKey, rateLimits)
-			}
-			check, err := retryablehttp.ErrorPropagatedRetryPolicy(ctx, resp, err)
-			return check, errors.WithStack(err)
-		}
-		client.ErrorHandler = retryErrorHandler
-		a.Client = client.StandardClient()
+			},
+		)
 	}
 
 	return nil
