@@ -79,7 +79,10 @@ func validate(validator *jsonschema.Schema, value any) errors.E {
 		return errors.WithStack(err)
 	}
 	err = validator.Validate(v)
-	return errors.WithStack(err)
+	if err != nil {
+		return errors.WrapWith(err, ErrJSONSchemaValidation)
+	}
+	return nil
 }
 
 func toInputString[T any](data []T) (string, errors.E) {

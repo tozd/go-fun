@@ -175,6 +175,7 @@ func (c *CallCommand) Run(logger zerolog.Logger) errors.E { //nolint:maintidx
 
 	count := x.Counter(0)
 	failed := x.Counter(0)
+	invalid := x.Counter(0)
 	skipped := x.Counter(0)
 	done := x.Counter(0)
 	ticker := x.NewTicker(ctx, &count, int64(len(files)), progressPrintRate)
@@ -182,8 +183,8 @@ func (c *CallCommand) Run(logger zerolog.Logger) errors.E { //nolint:maintidx
 	go func() {
 		for p := range ticker.C {
 			logger.Info().
-				Int64("failed", failed.Count()).Int64("skipped", skipped.Count()).Int64("done", done.Count()).Int64("count", p.Count).
-				Str("eta", p.Remaining().Truncate(time.Second).String()).
+				Int64("failed", failed.Count()).Int64("invalid", invalid.Count()).Int64("skipped", skipped.Count()).
+				Int64("done", done.Count()).Int64("count", p.Count).Str("eta", p.Remaining().Truncate(time.Second).String()).
 				Send()
 		}
 	}()
@@ -232,7 +233,11 @@ func (c *CallCommand) Run(logger zerolog.Logger) errors.E { //nolint:maintidx
 						continue
 					}
 					l.Warn().Err(errE).Msg("error processing file")
-					failed.Increment()
+					if errors.Is(errE, fun.ErrJSONSchemaValidation) {
+						invalid.Increment()
+					} else {
+						failed.Increment()
+					}
 					continue
 				}
 				done.Increment()
@@ -242,11 +247,19 @@ func (c *CallCommand) Run(logger zerolog.Logger) errors.E { //nolint:maintidx
 	}
 
 	errE = errors.WithStack(g.Wait())
-	logger.Info().Int64("failed", failed.Count()).Int64("skipped", skipped.Count()).Int64("done", done.Count()).Int64("count", count.Count()).Msg("done")
+	logger.Info().Int64("failed", failed.Count()).Int64("invalid", invalid.Count()).Int64("skipped", skipped.Count()).
+		Int64("done", done.Count()).Int64("count", count.Count()).Msg("done")
 	return errE
 }
 
 func (c *CallCommand) processFile(ctx context.Context, fn fun.Callee[string, string], inputPath, outputPath string) (errE errors.E) { //nolint:nonamedreturns
+	// Is output invalid?
+	var invalidErrE errors.E
+	defer func() {
+		// Add invalidErrE to any existing error. If both errors are nil, this is still nil.
+		errE = errors.Join(errE, invalidErrE)
+	}()
+
 	f, err := os.OpenFile(outputPath, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o644) //nolint:gomnd
 	if errors.Is(err, fs.ErrExist) {
 		// We skip files which already exist.
@@ -256,15 +269,40 @@ func (c *CallCommand) processFile(ctx context.Context, fn fun.Callee[string, str
 	}
 	defer func() {
 		errE2 := errors.WithStack(f.Close())
-		if errE2 != nil && errE == nil {
-			errE = errE2
-		}
-		if errE != nil {
-			errE2 := os.Remove(outputPath)
-			if errE2 != nil {
-				zerolog.Ctx(ctx).Error().Err(errE2).Msg("unable to remove output file after error")
+		var errE3 errors.E
+		// We always remove this file if the output was invalid. We remove it on any other error as well (so that run can be redone).
+		if errE != nil || invalidErrE != nil {
+			// It is correct that we remove this file if we return errFileSkipped below. This means that .invalid
+			// file already exist and our temporary data file we managed to create should be removed.
+			errE3 = errors.WithStack(os.Remove(outputPath))
+			if errE3 != nil {
+				zerolog.Ctx(ctx).Error().Err(errE3).Msg("unable to remove data output file after error")
 			}
 		}
+		// Combine any non-nil errors together.
+		errE = errors.Join(errE, errE2, errE3)
+	}()
+
+	invalidOutputPath := outputPath + ".invalid"
+	fInvalid, err := os.OpenFile(invalidOutputPath, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o644) //nolint:gomnd
+	if errors.Is(err, fs.ErrExist) {
+		// We skip files which already exist.
+		return errors.WrapWith(err, errFileSkipped)
+	} else if err != nil {
+		return errors.WithStack(err)
+	}
+	defer func() {
+		errE2 := errors.WithStack(fInvalid.Close())
+		var errE3 errors.E
+		// We always remove this file if the output was valid. We remove it on any other error as well (so that run can be redone).
+		if errE != nil || invalidErrE == nil {
+			errE3 = errors.WithStack(os.Remove(invalidOutputPath))
+			if errE3 != nil {
+				zerolog.Ctx(ctx).Error().Err(errE3).Msg("unable to remove invalid flag output file after error")
+			}
+		}
+		// Combine any non-nil errors together.
+		errE = errors.Join(errE, errE2, errE3)
 	}()
 
 	inputData, err := os.ReadFile(inputPath)
@@ -273,7 +311,11 @@ func (c *CallCommand) processFile(ctx context.Context, fn fun.Callee[string, str
 	}
 
 	output, errE := fn.Call(ctx, string(inputData))
-	if errE != nil {
+	if errors.Is(errE, fun.ErrJSONSchemaValidation) {
+		invalidErrE, errE = errE, nil
+		_, err = fInvalid.WriteString(output)
+		return errors.WithStack(err)
+	} else if errE != nil {
 		if output != "" {
 			errors.Details(errE)["output"] = output
 		}
