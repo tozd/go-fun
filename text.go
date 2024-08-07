@@ -80,7 +80,7 @@ func validate(validator *jsonschema.Schema, value any) errors.E {
 	}
 	err = validator.Validate(v)
 	if err != nil {
-		return errors.WrapWith(err, ErrJSONSchemaValidation)
+		return errors.Prefix(err, ErrJSONSchemaValidation)
 	}
 	return nil
 }

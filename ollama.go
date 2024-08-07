@@ -28,7 +28,7 @@ func getStatusError(err error) errors.E {
 			"errorMessage", statusError.ErrorMessage,
 		)
 	}
-	return errors.WrapWith(err, ErrAPIRequestFailed)
+	return errors.Prefix(err, ErrAPIRequestFailed)
 }
 
 func ollamaRateLimiterLock(key string) *sync.Mutex {

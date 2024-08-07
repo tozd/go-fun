@@ -263,7 +263,7 @@ func (c *CallCommand) processFile(ctx context.Context, fn fun.Callee[string, str
 	f, err := os.OpenFile(outputPath, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o644) //nolint:gomnd
 	if errors.Is(err, fs.ErrExist) {
 		// We skip files which already exist.
-		return errors.WrapWith(err, errFileSkipped)
+		return errors.Prefix(err, errFileSkipped)
 	} else if err != nil {
 		return errors.WithStack(err)
 	}
@@ -287,7 +287,7 @@ func (c *CallCommand) processFile(ctx context.Context, fn fun.Callee[string, str
 	fInvalid, err := os.OpenFile(invalidOutputPath, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o644) //nolint:gomnd
 	if errors.Is(err, fs.ErrExist) {
 		// We skip files which already exist.
-		return errors.WrapWith(err, errFileSkipped)
+		return errors.Prefix(err, errFileSkipped)
 	} else if err != nil {
 		return errors.WithStack(err)
 	}

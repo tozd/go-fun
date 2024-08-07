@@ -227,7 +227,7 @@ func (a *AnthropicTextProvider) Chat(ctx context.Context, message ChatMessage) (
 		requestID = resp.Header.Get("Request-Id")
 	}
 	if err != nil {
-		errE = errors.WrapWith(err, ErrAPIRequestFailed)
+		errE = errors.Prefix(err, ErrAPIRequestFailed)
 		if requestID != "" {
 			errors.Details(errE)["apiRequest"] = requestID
 		}

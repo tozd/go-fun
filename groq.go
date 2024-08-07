@@ -223,7 +223,7 @@ func (g *GroqTextProvider) Init(ctx context.Context, messages []ChatMessage) err
 		requestID = resp.Header.Get("X-Request-Id")
 	}
 	if err != nil {
-		errE := errors.WrapWith(err, ErrAPIRequestFailed)
+		errE := errors.Prefix(err, ErrAPIRequestFailed)
 		if requestID != "" {
 			errors.Details(errE)["apiRequest"] = requestID
 		}
@@ -326,7 +326,7 @@ func (g *GroqTextProvider) Chat(ctx context.Context, message ChatMessage) (strin
 		requestID = resp.Header.Get("X-Request-Id")
 	}
 	if err != nil {
-		errE = errors.WrapWith(err, ErrAPIRequestFailed)
+		errE = errors.Prefix(err, ErrAPIRequestFailed)
 		if requestID != "" {
 			errors.Details(errE)["apiRequest"] = requestID
 		}
