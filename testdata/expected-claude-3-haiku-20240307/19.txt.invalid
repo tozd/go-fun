@@ -1,0 +1,13 @@
+To solve this problem, we need to find the total number of sweatshirts the company makes each year.
+
+Given information:
+- The company has 4 different kinds of sweatshirts.
+- The company makes 60,000 of each kind of sweatshirt each year.
+
+To find the total number of sweatshirts, we need to multiply the number of kinds of sweatshirts by the number of sweatshirts of each kind.
+
+Total number of sweatshirts = Number of kinds of sweatshirts × Number of sweatshirts of each kind
+Total number of sweatshirts = 4 × 60,000
+Total number of sweatshirts = 240,000
+
+Therefore, the company makes 240,000 sweatshirts each year.

@@ -1,0 +1,16 @@
+To solve this problem, we need to calculate the total number of hours Cayley worked and then multiply it by her hourly rate.
+
+Given information:
+- Cayley earns $5 an hour by delivering newspapers.
+- She delivers newspapers 3 days each week, for 4 hours at a time.
+- She delivers newspapers for 8 weeks.
+
+Step 1: Calculate the total number of hours Cayley worked.
+Number of hours per week = 3 days × 4 hours per day = 12 hours
+Total number of hours worked = 12 hours per week × 8 weeks = 96 hours
+
+Step 2: Calculate the total amount of money Cayley earned.
+Total amount earned = Hourly rate × Total number of hours worked
+Total amount earned = $5 × 96 hours = $480
+
+Therefore, Cayley will earn $480 after delivering newspapers for 8 weeks.

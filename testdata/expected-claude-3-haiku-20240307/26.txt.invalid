@@ -1,0 +1,17 @@
+To solve this problem, we need to find the number of dishes the restaurant can make and then calculate the remaining cutlets.
+
+Given information:
+- The restaurant receives a shipment of 86 veal cutlets.
+- It takes 3 cutlets to make a dish.
+
+Step 1: Find the number of dishes the restaurant can make.
+Number of dishes = Total number of cutlets / Number of cutlets per dish
+Number of dishes = 86 / 3
+Number of dishes = 28 dishes
+
+Step 2: Calculate the remaining cutlets.
+Remaining cutlets = Total number of cutlets - (Number of dishes × Number of cutlets per dish)
+Remaining cutlets = 86 - (28 × 3)
+Remaining cutlets = 2
+
+Therefore, the restaurant will have 2 cutlets left over after making as many dishes as possible.
