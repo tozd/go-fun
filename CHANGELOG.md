@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Create files with `.invalid` suffix for outputs which fail JSON Schema validation
+  and skip them on followup runs of the `fun` tool.
+
+### Changed
+
+- Retry communication errors for Ollama provider.
+
 ## [0.2.2] - 2024-08-04
 
 ### Added
