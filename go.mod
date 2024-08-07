@@ -5,7 +5,6 @@ go 1.22.0
 toolchain go1.22.5
 
 require (
-	github.com/hashicorp/go-cleanhttp v0.5.2
 	github.com/ollama/ollama v0.3.0
 	github.com/rs/zerolog v1.33.0
 	github.com/santhosh-tekuri/jsonschema/v6 v6.0.1
@@ -18,6 +17,7 @@ require (
 require (
 	github.com/btcsuite/btcutil v1.0.2 // indirect
 	github.com/google/uuid v1.3.1 // indirect
+	github.com/hashicorp/go-cleanhttp v0.5.2 // indirect
 	github.com/mattn/go-colorable v0.1.13 // indirect
 	github.com/mattn/go-isatty v0.0.20 // indirect
 	github.com/tidwall/match v1.1.1 // indirect

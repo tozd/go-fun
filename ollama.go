@@ -8,7 +8,6 @@ import (
 	"slices"
 	"sync"
 
-	"github.com/hashicorp/go-cleanhttp"
 	"github.com/ollama/ollama/api"
 	"github.com/rs/zerolog"
 	"gitlab.com/tozd/go/errors"
@@ -83,7 +82,14 @@ func (o *OllamaTextProvider) Init(ctx context.Context, messages []ChatMessage) e
 	}
 	client := o.Client
 	if client == nil {
-		client = cleanhttp.DefaultPooledClient()
+		client = newClient(
+			// We lock in OllamaTextProvider.Chat instead.
+			nil,
+			// No headers to parse.
+			nil,
+			// Nothing to update after every request.
+			nil,
+		)
 	}
 	o.client = api.NewClient(base, client)
 

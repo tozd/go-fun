@@ -55,7 +55,9 @@ func newClient(
 	client.Logger = nil
 	client.RetryWaitMin = retryWaitMin
 	client.RetryWaitMax = retryWaitMax
-	client.PrepareRetry = prepareRetry
+	if prepareRetry != nil {
+		client.PrepareRetry = prepareRetry
+	}
 	client.CheckRetry = func(ctx context.Context, resp *http.Response, err error) (bool, error) {
 		if err != nil {
 			check, err := retryablehttp.ErrorPropagatedRetryPolicy(ctx, resp, err) //nolint:govet
@@ -72,11 +74,17 @@ func newClient(
 				zerolog.Ctx(ctx).Warn().Str("body", string(body)).Msg("hit rate limit")
 			}
 		}
-		limitRequests, limitTokens, remainingRequests, remainingTokens, resetRequests, resetTokens, ok, errE := parseRateLimitHeaders(resp)
-		if errE != nil {
-			return false, errE
+		var limitRequests, limitTokens, remainingRequests, remainingTokens int
+		var resetRequests, resetTokens time.Time
+		var ok bool
+		if parseRateLimitHeaders != nil {
+			var errE errors.E
+			limitRequests, limitTokens, remainingRequests, remainingTokens, resetRequests, resetTokens, ok, errE = parseRateLimitHeaders(resp)
+			if errE != nil {
+				return false, errE
+			}
 		}
-		if ok {
+		if ok && setRateLimit != nil {
 			setRateLimit(limitRequests, limitTokens, remainingRequests, remainingTokens, resetRequests, resetTokens)
 		}
 		check, err := retryablehttp.ErrorPropagatedRetryPolicy(ctx, resp, err)
