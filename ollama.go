@@ -207,6 +207,7 @@ func (o *OllamaTextProvider) Chat(ctx context.Context, message ChatMessage) (str
 	if responses[0].Metrics.PromptEvalCount+responses[0].Metrics.EvalCount >= o.MaxContextLength {
 		return "", errors.WithDetails(
 			ErrUnexpectedNumberOfTokens,
+			"content", responses[0].Message.Content,
 			"prompt", responses[0].Metrics.PromptEvalCount,
 			"response", responses[0].Metrics.EvalCount,
 			"total", responses[0].Metrics.PromptEvalCount+responses[0].Metrics.EvalCount,

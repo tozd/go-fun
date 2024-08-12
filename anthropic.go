@@ -285,6 +285,7 @@ func (a *AnthropicTextProvider) Chat(ctx context.Context, message ChatMessage) (
 	if response.Usage.InputTokens+response.Usage.OutputTokens > estimatedTokens {
 		errE = errors.WithDetails(
 			ErrUnexpectedNumberOfTokens,
+			"content", response.Content[0].Text,
 			"prompt", response.Usage.InputTokens,
 			"response", response.Usage.OutputTokens,
 			"total", response.Usage.InputTokens+response.Usage.OutputTokens,

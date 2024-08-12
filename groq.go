@@ -370,6 +370,7 @@ func (g *GroqTextProvider) Chat(ctx context.Context, message ChatMessage) (strin
 	if response.Usage.TotalTokens >= g.MaxContextLength {
 		errE = errors.WithDetails(
 			ErrUnexpectedNumberOfTokens,
+			"content", response.Choices[0].Message.Content,
 			"prompt", response.Usage.PromptTokens,
 			"response", response.Usage.CompletionTokens,
 			"total", response.Usage.TotalTokens,
