@@ -43,9 +43,10 @@ var providers = []struct {
 					Username: "",
 					Password: "",
 				},
-				MaxContextLength: 0,
-				Seed:             42,
-				Temperature:      0,
+				MaxContextLength:  0,
+				MaxResponseLength: 0,
+				Seed:              42,
+				Temperature:       0,
 			}
 		},
 	},
@@ -58,12 +59,13 @@ var providers = []struct {
 				t.Skip("GROQ_API_KEY is not available")
 			}
 			return &fun.GroqTextProvider{
-				Client:           nil,
-				APIKey:           os.Getenv("GROQ_API_KEY"),
-				Model:            "llama3-8b-8192",
-				MaxContextLength: 0,
-				Seed:             42,
-				Temperature:      0,
+				Client:            nil,
+				APIKey:            os.Getenv("GROQ_API_KEY"),
+				Model:             "llama3-8b-8192",
+				MaxContextLength:  0,
+				MaxResponseLength: 0,
+				Seed:              42,
+				Temperature:       0,
 			}
 		},
 	},
@@ -80,6 +82,25 @@ var providers = []struct {
 				APIKey:      os.Getenv("ANTHROPIC_API_KEY"),
 				Model:       "claude-3-haiku-20240307",
 				Temperature: 0,
+			}
+		},
+	},
+	{
+		"openai",
+		func(t *testing.T) fun.TextProvider {
+			t.Helper()
+
+			if os.Getenv("OPENAI_API_KEY") == "" {
+				t.Skip("OPENAI_API_KEY is not available")
+			}
+			return &fun.OpenAITextProvider{
+				Client:            nil,
+				APIKey:            os.Getenv("OPENAI_API_KEY"),
+				Model:             "gpt-4o-mini-2024-07-18",
+				MaxContextLength:  128_000,
+				MaxResponseLength: 16_384,
+				Seed:              42,
+				Temperature:       0,
 			}
 		},
 	},

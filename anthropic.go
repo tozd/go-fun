@@ -211,6 +211,7 @@ func (a *AnthropicTextProvider) Chat(ctx context.Context, message ChatMessage) (
 	}
 	req.Header.Add("x-api-key", a.APIKey)
 	req.Header.Add("anthropic-version", "2023-06-01")
+	req.Header.Add("Content-Type", "application/json")
 	estimatedTokens := a.estimatedTokens()
 	// Rate limit the initial request.
 	errE = anthropicRateLimiter.Take(ctx, a.APIKey, map[string]int{

@@ -17,4 +17,5 @@ var (
 	ErrMaxContextLengthOverModel    = errors.Base("max context length over what model supports")
 	ErrMaxResponseLengthOverContext = errors.Base("max response length over max context length")
 	ErrJSONSchemaValidation         = errors.Base("JSON Schema validation error")
+	ErrRefused                      = errors.Base("refused")
 )

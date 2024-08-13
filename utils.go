@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"io"
 	"net/http"
+	"strconv"
 	"time"
 
 	"github.com/hashicorp/go-retryablehttp"
@@ -92,4 +93,67 @@ func newClient(
 	}
 	client.ErrorHandler = retryErrorHandler
 	return client.StandardClient()
+}
+
+func parseRateLimitHeaders(resp *http.Response) ( //nolint:nonamedreturns
+	limitRequests, limitTokens,
+	remainingRequests, remainingTokens int,
+	resetRequests, resetTokens time.Time,
+	ok bool, errE errors.E,
+) {
+	// We use current time and not Date header in response, because Date header has just second
+	// precision, but reset headers can be in milliseconds, so it seems better to use
+	// current local time, so that we do not reset the window too soon.
+	now := time.Now()
+
+	limitRequestsStr := resp.Header.Get("X-Ratelimit-Limit-Requests")         // Request per day.
+	limitTokensStr := resp.Header.Get("X-Ratelimit-Limit-Tokens")             // Tokens per minute.
+	remainingRequestsStr := resp.Header.Get("X-Ratelimit-Remaining-Requests") // Remaining requests in current window (a day).
+	remainingTokensStr := resp.Header.Get("X-Ratelimit-Remaining-Tokens")     // Remaining tokens in current window (a minute).
+	resetRequestsStr := resp.Header.Get("X-Ratelimit-Reset-Requests")         // When will requests window reset.
+	resetTokensStr := resp.Header.Get("X-Ratelimit-Reset-Tokens")             // When will tokens window reset.
+
+	if limitRequestsStr == "" || limitTokensStr == "" || remainingRequestsStr == "" || remainingTokensStr == "" || resetRequestsStr == "" || resetTokensStr == "" {
+		// ok == false here.
+		return //nolint:nakedret
+	}
+
+	// We have all the headers we want.
+	ok = true
+
+	var err error
+	limitRequests, err = strconv.Atoi(limitRequestsStr)
+	if err != nil {
+		errE = errors.WithDetails(err, "value", limitRequestsStr)
+		return //nolint:nakedret
+	}
+	limitTokens, err = strconv.Atoi(limitTokensStr)
+	if err != nil {
+		errE = errors.WithDetails(err, "value", limitTokensStr)
+		return //nolint:nakedret
+	}
+	remainingRequests, err = strconv.Atoi(remainingRequestsStr)
+	if err != nil {
+		errE = errors.WithDetails(err, "value", remainingRequestsStr)
+		return //nolint:nakedret
+	}
+	remainingTokens, err = strconv.Atoi(remainingTokensStr)
+	if err != nil {
+		errE = errors.WithDetails(err, "value", remainingTokensStr)
+		return //nolint:nakedret
+	}
+	resetRequestsDuration, err := time.ParseDuration(resetRequestsStr)
+	if err != nil {
+		errE = errors.WithDetails(err, "value", resetRequestsStr)
+		return //nolint:nakedret
+	}
+	resetRequests = now.Add(resetRequestsDuration)
+	resetTokensDuration, err := time.ParseDuration(resetTokensStr)
+	if err != nil {
+		errE = errors.WithDetails(err, "value", resetTokensStr)
+		return //nolint:nakedret
+	}
+	resetTokens = now.Add(resetTokensDuration)
+
+	return //nolint:nakedret
 }

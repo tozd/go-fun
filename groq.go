@@ -7,7 +7,6 @@ import (
 	"io"
 	"net/http"
 	"slices"
-	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -24,17 +23,16 @@ var groqRateLimiter = keyedRateLimiter{ //nolint:gochecknoglobals
 }
 
 type groqModel struct {
-	ID            string     `json:"id"`
-	Object        string     `json:"object"`
-	Created       int64      `json:"created"`
-	OwnedBy       string     `json:"owned_by"`
-	Active        bool       `json:"active"`
-	ContextWindow int        `json:"context_window"`
-	PublicApps    []struct{} `json:"public_apps,omitempty"`
+	ID            string `json:"id"`
+	Object        string `json:"object"`
+	Created       int64  `json:"created"`
+	OwnedBy       string `json:"owned_by"`
+	Active        bool   `json:"active"`
+	ContextWindow int    `json:"context_window"`
 	Error         *struct {
-		Message string `json:"message"`
-		Type    string `json:"type"`
-		Code    string `json:"code"`
+		Message string  `json:"message"`
+		Type    string  `json:"type"`
+		Code    *string `json:"code,omitempty"`
 	} `json:"error,omitempty"`
 }
 
@@ -47,19 +45,18 @@ type groqRequest struct {
 }
 
 type groqResponse struct {
-	ID                string  `json:"id"`
-	Object            string  `json:"object"`
-	Created           int64   `json:"created"`
-	Model             string  `json:"model"`
-	SystemFingerprint *string `json:"system_fingerprint,omitempty"`
+	ID                string `json:"id"`
+	Object            string `json:"object"`
+	Created           int64  `json:"created"`
+	Model             string `json:"model"`
+	SystemFingerprint string `json:"system_fingerprint"`
 	Choices           []struct {
 		Index   int `json:"index"`
 		Message struct {
 			Role    string `json:"role"`
 			Content string `json:"content"`
 		} `json:"message"`
-		FinishReason     string    `json:"finish_reason"`
-		LogProbabilities []float64 `json:"logprobs,omitempty"`
+		FinishReason string `json:"finish_reason"`
 	} `json:"choices"`
 	Usage struct {
 		PromptTokens     int     `json:"prompt_tokens"`
@@ -73,73 +70,10 @@ type groqResponse struct {
 		ID string `json:"id"`
 	} `json:"x_groq"`
 	Error *struct {
-		Message string `json:"message"`
-		Type    string `json:"type"`
-		Code    string `json:"code,omitempty"`
+		Message string  `json:"message"`
+		Type    string  `json:"type"`
+		Code    *string `json:"code,omitempty"`
 	} `json:"error,omitempty"`
-}
-
-func parseGroqRateLimitHeaders(resp *http.Response) ( //nolint:nonamedreturns
-	limitRequests, limitTokens,
-	remainingRequests, remainingTokens int,
-	resetRequests, resetTokens time.Time,
-	ok bool, errE errors.E,
-) {
-	// We use current time and not Date header in response, because Date header has just second
-	// precision, but reset headers can be in milliseconds, so it seems better to use
-	// current local time, so that we do not reset the window too soon.
-	now := time.Now()
-
-	limitRequestsStr := resp.Header.Get("X-Ratelimit-Limit-Requests")         // Request per day.
-	limitTokensStr := resp.Header.Get("X-Ratelimit-Limit-Tokens")             // Tokens per minute.
-	remainingRequestsStr := resp.Header.Get("X-Ratelimit-Remaining-Requests") // Remaining requests in current window (a day).
-	remainingTokensStr := resp.Header.Get("X-Ratelimit-Remaining-Tokens")     // Remaining tokens in current window (a minute).
-	resetRequestsStr := resp.Header.Get("X-Ratelimit-Reset-Requests")         // When will requests window reset.
-	resetTokensStr := resp.Header.Get("X-Ratelimit-Reset-Tokens")             // When will tokens window reset.
-
-	if limitRequestsStr == "" || limitTokensStr == "" || remainingRequestsStr == "" || remainingTokensStr == "" || resetRequestsStr == "" || resetTokensStr == "" {
-		// ok == false here.
-		return //nolint:nakedret
-	}
-
-	// We have all the headers we want.
-	ok = true
-
-	var err error
-	limitRequests, err = strconv.Atoi(limitRequestsStr)
-	if err != nil {
-		errE = errors.WithDetails(err, "value", limitRequestsStr)
-		return //nolint:nakedret
-	}
-	limitTokens, err = strconv.Atoi(limitTokensStr)
-	if err != nil {
-		errE = errors.WithDetails(err, "value", limitTokensStr)
-		return //nolint:nakedret
-	}
-	remainingRequests, err = strconv.Atoi(remainingRequestsStr)
-	if err != nil {
-		errE = errors.WithDetails(err, "value", remainingRequestsStr)
-		return //nolint:nakedret
-	}
-	remainingTokens, err = strconv.Atoi(remainingTokensStr)
-	if err != nil {
-		errE = errors.WithDetails(err, "value", remainingTokensStr)
-		return //nolint:nakedret
-	}
-	resetRequestsDuration, err := time.ParseDuration(resetRequestsStr)
-	if err != nil {
-		errE = errors.WithDetails(err, "value", resetRequestsStr)
-		return //nolint:nakedret
-	}
-	resetRequests = now.Add(resetRequestsDuration)
-	resetTokensDuration, err := time.ParseDuration(resetTokensStr)
-	if err != nil {
-		errE = errors.WithDetails(err, "value", resetTokensStr)
-		return //nolint:nakedret
-	}
-	resetTokens = now.Add(resetTokensDuration)
-
-	return //nolint:nakedret
 }
 
 var _ TextProvider = (*GroqTextProvider)(nil)
@@ -181,7 +115,7 @@ func (g *GroqTextProvider) Init(ctx context.Context, messages []ChatMessage) err
 				}
 				return nil
 			},
-			parseGroqRateLimitHeaders,
+			parseRateLimitHeaders,
 			func(limitRequests, limitTokens, remainingRequests, remainingTokens int, resetRequests, resetTokens time.Time) {
 				groqRateLimiter.Set(g.APIKey, map[string]any{
 					"rpm": tokenBucketRateLimit{
@@ -216,6 +150,7 @@ func (g *GroqTextProvider) Init(ctx context.Context, messages []ChatMessage) err
 		return errors.WithStack(err)
 	}
 	req.Header.Add("Authorization", fmt.Sprintf("Bearer %s", g.APIKey))
+	req.Header.Add("Content-Type", "application/json")
 	// This endpoint does not have rate limiting.
 	resp, err := g.Client.Do(req)
 	var requestID string
@@ -311,6 +246,7 @@ func (g *GroqTextProvider) Chat(ctx context.Context, message ChatMessage) (strin
 		return "", errors.WithStack(err)
 	}
 	req.Header.Add("Authorization", fmt.Sprintf("Bearer %s", g.APIKey))
+	req.Header.Add("Content-Type", "application/json")
 	// Rate limit the initial request.
 	errE = groqRateLimiter.Take(ctx, g.APIKey, map[string]int{
 		"rpm": 1,
