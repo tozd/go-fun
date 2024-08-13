@@ -15,6 +15,29 @@ import (
 	"gitlab.com/tozd/go/x"
 )
 
+//nolint:gomnd
+var openAIModels = map[string]struct { //nolint:gochecknoglobals
+	MaxContextLength  int
+	MaxResponseLength int
+}{
+	"gpt-4o-2024-08-06": {
+		MaxContextLength:  128_000,
+		MaxResponseLength: 16_384,
+	},
+	"gpt-4o-2024-05-13": {
+		MaxContextLength:  128_000,
+		MaxResponseLength: 4_096,
+	},
+	"gpt-4o-mini-2024-07-18": {
+		MaxContextLength:  128_000,
+		MaxResponseLength: 16_384,
+	},
+	"gpt-4-turbo-2024-04-09": {
+		MaxContextLength:  128_000,
+		MaxResponseLength: 4_096,
+	},
+}
+
 var openAIRateLimiter = keyedRateLimiter{ //nolint:gochecknoglobals
 	mu:       sync.RWMutex{},
 	limiters: map[string]map[string]any{},
@@ -113,9 +136,15 @@ func (o *OpenAITextProvider) Init(_ context.Context, messages []ChatMessage) err
 	}
 
 	if o.MaxContextLength == 0 {
+		o.MaxContextLength = openAIModels[o.Model].MaxContextLength
+	}
+	if o.MaxContextLength == 0 {
 		return errors.New("MaxContextLength not set")
 	}
 
+	if o.MaxResponseLength == 0 {
+		o.MaxResponseLength = openAIModels[o.Model].MaxResponseLength
+	}
 	if o.MaxResponseLength == 0 {
 		return errors.New("MaxResponseLength not set")
 	}
