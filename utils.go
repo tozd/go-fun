@@ -157,3 +157,15 @@ func parseRateLimitHeaders(resp *http.Response) ( //nolint:nonamedreturns
 
 	return //nolint:nakedret
 }
+
+func getString(data any, name string) string {
+	m, ok := data.(map[string]any)
+	if !ok {
+		return ""
+	}
+	s, ok := m[name].(string)
+	if !ok {
+		return ""
+	}
+	return s
+}

@@ -43,12 +43,25 @@ var openAIRateLimiter = keyedRateLimiter{ //nolint:gochecknoglobals
 	limiters: map[string]map[string]any{},
 }
 
+type openAIJSONSchema struct {
+	Description string `json:"description,omitempty"`
+	Name        string `json:"name"`
+	Schema      any    `json:"schema"`
+	Strict      bool   `json:"strict"`
+}
+
+type openAIResponseFormat struct {
+	Type       string           `json:"type"`
+	JSONSchema openAIJSONSchema `json:"json_schema"`
+}
+
 type openAIRequest struct {
-	Messages    []ChatMessage `json:"messages"`
-	Model       string        `json:"model"`
-	Seed        int           `json:"seed"`
-	Temperature float64       `json:"temperature"`
-	MaxTokens   int           `json:"max_tokens"`
+	Messages       []ChatMessage         `json:"messages"`
+	Model          string                `json:"model"`
+	Seed           int                   `json:"seed"`
+	Temperature    float64               `json:"temperature"`
+	MaxTokens      int                   `json:"max_tokens"`
+	ResponseFormat *openAIResponseFormat `json:"response_format,omitempty"`
 }
 
 type openAIResponse struct {
@@ -93,10 +106,15 @@ type OpenAITextProvider struct {
 	MaxContextLength  int
 	MaxResponseLength int
 
+	ForceOutputJSONSchema bool
+
 	Seed        int
 	Temperature float64
 
-	messages []ChatMessage
+	messages                    []ChatMessage
+	outputJSONSchema            any
+	outputJSONSchemaName        string
+	outputJSONSchemaDescription string
 }
 
 // Init implements TextProvider interface.
@@ -157,13 +175,28 @@ func (o *OpenAITextProvider) Chat(ctx context.Context, message ChatMessage) (str
 	messages := slices.Clone(o.messages)
 	messages = append(messages, message)
 
-	request, errE := x.MarshalWithoutEscapeHTML(openAIRequest{
-		Messages:    messages,
-		Model:       o.Model,
-		Seed:        o.Seed,
-		Temperature: o.Temperature,
-		MaxTokens:   o.MaxResponseLength, // TODO: Can we provide a better estimate?
-	})
+	oReq := openAIRequest{
+		Messages:       messages,
+		Model:          o.Model,
+		Seed:           o.Seed,
+		Temperature:    o.Temperature,
+		MaxTokens:      o.MaxResponseLength, // TODO: Can we provide a better estimate?
+		ResponseFormat: nil,
+	}
+
+	if o.outputJSONSchema != nil {
+		oReq.ResponseFormat = &openAIResponseFormat{
+			Type: "json_schema",
+			JSONSchema: openAIJSONSchema{
+				Description: o.outputJSONSchemaDescription,
+				Name:        o.outputJSONSchemaName,
+				Schema:      o.outputJSONSchema,
+				Strict:      true,
+			},
+		}
+	}
+
+	request, errE := x.MarshalWithoutEscapeHTML(oReq)
 	if errE != nil {
 		return "", errE
 	}
@@ -277,4 +310,25 @@ func (o *OpenAITextProvider) Chat(ctx context.Context, message ChatMessage) (str
 	e.Msg("usage")
 
 	return *response.Choices[0].Message.Content, nil
+}
+
+// InitOutputJSONSchema implements WithOutputJSONSchema interface.
+func (o *OpenAITextProvider) InitOutputJSONSchema(_ context.Context, outputJSONSchema any) errors.E {
+	if !o.ForceOutputJSONSchema {
+		return nil
+	}
+
+	if outputJSONSchema == nil {
+		return errors.Errorf(`%w: output JSON Schema is missing`, ErrInvalidJSONSchema)
+	}
+
+	o.outputJSONSchema = outputJSONSchema
+	o.outputJSONSchemaName = getString(outputJSONSchema, "title")
+	o.outputJSONSchemaDescription = getString(outputJSONSchema, "description")
+
+	if o.outputJSONSchemaName == "" {
+		return errors.Errorf(`%w: JSON Schema is missing "title" field which is used for required JSON Schema "name" for OpenAI API`, ErrInvalidJSONSchema)
+	}
+
+	return nil
 }

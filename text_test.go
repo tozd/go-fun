@@ -94,13 +94,14 @@ var providers = []struct {
 				t.Skip("OPENAI_API_KEY is not available")
 			}
 			return &fun.OpenAITextProvider{
-				Client:            nil,
-				APIKey:            os.Getenv("OPENAI_API_KEY"),
-				Model:             "gpt-4o-mini-2024-07-18",
-				MaxContextLength:  128_000,
-				MaxResponseLength: 16_384,
-				Seed:              42,
-				Temperature:       0,
+				Client:                nil,
+				APIKey:                os.Getenv("OPENAI_API_KEY"),
+				Model:                 "gpt-4o-mini-2024-07-18",
+				MaxContextLength:      128_000,
+				MaxResponseLength:     16_384,
+				ForceOutputJSONSchema: false,
+				Seed:                  42,
+				Temperature:           0,
 			}
 		},
 	},

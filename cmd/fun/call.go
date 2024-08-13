@@ -98,13 +98,14 @@ func (c *CallCommand) Run(logger zerolog.Logger) errors.E { //nolint:maintidx
 			return errors.New("OPENAI_API_KEY environment variable is missing")
 		}
 		provider = &fun.OpenAITextProvider{
-			Client:            nil,
-			APIKey:            os.Getenv("OPENAI_API_KEY"),
-			Model:             c.Model,
-			MaxContextLength:  0,
-			MaxResponseLength: 0,
-			Seed:              defaultSeed,
-			Temperature:       0,
+			Client:                nil,
+			APIKey:                os.Getenv("OPENAI_API_KEY"),
+			Model:                 c.Model,
+			MaxContextLength:      0,     // TODO: How to make it configurable?
+			MaxResponseLength:     0,     // TODO: How to make it configurable?
+			ForceOutputJSONSchema: false, // TODO: How to make it configurable?
+			Seed:                  defaultSeed,
+			Temperature:           0,
 		}
 	}
 

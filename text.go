@@ -24,34 +24,34 @@ const (
 	TextToJSONPrompt = `Output only JSON.`
 )
 
-func compileValidator[T any](jsonSchema []byte) (*jsonschema.Schema, errors.E) {
+func compileValidator[T any](jsonSchema []byte) (*jsonschema.Schema, any, errors.E) {
 	if jsonSchema == nil {
 		// We construct JSON Schema from Go value.
 		schema := jsonschemaGen.Reflect(new(T))
 		js, errE := x.MarshalWithoutEscapeHTML(schema)
 		if errE != nil {
-			return nil, errE
+			return nil, nil, errE
 		}
 		jsonSchema = js
 	}
 
 	schema, err := jsonschema.UnmarshalJSON(bytes.NewReader(jsonSchema))
 	if err != nil {
-		return nil, errors.WithStack(err)
+		return nil, nil, errors.WithStack(err)
 	}
 
 	c := jsonschema.NewCompiler()
 	c.DefaultDraft(jsonschema.Draft2020)
 	err = c.AddResource("schema.json", schema)
 	if err != nil {
-		return nil, errors.WithStack(err)
+		return nil, nil, errors.WithStack(err)
 	}
 	validator, err := c.Compile("schema.json")
 	if err != nil {
-		return nil, errors.WithStack(err)
+		return nil, nil, errors.WithStack(err)
 	}
 
-	return validator, nil
+	return validator, schema, nil
 }
 
 func validate(validator *jsonschema.Schema, value any) errors.E {
@@ -161,13 +161,13 @@ func (t *Text[Input, Output]) Init(ctx context.Context) errors.E {
 	logger := zerolog.Ctx(ctx).With().Str("fun", identifier.New().String()).Logger()
 	ctx = logger.WithContext(ctx)
 
-	validator, errE := compileValidator[Input](t.InputJSONSchema)
+	validator, _, errE := compileValidator[Input](t.InputJSONSchema)
 	if errE != nil {
 		return errE
 	}
 	t.inputValidator = validator
 
-	validator, errE = compileValidator[Output](t.OutputJSONSchema)
+	validator, outputSchema, errE := compileValidator[Output](t.OutputJSONSchema)
 	if errE != nil {
 		return errE
 	}
@@ -219,6 +219,13 @@ func (t *Text[Input, Output]) Init(ctx context.Context) errors.E {
 	errE = t.Provider.Init(ctx, messages)
 	if errE != nil {
 		return errE
+	}
+
+	if p, ok := t.Provider.(WithOutputJSONSchema); ok {
+		errE = p.InitOutputJSONSchema(ctx, outputSchema)
+		if errE != nil {
+			return errE
+		}
 	}
 
 	return nil

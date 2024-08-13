@@ -26,3 +26,8 @@ type TextProvider interface {
 	Init(ctx context.Context, messages []ChatMessage) errors.E
 	Chat(ctx context.Context, message ChatMessage) (string, errors.E)
 }
+
+// WithOutputJSONSchema is a provider which supports setting JSON Schema for its output.
+type WithOutputJSONSchema interface {
+	InitOutputJSONSchema(ctx context.Context, outputJSONSchema any) errors.E
+}
