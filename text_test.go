@@ -16,6 +16,84 @@ import (
 
 var jsonSchemaString = []byte(`{"type": "string"}`)
 
+// It looks like they are quite some limitations for OpenAI JSON Schema.
+// OpenAI currently supports only top-level object type and it does not support
+// top-level $ref in the schema. Also it requires that JSON Schema has all properties
+// required. A lot of restrictions which probably means we have to provide manual
+// JSON Schema and it cannot be self-generated.
+// See: https://github.com/invopop/jsonschema/issues/148
+var outputStructJSONSchema = []byte(`
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+	"$defs": {
+		"OutputStruct": {
+			"properties": {
+				"key": {
+					"type": "string"
+				},
+				"value": {
+					"type": "integer"
+				},
+				"children": {
+					"items": {
+						"$ref": "#/$defs/OutputStruct"
+					},
+					"type": "array"
+				}
+			},
+			"additionalProperties": false,
+			"type": "object",
+			"required": [
+				"key",
+				"value",
+				"children"
+			]
+		}
+	},
+  "properties": {
+    "key": {
+      "type": "string"
+    },
+    "value": {
+      "type": "integer"
+    },
+    "children": {
+      "items": {
+        "$ref": "#/$defs/OutputStruct"
+      },
+      "type": "array"
+    }
+  },
+  "additionalProperties": false,
+  "type": "object",
+  "required": [
+    "key",
+    "value",
+		"children"
+  ],
+  "title": "OutputStruct"
+}
+`)
+
+type OutputStructWithoutOmitEmpty struct {
+	Key      string                         `json:"key"`
+	Value    int                            `json:"value"`
+	Children []OutputStructWithoutOmitEmpty `json:"children"`
+}
+
+func toOutputStructWithoutOmitEmpty(d OutputStruct) OutputStructWithoutOmitEmpty {
+	children := []OutputStructWithoutOmitEmpty{}
+	for _, c := range d.Children {
+		children = append(children, toOutputStructWithoutOmitEmpty(c))
+	}
+
+	return OutputStructWithoutOmitEmpty{
+		Key:      d.Key,
+		Value:    d.Value,
+		Children: children,
+	}
+}
+
 type OutputStruct struct {
 	Key      string         `json:"key"`
 	Value    int            `json:"value"`
@@ -103,6 +181,53 @@ var providers = []struct {
 				Seed:                  42,
 				Temperature:           0,
 			}
+		},
+	},
+}
+
+var tests = []struct {
+	Name   string
+	Prompt string
+	Data   []fun.InputOutput[string, OutputStruct]
+	Cases  []fun.InputOutput[string, OutputStruct]
+}{
+	{
+		"just_data",
+		"",
+		[]fun.InputOutput[string, OutputStruct]{
+			{[]string{"foo=1"}, OutputStruct{Key: "foo", Value: 1}},
+			{[]string{"bar=3"}, OutputStruct{Key: "bar", Value: 3}},
+			{[]string{"foo=1 [bar=3]"}, OutputStruct{Key: "foo", Value: 1, Children: []OutputStruct{{Key: "bar", Value: 3}}}},
+			{[]string{"foo=1 [bar=3 zoo=2]"}, OutputStruct{Key: "foo", Value: 1, Children: []OutputStruct{{Key: "bar", Value: 3}, {Key: "zoo", Value: 2}}}},
+		},
+		[]fun.InputOutput[string, OutputStruct]{
+			{[]string{"name=42 [first=2 second=1]"}, OutputStruct{Key: "name", Value: 42, Children: []OutputStruct{{Key: "first", Value: 2}, {Key: "second", Value: 1}}}},
+		},
+	},
+	{
+		"prompt_and_data",
+		fun.TextParserToJSONPrompt,
+		[]fun.InputOutput[string, OutputStruct]{
+			{[]string{"foo=1"}, OutputStruct{Key: "foo", Value: 1}},
+			{[]string{"bar=3"}, OutputStruct{Key: "bar", Value: 3}},
+			{[]string{"foo=1 [bar=3]"}, OutputStruct{Key: "foo", Value: 1, Children: []OutputStruct{{Key: "bar", Value: 3}}}},
+			{[]string{"foo=1 [bar=3 zoo=2]"}, OutputStruct{Key: "foo", Value: 1, Children: []OutputStruct{{Key: "bar", Value: 3}, {Key: "zoo", Value: 2}}}},
+		},
+		[]fun.InputOutput[string, OutputStruct]{
+			{[]string{"name=42 [first=2 second=1]"}, OutputStruct{Key: "name", Value: 42, Children: []OutputStruct{{Key: "first", Value: 2}, {Key: "second", Value: 1}}}},
+		},
+	},
+	{
+		"json_only_prompt_and_data",
+		fun.TextToJSONPrompt,
+		[]fun.InputOutput[string, OutputStruct]{
+			{[]string{"foo=1"}, OutputStruct{Key: "foo", Value: 1}},
+			{[]string{"bar=3"}, OutputStruct{Key: "bar", Value: 3}},
+			{[]string{"foo=1 [bar=3]"}, OutputStruct{Key: "foo", Value: 1, Children: []OutputStruct{{Key: "bar", Value: 3}}}},
+			{[]string{"foo=1 [bar=3 zoo=2]"}, OutputStruct{Key: "foo", Value: 1, Children: []OutputStruct{{Key: "bar", Value: 3}, {Key: "zoo", Value: 2}}}},
+		},
+		[]fun.InputOutput[string, OutputStruct]{
+			{[]string{"name=42 [first=2 second=1]"}, OutputStruct{Key: "name", Value: 42, Children: []OutputStruct{{Key: "first", Value: 2}, {Key: "second", Value: 1}}}},
 		},
 	},
 }
@@ -249,53 +374,6 @@ func TestText(t *testing.T) { //nolint:paralleltest,tparallel
 func TestTextStruct(t *testing.T) { //nolint:paralleltest,tparallel
 	// We do not run test cases in parallel, so that we can run Ollama tests in sequence.
 
-	tests := []struct {
-		Name   string
-		Prompt string
-		Data   []fun.InputOutput[string, OutputStruct]
-		Cases  []fun.InputOutput[string, OutputStruct]
-	}{
-		{
-			"just_data",
-			"",
-			[]fun.InputOutput[string, OutputStruct]{
-				{[]string{"foo=1"}, OutputStruct{Key: "foo", Value: 1}},
-				{[]string{"bar=3"}, OutputStruct{Key: "bar", Value: 3}},
-				{[]string{"foo=1 [bar=3]"}, OutputStruct{Key: "foo", Value: 1, Children: []OutputStruct{{Key: "bar", Value: 3}}}},
-				{[]string{"foo=1 [bar=3 zoo=2]"}, OutputStruct{Key: "foo", Value: 1, Children: []OutputStruct{{Key: "bar", Value: 3}, {Key: "zoo", Value: 2}}}},
-			},
-			[]fun.InputOutput[string, OutputStruct]{
-				{[]string{"name=42 [first=2 second=1]"}, OutputStruct{Key: "name", Value: 42, Children: []OutputStruct{{Key: "first", Value: 2}, {Key: "second", Value: 1}}}},
-			},
-		},
-		{
-			"prompt_and_data",
-			fun.TextParserToJSONPrompt,
-			[]fun.InputOutput[string, OutputStruct]{
-				{[]string{"foo=1"}, OutputStruct{Key: "foo", Value: 1}},
-				{[]string{"bar=3"}, OutputStruct{Key: "bar", Value: 3}},
-				{[]string{"foo=1 [bar=3]"}, OutputStruct{Key: "foo", Value: 1, Children: []OutputStruct{{Key: "bar", Value: 3}}}},
-				{[]string{"foo=1 [bar=3 zoo=2]"}, OutputStruct{Key: "foo", Value: 1, Children: []OutputStruct{{Key: "bar", Value: 3}, {Key: "zoo", Value: 2}}}},
-			},
-			[]fun.InputOutput[string, OutputStruct]{
-				{[]string{"name=42 [first=2 second=1]"}, OutputStruct{Key: "name", Value: 42, Children: []OutputStruct{{Key: "first", Value: 2}, {Key: "second", Value: 1}}}},
-			},
-		},
-		{
-			"json_only_prompt_and_data",
-			fun.TextToJSONPrompt,
-			[]fun.InputOutput[string, OutputStruct]{
-				{[]string{"foo=1"}, OutputStruct{Key: "foo", Value: 1}},
-				{[]string{"bar=3"}, OutputStruct{Key: "bar", Value: 3}},
-				{[]string{"foo=1 [bar=3]"}, OutputStruct{Key: "foo", Value: 1, Children: []OutputStruct{{Key: "bar", Value: 3}}}},
-				{[]string{"foo=1 [bar=3 zoo=2]"}, OutputStruct{Key: "foo", Value: 1, Children: []OutputStruct{{Key: "bar", Value: 3}, {Key: "zoo", Value: 2}}}},
-			},
-			[]fun.InputOutput[string, OutputStruct]{
-				{[]string{"name=42 [first=2 second=1]"}, OutputStruct{Key: "name", Value: 42, Children: []OutputStruct{{Key: "first", Value: 2}, {Key: "second", Value: 1}}}},
-			},
-		},
-	}
-
 	for _, provider := range providers {
 		provider := provider
 
@@ -365,6 +443,76 @@ func TestTextStruct(t *testing.T) { //nolint:paralleltest,tparallel
 							assert.Equal(t, c.Output, output)
 						})
 					}
+				})
+			}
+		})
+	}
+}
+
+func TestOpenAIJSONSchema(t *testing.T) { //nolint:paralleltest,tparallel
+	t.Parallel()
+
+	if os.Getenv("OPENAI_API_KEY") == "" {
+		t.Skip("OPENAI_API_KEY is not available")
+	}
+
+	for _, tt := range tests {
+		tt := tt
+
+		t.Run(tt.Name, func(t *testing.T) {
+			t.Parallel()
+
+			data := []fun.InputOutput[string, OutputStructWithoutOmitEmpty]{}
+			for _, d := range tt.Data {
+				data = append(data, fun.InputOutput[string, OutputStructWithoutOmitEmpty]{
+					Input:  d.Input,
+					Output: toOutputStructWithoutOmitEmpty(d.Output),
+				})
+			}
+
+			f := fun.Text[string, OutputStructWithoutOmitEmpty]{
+				Provider: &fun.OpenAITextProvider{
+					Client:                nil,
+					APIKey:                os.Getenv("OPENAI_API_KEY"),
+					Model:                 "gpt-4o-mini-2024-07-18",
+					MaxContextLength:      128_000,
+					MaxResponseLength:     16_384,
+					ForceOutputJSONSchema: true,
+					Seed:                  42,
+					Temperature:           0,
+				},
+				InputJSONSchema:  jsonSchemaString,
+				OutputJSONSchema: outputStructJSONSchema,
+				Prompt:           tt.Prompt,
+				Data:             data,
+			}
+
+			ctx := zerolog.New(zerolog.NewTestWriter(t)).WithContext(context.Background())
+
+			errE := f.Init(ctx)
+			require.NoError(t, errE, "% -+#.1v", errE)
+
+			for _, d := range data {
+				d := d
+
+				t.Run(fmt.Sprintf("input=%s", d.Input), func(t *testing.T) {
+					t.Parallel()
+
+					output, errE := f.Call(ctx, d.Input...)
+					assert.NoError(t, errE, "% -+#.1v", errE)
+					assert.Equal(t, d.Output, output)
+				})
+			}
+
+			for _, c := range tt.Cases {
+				c := c
+
+				t.Run(fmt.Sprintf("input=%s", c.Input), func(t *testing.T) {
+					t.Parallel()
+
+					output, errE := f.Call(ctx, c.Input...)
+					assert.NoError(t, errE, "% -+#.1v", errE)
+					assert.Equal(t, toOutputStructWithoutOmitEmpty(c.Output), output)
 				})
 			}
 		})
