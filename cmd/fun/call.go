@@ -30,19 +30,19 @@ var errFileSkipped = errors.Base("file skipped")
 
 //nolint:lll
 type CallCommand struct {
-	InputDir         string               `                                            help:"Path to input directory."                                                                    name:"input"         placeholder:"PATH" required:"" short:"i" type:"existingdir"`
-	OutputDir        string               `                                            help:"Path to output directory."                                                                   name:"output"        placeholder:"PATH" required:"" short:"o" type:"path"`
-	DataDir          string               `                                            help:"Path to data directory. It should contains pairs of files with inputs and expected outputs." name:"data"          placeholder:"PATH"             short:"d" type:"existingdir"`
-	PromptPath       string               `                                            help:"Path to a file with the prompt, a natural language description of the function."             name:"prompt"        placeholder:"PATH"             short:"P" type:"path"`
-	InputExtension   string               `default:".in"                               help:"File extension of an input file. Default: ${default}."                                       name:"in"            placeholder:"EXT"`
-	OutputExtension  string               `default:".out"                              help:"File extension of an output file. Default: ${default}."                                      name:"out"           placeholder:"EXT"`
-	InputJSONSchema  kong.FileContentFlag `                                            help:"Path to a file with JSON Schema to validate inputs."                                         name:"input-schema"  placeholder:"PATH"`
-	OutputJSONSchema kong.FileContentFlag `                                            help:"Path to a file with JSON Schema to validate outputs."                                        name:"output-schema" placeholder:"PATH"`
-	Provider         string               `               enum:"ollama,groq,anthropic" help:"AI model provider. Possible: ${enum}."                                                                                               required:"" short:"p"`
-	Model            string               `                                            help:"AI model to use."                                                                                                                    required:"" short:"m"`
-	Parallel         int                  `default:"1"                                 help:"How many input files to process in parallel. Default: ${default}."                                                placeholder:"INT"`
-	Batches          int                  `default:"1"                                 help:"Split input files into batches. Default: ${default}."                                                             placeholder:"INT"              short:"B"`
-	Batch            int                  `default:"0"                                 help:"Process only files in the batch with this 0-based index. Default: ${default}."                                    placeholder:"INT"              short:"b"`
+	InputDir         string               `                                                   help:"Path to input directory."                                                                    name:"input"         placeholder:"PATH" required:"" short:"i" type:"existingdir"`
+	OutputDir        string               `                                                   help:"Path to output directory."                                                                   name:"output"        placeholder:"PATH" required:"" short:"o" type:"path"`
+	DataDir          string               `                                                   help:"Path to data directory. It should contains pairs of files with inputs and expected outputs." name:"data"          placeholder:"PATH"             short:"d" type:"existingdir"`
+	PromptPath       string               `                                                   help:"Path to a file with the prompt, a natural language description of the function."             name:"prompt"        placeholder:"PATH"             short:"P" type:"path"`
+	InputExtension   string               `default:".in"                                      help:"File extension of an input file. Default: ${default}."                                       name:"in"            placeholder:"EXT"`
+	OutputExtension  string               `default:".out"                                     help:"File extension of an output file. Default: ${default}."                                      name:"out"           placeholder:"EXT"`
+	InputJSONSchema  kong.FileContentFlag `                                                   help:"Path to a file with JSON Schema to validate inputs."                                         name:"input-schema"  placeholder:"PATH"`
+	OutputJSONSchema kong.FileContentFlag `                                                   help:"Path to a file with JSON Schema to validate outputs."                                        name:"output-schema" placeholder:"PATH"`
+	Provider         string               `               enum:"ollama,groq,anthropic,openai" help:"AI model provider. Possible: ${enum}."                                                                                               required:"" short:"p"`
+	Model            string               `                                                   help:"AI model to use."                                                                                                                    required:"" short:"m"`
+	Parallel         int                  `default:"1"                                        help:"How many input files to process in parallel. Default: ${default}."                                                placeholder:"INT"`
+	Batches          int                  `default:"1"                                        help:"Split input files into batches. Default: ${default}."                                                             placeholder:"INT"              short:"B"`
+	Batch            int                  `default:"0"                                        help:"Process only files in the batch with this 0-based index. Default: ${default}."                                    placeholder:"INT"              short:"b"`
 }
 
 func (c *CallCommand) Run(logger zerolog.Logger) errors.E { //nolint:maintidx
@@ -92,6 +92,19 @@ func (c *CallCommand) Run(logger zerolog.Logger) errors.E { //nolint:maintidx
 			APIKey:      os.Getenv("ANTHROPIC_API_KEY"),
 			Model:       c.Model,
 			Temperature: 0,
+		}
+	case "openai":
+		if os.Getenv("OPENAI_API_KEY") == "" {
+			return errors.New("OPENAI_API_KEY environment variable is missing")
+		}
+		provider = &fun.OpenAITextProvider{
+			Client:            nil,
+			APIKey:            os.Getenv("OPENAI_API_KEY"),
+			Model:             c.Model,
+			MaxContextLength:  0,
+			MaxResponseLength: 0,
+			Seed:              defaultSeed,
+			Temperature:       0,
 		}
 	}
 
