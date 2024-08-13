@@ -302,7 +302,7 @@ variables:
     protected: true
     raw: true
     # sops:enc
-    value: ENC[AES256_GCM,data:HkU7FOAJyfogHM0e03m58XgoNQO50Pc3BY0=,iv:GZLYBcAYqiUjI+0908kqvJ9wR9PD7WofiqXtw1ulrh8=,tag:fKCsjB7okYBEaLfYHCw5Fg==,type:str]
+    value: ENC[AES256_GCM,data:5hiOWMR4Rm4LpPRffPHn1aZWXSjqZy4ZQB4=,iv:g5VL6uyMueakG7Sdi7qfsgB++1QCpHob7tQrAbH4j0o=,tag:DsFkAgj0c27x6RVAXqPP7A==,type:str]
     variable_type: env_var
   - description: ""
     environment_scope: '*'
@@ -311,7 +311,7 @@ variables:
     protected: true
     raw: true
     # sops:enc
-    value: ENC[AES256_GCM,data:lVPdlR5U4Hx6BsYFBIlwdTAOPyI0ZxlbqQUvCW8aR12jCU2gI9er3heuca/JdE8+ITVS+WVUASkNT6cOMCgnA2iL/JrkglETTNDiFnFQ9FD/AskbGn0Hvf9BWI6idCOVMPUQbitdHlkR+bZcqEpMaiSZjc6FEGF5tl5Wjq1j9U8KG61rxHsjdoQQwvE7qsjM7kYnnfpmb6H9zjeSWQ5j6qZWQLhq4WuHReSfx4rRZw6wGj0suC91q9NDSQCb,iv:k8w+yDm+t6E5OTZaRKRNK6PMgZWDKGcFhzbWGdatxoo=,tag:W/7Raj/CJ7LHbJxMuF3E5w==,type:str]
+    value: ENC[AES256_GCM,data:QXu9Cyd6VyKQWJxjLXOTCO/55uUZ5z+cIYf08ltqCRP/dBUyFpx6YMpkqNdk5F15ofXr9z/BK44jWJPB1UdwyJOHWeWCsTWkNgPDCFDRqeU8CLb+VUwZM1R7sgjI8zGNgoO85cE7wctB7L7Qo+CNDTnPZ73UlQJj4GqFIUBqJDNZ/3CF/Jra66hO7BLIsUFXODyorPH5o3LLVTwR5S5Qys7zRA+W39c05f4oEkrSNk/UuUWOAoyR7Z3lGJ4S,iv:dxTyRSSLJWqHehjsMw1M4spmA9foTEQR1kXSnIeHY7U=,tag:g0JQZx5OCuyBXfFG8eungQ==,type:str]
     variable_type: file
   - description: null
     environment_scope: '*'
@@ -320,7 +320,7 @@ variables:
     protected: true
     raw: true
     # sops:enc
-    value: ENC[AES256_GCM,data:96Q1YDoYUBPTTzS46us7wEv/baVRqqRtFPdW5ngfwjHNvCe2JltA6XrpLxp4KV1hdylU1n+mbN4=,iv:yFr++LKfljXS7vrt3ZfAhnuybiP0TFnuFE1QRL9DdEg=,tag:kzFuIgV+JSNp3OsOcabCeg==,type:str]
+    value: ENC[AES256_GCM,data:TzmbsFYj+ArMSoRd/HaI0wz5uxoU+xjShCTsZoafFUK60Vzt5oJ65T0jtBz/i/pf/0Lqj+klH6o=,iv:+QPqjkWBhUhZNLiI0VIK8vq01vJvbHQuato+gGH9dnQ=,tag:Y1IP1uN7Hu4D8TvQ9o92Cg==,type:str]
     variable_type: env_var
   - description: null
     environment_scope: '*'
@@ -329,7 +329,16 @@ variables:
     protected: true
     raw: true
     # sops:enc
-    value: ENC[AES256_GCM,data:UStPfeCB9KgccDJe6/CobdrIjJsKEZE5uFwXQ8n61ocGtZLB66Lq7hhHxN6BbIBUozKZC8CjUZQD9/Lxx1OzK6mnju2+iIfAIXWChuZNX04S7vjmtz9Hoow2HIXvjohxILlU4rknUyjBlKZd,iv:RvjsrOj3dx25Nnahjlx4QJPiCFmPVb8xS/IvHHSGTUY=,tag:7k3UaLehSMIr9LsmHBUjXg==,type:str]
+    value: ENC[AES256_GCM,data:HOl52XtOKFrZq0hTWgVs1IVUnuax6VluWnX7nO9o3eDLiSCxOviCwDQtzf+21IDZALePJssmMkE8EATRQmKrqG/FZBHEv877Nv6ScR1DPbb7v1b3TFzInP1CaE94HaCWn7+bDSBFpnEVNUVj,iv:WGx4ig4K60IjbvuzT6cx+Vkj6+v0Vnb3uC3xcd98sTo=,tag:rxgHkBpx1mZ4MXeMDiVF3A==,type:str]
+    variable_type: env_var
+  - description: null
+    environment_scope: '*'
+    key: OPENAI_API_KEY
+    masked: true
+    protected: true
+    raw: true
+    # sops:enc
+    value: ENC[AES256_GCM,data:KppI4M4f/r3gCi7qRbtr6BOemTIcR1ApPdK7fKwqx95tSR9BoIfyZNkVoWs39TWwhMFDBcOEKYuFEgoM7q1p8Zb4V98nRLHKlGpP6Ztn76awqhTO9zQnqnSITcMLTtUDgMj7eoiHY/vGeODIwAtaIZh/HbgOEg==,iv:noN/++j5kiBhaJ7CcDo/Gvsck7wGfwqvZCi9bxTC9kw=,tag:l0ruUIuX+a9ElJ3+GpCETA==,type:str]
     variable_type: env_var
 # active: The activation of pipeline schedule. If false is set, the pipeline
 # schedule is initially deactivated. Type: boolean
@@ -352,14 +361,14 @@ sops:
     - recipient: age1g30mypsvhp2sx2ay89l0wddcayv7cu2339esv505tlq5k082c3ess0qllw
       enc: |
         -----BEGIN AGE ENCRYPTED FILE-----
-        YWdlLWVuY3J5cHRpb24ub3JnL3YxCi0+IFgyNTUxOSB4MUl1cXZZdGVXckwveHZn
-        VWJMK1RKV1JsdVFLNG1yQmJodUNHZWszWnk0CisvNHlGVHdVT2c2RWpEVWdDc242
-        VGhWSW4zckV6VS9LRkRaVkFTaUJsSzAKLS0tIFc5Y1FsRDNjeDZBTEE5V2plSStV
-        ZlRkZGVBMmpxcExqc09vQ3N0eE9pWU0KhYTWM/UNgAEoJqdnDfhjRy+J8gMyjnLb
-        PErFkFuhEcu0BV5MzE1lif7PqdGeP6KKzDPwATHtLUZS53URqcFfjw==
+        YWdlLWVuY3J5cHRpb24ub3JnL3YxCi0+IFgyNTUxOSB2Ti9sVlRWc1hGSlNFbHlT
+        RStpOG85TXc1SU1IQ3VxeGlNWVBVbnNYUWxRCkh4cWprOVU0R1BWekZ4S21QMFZV
+        a3dBcFRyODZ3a2pGc1ZNZmR1dkdJTlkKLS0tIHZWQ3lOd1IrQ0JwUWZzKzAveU90
+        RnZRL21kVkZiLzhxUlJYcHlKWmpvNncK/YLvoOqZmZwzxBSiSpOaUTTwynnMq+9K
+        +U8d3vykUVO+vDexHY6BY/IQrrS3/vTW7VMCiSA8Kq059nBZYVj/0Q==
         -----END AGE ENCRYPTED FILE-----
-  lastmodified: "2024-07-31T07:23:09Z"
-  mac: ENC[AES256_GCM,data:l1T3BTkmEgIUiZDKCGSQs/duXG9csNA17LoljiAzOdqHC8lhGDI1/WNMrGZpDXvUF5Gj/qyb5V40Z9XLMu55bDGKPrfJ+sZEKqjVxLeKfTDSlp31chI3AktzyS0tYfhMXUGeTWVSISJCx5e0IFmDyCXLVqMhLrLHqrwYo8FzVy0=,iv:rX0LICy8mapY1J0mLZryCDyW7r60AutlycGwagzoQRI=,tag:gvp6idFQCAFTIjJwjRcJpQ==,type:str]
+  lastmodified: "2024-08-13T11:35:14Z"
+  mac: ENC[AES256_GCM,data:uiG0XRYSh8+sAllFfWpvf3tKmGOw0iYJ03goDnN3BW2U+IfMOWA4Rx84ODLxjTzhKS+PodH45dkOQ9JreN3jFQiPyY8XDzBXBPEGRaElexwD9++sSxMdusw8UMhLwkagptr0n3lpr8zwaBCPl0BAjKIijd+upWWFdwlRWSKz8jc=,iv:TONrh2t3zPGG6LUwda8cQ5KmnZBFNlTn6RvuA6mlvaw=,tag:sRopZq4IuHgFnedJGVO/Sg==,type:str]
   pgp: []
   encrypted_comment_regex: sops:enc
   mac_only_encrypted: true
