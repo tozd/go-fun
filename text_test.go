@@ -449,7 +449,7 @@ func TestTextStruct(t *testing.T) { //nolint:paralleltest,tparallel
 	}
 }
 
-func TestOpenAIJSONSchema(t *testing.T) { //nolint:paralleltest,tparallel
+func TestOpenAIJSONSchema(t *testing.T) {
 	t.Parallel()
 
 	if os.Getenv("OPENAI_API_KEY") == "" {
