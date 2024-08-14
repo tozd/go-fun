@@ -3,6 +3,7 @@ package fun
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
@@ -11,6 +12,7 @@ import (
 	"time"
 
 	"github.com/rs/zerolog"
+	"github.com/santhosh-tekuri/jsonschema/v6"
 	"gitlab.com/tozd/go/errors"
 	"gitlab.com/tozd/go/x"
 )
@@ -44,10 +46,10 @@ var openAIRateLimiter = keyedRateLimiter{ //nolint:gochecknoglobals
 }
 
 type openAIJSONSchema struct {
-	Description string `json:"description,omitempty"`
-	Name        string `json:"name"`
-	Schema      any    `json:"schema"`
-	Strict      bool   `json:"strict"`
+	Description string          `json:"description,omitempty"`
+	Name        string          `json:"name"`
+	Schema      json.RawMessage `json:"schema"`
+	Strict      bool            `json:"strict"`
 }
 
 type openAIResponseFormat struct {
@@ -112,7 +114,7 @@ type OpenAITextProvider struct {
 	Temperature float64
 
 	messages                    []ChatMessage
-	outputJSONSchema            any
+	outputJSONSchema            json.RawMessage
 	outputJSONSchemaName        string
 	outputJSONSchemaDescription string
 }
@@ -255,7 +257,7 @@ func (o *OpenAITextProvider) Chat(ctx context.Context, message ChatMessage) (str
 		return "", errE
 	}
 	if response.Choices[0].FinishReason != "stop" {
-		errE = errors.WithDetails(ErrNotDone, "reason", response.Choices[0].FinishReason)
+		errE = errors.WithDetails(ErrUnexpectedStop, "reason", response.Choices[0].FinishReason)
 		if requestID != "" {
 			errors.Details(errE)["apiRequest"] = requestID
 		}
@@ -274,7 +276,7 @@ func (o *OpenAITextProvider) Chat(ctx context.Context, message ChatMessage) (str
 	}
 
 	if response.Choices[0].Message.Content == nil {
-		errE = errors.WithStack(ErrNotTextMessage)
+		errE = errors.WithStack(ErrUnexpectedMessageType)
 		if requestID != "" {
 			errors.Details(errE)["apiRequest"] = requestID
 		}
@@ -313,18 +315,24 @@ func (o *OpenAITextProvider) Chat(ctx context.Context, message ChatMessage) (str
 }
 
 // InitOutputJSONSchema implements WithOutputJSONSchema interface.
-func (o *OpenAITextProvider) InitOutputJSONSchema(_ context.Context, outputJSONSchema any) errors.E {
+func (o *OpenAITextProvider) InitOutputJSONSchema(_ context.Context, schema []byte) errors.E {
 	if !o.ForceOutputJSONSchema {
 		return nil
 	}
 
-	if outputJSONSchema == nil {
+	if schema == nil {
 		return errors.Errorf(`%w: output JSON Schema is missing`, ErrInvalidJSONSchema)
 	}
 
-	o.outputJSONSchema = outputJSONSchema
-	o.outputJSONSchemaName = getString(outputJSONSchema, "title")
-	o.outputJSONSchemaDescription = getString(outputJSONSchema, "description")
+	o.outputJSONSchema = schema
+
+	s, err := jsonschema.UnmarshalJSON(bytes.NewReader(schema))
+	if err != nil {
+		return errors.WithStack(err)
+	}
+
+	o.outputJSONSchemaName = getString(s, "title")
+	o.outputJSONSchemaDescription = getString(s, "description")
 
 	if o.outputJSONSchemaName == "" {
 		return errors.Errorf(`%w: JSON Schema is missing "title" field which is used for required JSON Schema "name" for OpenAI API`, ErrInvalidJSONSchema)

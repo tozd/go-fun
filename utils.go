@@ -169,3 +169,19 @@ func getString(data any, name string) string {
 	}
 	return s
 }
+
+// contextKey is a value for use with context.WithValue. It's used as
+// a pointer so it fits in an interface{} without allocation.
+type contextKey struct {
+	name string
+}
+
+var estimatedTokensContextKey = &contextKey{"estimated-tokens"} //nolint:gochecknoglobals
+
+func withEstimatedTokens(ctx context.Context, estimatedTokens int) context.Context {
+	return context.WithValue(ctx, estimatedTokensContextKey, estimatedTokens)
+}
+
+func getEstimatedTokens(ctx context.Context) int {
+	return ctx.Value(estimatedTokensContextKey).(int) //nolint:forcetypeassert
+}

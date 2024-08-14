@@ -24,7 +24,7 @@ const (
 	TextToJSONPrompt = `Output only JSON.`
 )
 
-func compileValidator[T any](jsonSchema []byte) (*jsonschema.Schema, any, errors.E) {
+func compileValidator[T any](jsonSchema []byte) (*jsonschema.Schema, []byte, errors.E) {
 	if jsonSchema == nil {
 		// We construct JSON Schema from Go value.
 		schema := jsonschemaGen.Reflect(new(T))
@@ -51,7 +51,34 @@ func compileValidator[T any](jsonSchema []byte) (*jsonschema.Schema, any, errors
 		return nil, nil, errors.WithStack(err)
 	}
 
-	return validator, schema, nil
+	return validator, jsonSchema, nil
+}
+
+func validateJSON(validator *jsonschema.Schema, data json.RawMessage) errors.E {
+	v, err := jsonschema.UnmarshalJSON(bytes.NewReader(data))
+	if err != nil {
+		return errors.WithStack(err)
+	}
+	err = validator.Validate(v)
+	if err != nil {
+		errE := errors.Prefix(err, ErrJSONSchemaValidation)
+		errors.Details(errE)["data"] = data
+		return errE
+	}
+	return nil
+}
+
+func valueToJSON(validator *jsonschema.Schema, value any) ([]byte, errors.E) {
+	// If type is a string, we want to support when string is a valid JSON that one can validate it as-is. At the same time we want to support using
+	// JSON Schema to validate strings themselves (in which case we first have to marshal the string into JSON string with quotes). The issue with this
+	// approach is if a) value is of string type b) user has a JSON Schema expecting non-string to validate JSON as string c) string is expected to be
+	// JSON to validate, but d) input is not valid JSON. In that case instead of failing at UnmarshalJSON call below, we will marshal it into the JSON
+	// string and then probably JSON Schema will fail to validate it. Hopefully we are not too smart here and this heuristic will work out well in practice.
+	if v, ok := value.(string); ok && !slices.Equal(validator.Types.ToStrings(), []string{"string"}) && json.Valid([]byte(v)) {
+		return []byte(v), nil
+	}
+
+	return x.MarshalWithoutEscapeHTML(value)
 }
 
 func validate(validator *jsonschema.Schema, value any) errors.E {
@@ -59,32 +86,12 @@ func validate(validator *jsonschema.Schema, value any) errors.E {
 		return nil
 	}
 
-	var data []byte
-	var errE errors.E
-	// If type is a string, we want to support when string is a valid JSON that one can validate it as-is. At the same time we want to support using
-	// JSON Schema to validate strings themselves (in which case we first have to marshal the string into JSON string with quotes). The issue with this
-	// approach is if a) value is of string type b) user has a JSON Schema expecting non-string to validate JSON as string c) string is expected to be
-	// JSON to validate, but d) input is not valid JSON. In that case instead of failing at UnmarshalJSON call below, we will marshal it into the JSON
-	// string and then probably JSON Schema will fail to validate it. Hopefully we are not too smart here and this heuristic will work out well in practice.
-	if v, ok := value.(string); ok && !slices.Equal(validator.Types.ToStrings(), []string{"string"}) && json.Valid([]byte(v)) {
-		data = []byte(v)
-	} else {
-		data, errE = x.MarshalWithoutEscapeHTML(value)
-		if errE != nil {
-			return errE
-		}
-	}
-	v, err := jsonschema.UnmarshalJSON(bytes.NewReader(data))
-	if err != nil {
-		return errors.WithStack(err)
-	}
-	err = validator.Validate(v)
-	if err != nil {
-		errE = errors.Prefix(err, ErrJSONSchemaValidation)
-		errors.Details(errE)["data"] = json.RawMessage(data)
+	data, errE := valueToJSON(validator, value)
+	if errE != nil {
 		return errE
 	}
-	return nil
+
+	return validateJSON(validator, data)
 }
 
 func toInputString[T any](data []T) (string, errors.E) {
@@ -160,20 +167,30 @@ type Text[Input, Output any] struct {
 
 // Init implements [Callee] interface.
 func (t *Text[Input, Output]) Init(ctx context.Context) errors.E {
+	if t.inputValidator != nil {
+		return errors.WithStack(ErrAlreadyInitialized)
+	}
+
 	logger := zerolog.Ctx(ctx).With().Str("fun", identifier.New().String()).Logger()
 	ctx = logger.WithContext(ctx)
 
-	validator, _, errE := compileValidator[Input](t.InputJSONSchema)
+	validator, inputSchema, errE := compileValidator[Input](t.InputJSONSchema)
 	if errE != nil {
 		return errE
 	}
 	t.inputValidator = validator
+	if t.InputJSONSchema == nil {
+		t.InputJSONSchema = inputSchema
+	}
 
 	validator, outputSchema, errE := compileValidator[Output](t.OutputJSONSchema)
 	if errE != nil {
 		return errE
 	}
 	t.outputValidator = validator
+	if t.OutputJSONSchema == nil {
+		t.OutputJSONSchema = outputSchema
+	}
 
 	messages := []ChatMessage{}
 	if t.Prompt != "" {

@@ -91,6 +91,7 @@ func (c *CallCommand) Run(logger zerolog.Logger) errors.E { //nolint:maintidx
 			Client:      nil,
 			APIKey:      os.Getenv("ANTHROPIC_API_KEY"),
 			Model:       c.Model,
+			Tools:       nil, // TODO: How to make it configurable?
 			Temperature: 0,
 		}
 	case "openai":

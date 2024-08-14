@@ -29,5 +29,5 @@ type TextProvider interface {
 
 // WithOutputJSONSchema is a provider which supports setting JSON Schema for its output.
 type WithOutputJSONSchema interface {
-	InitOutputJSONSchema(ctx context.Context, outputJSONSchema any) errors.E
+	InitOutputJSONSchema(ctx context.Context, schema []byte) errors.E
 }

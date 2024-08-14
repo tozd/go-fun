@@ -295,8 +295,8 @@ func (g *GroqTextProvider) Chat(ctx context.Context, message ChatMessage) (strin
 		}
 		return "", errE
 	}
-	if response.Choices[0].FinishReason != "stop" {
-		errE = errors.WithDetails(ErrNotDone, "reason", response.Choices[0].FinishReason)
+	if response.Choices[0].FinishReason != "stop" { //nolint:goconst
+		errE = errors.WithDetails(ErrUnexpectedStop, "reason", response.Choices[0].FinishReason)
 		if requestID != "" {
 			errors.Details(errE)["apiRequest"] = requestID
 		}

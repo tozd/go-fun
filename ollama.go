@@ -200,8 +200,8 @@ func (o *OllamaTextProvider) Chat(ctx context.Context, message ChatMessage) (str
 	if len(responses) != 1 {
 		return "", errors.WithDetails(ErrUnexpectedNumberOfMessages, "number", len(responses))
 	}
-	if !responses[0].Done {
-		return "", errors.WithStack(ErrNotDone)
+	if responses[0].DoneReason != "stop" {
+		return "", errors.WithDetails(ErrUnexpectedStop, "reason", responses[0].DoneReason)
 	}
 
 	if responses[0].Metrics.PromptEvalCount+responses[0].Metrics.EvalCount >= o.MaxContextLength {
