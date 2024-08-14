@@ -10,7 +10,7 @@ import (
 
 var textProviderRecorderContextKey = &contextKey{"text-provider-recorder"} //nolint:gochecknoglobals
 
-type TextProviderRecorderUsage struct {
+type TextProviderRecorderUsedTokens struct {
 	MaxTotal    int `json:"maxTotal"`    //nolint:tagliatelle
 	MaxResponse int `json:"maxResponse"` //nolint:tagliatelle
 	Prompt      int `json:"prompt"`
@@ -21,8 +21,8 @@ type TextProviderRecorderUsage struct {
 type TextProviderRecorder struct {
 	mu sync.Mutex
 
-	messages []map[string]string
-	usage    map[string]TextProviderRecorderUsage
+	messages   []map[string]string
+	usedTokens map[string]TextProviderRecorderUsedTokens
 }
 
 func (t *TextProviderRecorder) addMessage(role, message string, params ...string) {
@@ -52,15 +52,15 @@ func (t *TextProviderRecorder) Messages() []map[string]string {
 	return t.messages
 }
 
-func (t *TextProviderRecorder) addUsage(requestID string, maxTotal, maxResponse, prompt, response int) {
+func (t *TextProviderRecorder) addUsedTokens(requestID string, maxTotal, maxResponse, prompt, response int) {
 	t.mu.Lock()
 	defer t.mu.Unlock()
 
-	if t.usage == nil {
-		t.usage = map[string]TextProviderRecorderUsage{}
+	if t.usedTokens == nil {
+		t.usedTokens = map[string]TextProviderRecorderUsedTokens{}
 	}
 
-	t.usage[requestID] = TextProviderRecorderUsage{
+	t.usedTokens[requestID] = TextProviderRecorderUsedTokens{
 		MaxTotal:    maxTotal,
 		MaxResponse: maxResponse,
 		Prompt:      prompt,
@@ -69,11 +69,11 @@ func (t *TextProviderRecorder) addUsage(requestID string, maxTotal, maxResponse,
 	}
 }
 
-func (t *TextProviderRecorder) Usage() map[string]TextProviderRecorderUsage {
+func (t *TextProviderRecorder) UsedTokens() map[string]TextProviderRecorderUsedTokens {
 	t.mu.Lock()
 	defer t.mu.Unlock()
 
-	return t.usage
+	return t.usedTokens
 }
 
 func WithTextProviderRecorder(ctx context.Context) context.Context {

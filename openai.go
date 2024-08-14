@@ -274,7 +274,7 @@ func (o *OpenAITextProvider) Chat(ctx context.Context, message ChatMessage) (str
 	}
 
 	if recorder != nil {
-		recorder.addUsage(
+		recorder.addUsedTokens(
 			requestID,
 			o.MaxContextLength,
 			o.MaxResponseLength,

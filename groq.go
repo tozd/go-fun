@@ -298,7 +298,7 @@ func (g *GroqTextProvider) Chat(ctx context.Context, message ChatMessage) (strin
 	}
 
 	if recorder != nil {
-		recorder.addUsage(
+		recorder.addUsedTokens(
 			requestID,
 			g.MaxContextLength,
 			g.MaxResponseLength,

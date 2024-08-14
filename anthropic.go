@@ -331,7 +331,7 @@ func (a *AnthropicTextProvider) Chat(ctx context.Context, message ChatMessage) (
 		}
 
 		if recorder != nil {
-			recorder.addUsage(
+			recorder.addUsedTokens(
 				requestID,
 				estimatedTokens,
 				anthropicMaxResponseTokens,

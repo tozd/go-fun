@@ -212,7 +212,7 @@ func (o *OllamaTextProvider) Chat(ctx context.Context, message ChatMessage) (str
 	}
 
 	if recorder != nil {
-		recorder.addUsage(
+		recorder.addUsedTokens(
 			"",
 			o.MaxContextLength,
 			o.MaxResponseLength,
