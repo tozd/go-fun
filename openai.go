@@ -11,6 +11,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/rs/zerolog"
 	"github.com/santhosh-tekuri/jsonschema/v6"
 	"gitlab.com/tozd/go/errors"
 	"gitlab.com/tozd/go/x"
@@ -56,19 +57,44 @@ type openAIResponseFormat struct {
 	JSONSchema openAIJSONSchema `json:"json_schema"`
 }
 
+// TODO: How can we make parameters optional?
+type openAIFunction struct {
+	Name            string          `json:"name"`
+	Description     string          `json:"description,omitempty"`
+	InputJSONSchema json.RawMessage `json:"parameters"`
+	Strict          bool            `json:"strict"`
+}
+
+type openAITool struct {
+	Type     string         `json:"type"`
+	Function openAIFunction `json:"function"`
+}
+
 type openAIRequest struct {
-	Messages       []ChatMessage         `json:"messages"`
+	Messages       []openAIMessage       `json:"messages"`
 	Model          string                `json:"model"`
 	Seed           int                   `json:"seed"`
 	Temperature    float64               `json:"temperature"`
 	MaxTokens      int                   `json:"max_tokens"`
 	ResponseFormat *openAIResponseFormat `json:"response_format,omitempty"`
+	Tools          []openAITool          `json:"tools,omitempty"`
+}
+
+type openAIToolCall struct {
+	ID       string `json:"id"`
+	Type     string `json:"type"`
+	Function struct {
+		Name      string `json:"name"`
+		Arguments string `json:"arguments"`
+	} `json:"function"`
 }
 
 type openAIMessage struct {
-	Role    string  `json:"role"`
-	Content *string `json:"content,omitempty"`
-	Refusal *string `json:"refusal,omitempty"`
+	Role       string           `json:"role"`
+	Content    *string          `json:"content,omitempty"`
+	Refusal    *string          `json:"refusal,omitempty"`
+	ToolCalls  []openAIToolCall `json:"tool_calls,omitempty"`
+	ToolCallID string           `json:"tool_call_id,omitempty"`
 }
 
 type openAIResponse struct {
@@ -109,23 +135,52 @@ type OpenAITextProvider struct {
 	MaxContextLength  int
 	MaxResponseLength int
 
+	Tools                 map[string]Tooler
 	ForceOutputJSONSchema bool
 
 	Seed        int
 	Temperature float64
 
-	messages                    []ChatMessage
+	messages                    []openAIMessage
+	tools                       []openAITool
 	outputJSONSchema            json.RawMessage
 	outputJSONSchemaName        string
 	outputJSONSchemaDescription string
 }
 
 // Init implements TextProvider interface.
-func (o *OpenAITextProvider) Init(_ context.Context, messages []ChatMessage) errors.E {
+func (o *OpenAITextProvider) Init(ctx context.Context, messages []ChatMessage) errors.E {
 	if o.messages != nil {
 		return errors.WithStack(ErrAlreadyInitialized)
 	}
-	o.messages = messages
+	for _, message := range messages {
+		message := message
+		o.messages = append(o.messages, openAIMessage{
+			Role:       message.Role,
+			Content:    &message.Content,
+			Refusal:    nil,
+			ToolCalls:  nil,
+			ToolCallID: "",
+		})
+	}
+
+	for name, tool := range o.Tools {
+		errE := tool.Init(ctx)
+		if errE != nil {
+			errors.Details(errE)["name"] = name
+			return errE
+		}
+
+		o.tools = append(o.tools, openAITool{
+			Type: "function",
+			Function: openAIFunction{
+				Name:            name,
+				Description:     tool.GetDescription(),
+				InputJSONSchema: tool.GetInputJSONSchema(),
+				Strict:          true,
+			},
+		})
+	}
 
 	if o.Client == nil {
 		o.Client = newClient(
@@ -178,158 +233,205 @@ func (o *OpenAITextProvider) Chat(ctx context.Context, message ChatMessage) (str
 	recorder := GetTextProviderRecorder(ctx)
 
 	messages := slices.Clone(o.messages)
-	messages = append(messages, message)
+	messages = append(messages, openAIMessage{
+		Role:       message.Role,
+		Content:    &message.Content,
+		Refusal:    nil,
+		ToolCalls:  nil,
+		ToolCallID: "",
+	})
 
 	if recorder != nil {
 		for _, message := range messages {
-			message := message
-			o.recordMessage(recorder, openAIMessage{
-				Role:    message.Role,
-				Content: &message.Content,
-				Refusal: nil,
-			})
+			o.recordMessage(recorder, message)
 		}
 	}
 
-	oReq := openAIRequest{
-		Messages:       messages,
-		Model:          o.Model,
-		Seed:           o.Seed,
-		Temperature:    o.Temperature,
-		MaxTokens:      o.MaxResponseLength, // TODO: Can we provide a better estimate?
-		ResponseFormat: nil,
-	}
-
-	if o.outputJSONSchema != nil {
-		oReq.ResponseFormat = &openAIResponseFormat{
-			Type: "json_schema",
-			JSONSchema: openAIJSONSchema{
-				Description: o.outputJSONSchemaDescription,
-				Name:        o.outputJSONSchemaName,
-				Schema:      o.outputJSONSchema,
-				Strict:      true,
-			},
+	for {
+		oReq := openAIRequest{
+			Messages:       messages,
+			Model:          o.Model,
+			Seed:           o.Seed,
+			Temperature:    o.Temperature,
+			MaxTokens:      o.MaxResponseLength, // TODO: Can we provide a better estimate?
+			ResponseFormat: nil,
+			Tools:          o.tools,
 		}
-	}
 
-	request, errE := x.MarshalWithoutEscapeHTML(oReq)
-	if errE != nil {
-		return "", errE
-	}
+		if o.outputJSONSchema != nil {
+			oReq.ResponseFormat = &openAIResponseFormat{
+				Type: "json_schema",
+				JSONSchema: openAIJSONSchema{
+					Description: o.outputJSONSchemaDescription,
+					Name:        o.outputJSONSchemaName,
+					Schema:      o.outputJSONSchema,
+					Strict:      true,
+				},
+			}
+		}
 
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, "https://api.openai.com/v1/chat/completions", bytes.NewReader(request))
-	if err != nil {
-		return "", errors.WithStack(err)
-	}
-	req.Header.Add("Authorization", fmt.Sprintf("Bearer %s", o.APIKey))
-	req.Header.Add("Content-Type", "application/json")
-	// Rate limit the initial request.
-	errE = openAIRateLimiter.Take(ctx, o.APIKey, map[string]int{
-		"rpm": 1,
-		"tpm": o.MaxContextLength, // TODO: Can we provide a better estimate?
-	})
-	if errE != nil {
-		return "", errE
-	}
-	resp, err := o.Client.Do(req)
-	var requestID string
-	if resp != nil {
-		requestID = resp.Header.Get("X-Request-Id")
-	}
-	if err != nil {
-		errE = errors.Prefix(err, ErrAPIRequestFailed)
-		if requestID != "" {
+		request, errE := x.MarshalWithoutEscapeHTML(oReq)
+		if errE != nil {
+			return "", errE
+		}
+
+		req, err := http.NewRequestWithContext(ctx, http.MethodPost, "https://api.openai.com/v1/chat/completions", bytes.NewReader(request))
+		if err != nil {
+			return "", errors.WithStack(err)
+		}
+		req.Header.Add("Authorization", fmt.Sprintf("Bearer %s", o.APIKey))
+		req.Header.Add("Content-Type", "application/json")
+		// Rate limit the initial request.
+		errE = openAIRateLimiter.Take(ctx, o.APIKey, map[string]int{
+			"rpm": 1,
+			"tpm": o.MaxContextLength, // TODO: Can we provide a better estimate?
+		})
+		if errE != nil {
+			return "", errE
+		}
+		resp, err := o.Client.Do(req)
+		var requestID string
+		if resp != nil {
+			requestID = resp.Header.Get("X-Request-Id")
+		}
+		if err != nil {
+			errE = errors.Prefix(err, ErrAPIRequestFailed)
+			if requestID != "" {
+				errors.Details(errE)["apiRequest"] = requestID
+			}
+			return "", errE
+		}
+		defer resp.Body.Close()
+		defer io.Copy(io.Discard, resp.Body) //nolint:errcheck
+
+		if requestID == "" {
+			return "", errors.WithStack(ErrMissingRequestID)
+		}
+
+		var response openAIResponse
+		errE = x.DecodeJSON(resp.Body, &response)
+		if errE != nil {
 			errors.Details(errE)["apiRequest"] = requestID
+			return "", errE
 		}
-		return "", errE
+
+		if response.Error != nil {
+			return "", errors.WithDetails(
+				ErrAPIResponseError,
+				"body", response.Error,
+				"apiRequest", requestID,
+			)
+		}
+
+		if len(response.Choices) != 1 {
+			return "", errors.WithDetails(
+				ErrUnexpectedNumberOfMessages,
+				"number", len(response.Choices),
+				"apiRequest", requestID,
+			)
+		}
+
+		if recorder != nil {
+			recorder.addUsedTokens(
+				requestID,
+				o.MaxContextLength,
+				o.MaxResponseLength,
+				response.Usage.PromptTokens,
+				response.Usage.CompletionTokens,
+			)
+
+			o.recordMessage(recorder, response.Choices[0].Message)
+		}
+
+		if response.Usage.TotalTokens >= o.MaxContextLength {
+			return "", errors.WithDetails(
+				ErrUnexpectedNumberOfTokens,
+				"content", *response.Choices[0].Message.Content,
+				"prompt", response.Usage.PromptTokens,
+				"response", response.Usage.CompletionTokens,
+				"total", response.Usage.TotalTokens,
+				"maxTotal", o.MaxContextLength,
+				"maxResponse", o.MaxResponseLength,
+				"apiRequest", requestID,
+			)
+		}
+
+		if response.Choices[0].Message.Role != roleAssistant {
+			return "", errors.WithDetails(
+				ErrUnexpectedRole,
+				"role", response.Choices[0].Message.Role,
+				"apiRequest", requestID,
+			)
+		}
+
+		if response.Choices[0].FinishReason == "tool_calls" {
+			if len(response.Choices[0].Message.ToolCalls) == 0 {
+				return "", errors.WithDetails(
+					ErrUnexpectedNumberOfMessages,
+					"number", len(response.Choices[0].Message.ToolCalls),
+					"apiRequest", requestID,
+				)
+			}
+
+			// We have already recorded this message above.
+			messages = append(messages, response.Choices[0].Message)
+
+			for _, toolCall := range response.Choices[0].Message.ToolCalls {
+				output, errE := o.callTool(ctx, toolCall)
+				if errE != nil {
+					zerolog.Ctx(ctx).Warn().Err(errE).Str("name", toolCall.Function.Name).Str("apiRequest", requestID).
+						Str("tool", toolCall.ID).RawJSON("input", json.RawMessage(toolCall.Function.Arguments)).Msg("tool error")
+					content := fmt.Sprintf("Error: %s", errE.Error())
+					messages = append(messages, openAIMessage{
+						Role:       "tool",
+						Content:    &content,
+						Refusal:    nil,
+						ToolCalls:  nil,
+						ToolCallID: toolCall.ID,
+					})
+				} else {
+					messages = append(messages, openAIMessage{
+						Role:       "tool",
+						Content:    &output,
+						Refusal:    nil,
+						ToolCalls:  nil,
+						ToolCallID: toolCall.ID,
+					})
+				}
+
+				if recorder != nil {
+					o.recordMessage(recorder, messages[len(messages)-1])
+				}
+			}
+
+			continue
+		}
+
+		if response.Choices[0].FinishReason != stopReason {
+			return "", errors.WithDetails(
+				ErrUnexpectedStop,
+				"reason", response.Choices[0].FinishReason,
+				"apiRequest", requestID,
+			)
+		}
+
+		if response.Choices[0].Message.Refusal != nil {
+			return "", errors.WithDetails(
+				ErrRefused,
+				"refusal", *response.Choices[0].Message.Refusal,
+				"apiRequest", requestID,
+			)
+		}
+
+		if response.Choices[0].Message.Content == nil {
+			return "", errors.WithDetails(
+				ErrUnexpectedMessageType,
+				"apiRequest", requestID,
+			)
+		}
+
+		return *response.Choices[0].Message.Content, nil
 	}
-	defer resp.Body.Close()
-	defer io.Copy(io.Discard, resp.Body) //nolint:errcheck
-
-	if requestID == "" {
-		return "", errors.WithStack(ErrMissingRequestID)
-	}
-
-	var response openAIResponse
-	errE = x.DecodeJSON(resp.Body, &response)
-	if errE != nil {
-		errors.Details(errE)["apiRequest"] = requestID
-		return "", errE
-	}
-
-	if response.Error != nil {
-		return "", errors.WithDetails(
-			ErrAPIResponseError,
-			"body", response.Error,
-			"apiRequest", requestID,
-		)
-	}
-
-	if len(response.Choices) != 1 {
-		return "", errors.WithDetails(
-			ErrUnexpectedNumberOfMessages,
-			"number", len(response.Choices),
-			"apiRequest", requestID,
-		)
-	}
-
-	if recorder != nil {
-		recorder.addUsedTokens(
-			requestID,
-			o.MaxContextLength,
-			o.MaxResponseLength,
-			response.Usage.PromptTokens,
-			response.Usage.CompletionTokens,
-		)
-
-		o.recordMessage(recorder, response.Choices[0].Message)
-	}
-
-	if response.Usage.TotalTokens >= o.MaxContextLength {
-		return "", errors.WithDetails(
-			ErrUnexpectedNumberOfTokens,
-			"content", *response.Choices[0].Message.Content,
-			"prompt", response.Usage.PromptTokens,
-			"response", response.Usage.CompletionTokens,
-			"total", response.Usage.TotalTokens,
-			"maxTotal", o.MaxContextLength,
-			"maxResponse", o.MaxResponseLength,
-			"apiRequest", requestID,
-		)
-	}
-
-	if response.Choices[0].Message.Role != roleAssistant {
-		return "", errors.WithDetails(
-			ErrUnexpectedRole,
-			"role", response.Choices[0].Message.Role,
-			"apiRequest", requestID,
-		)
-	}
-
-	if response.Choices[0].FinishReason != stopReason {
-		return "", errors.WithDetails(
-			ErrUnexpectedStop,
-			"reason", response.Choices[0].FinishReason,
-			"apiRequest", requestID,
-		)
-	}
-
-	if response.Choices[0].Message.Refusal != nil {
-		return "", errors.WithDetails(
-			ErrRefused,
-			"refusal", *response.Choices[0].Message.Refusal,
-			"apiRequest", requestID,
-		)
-	}
-
-	if response.Choices[0].Message.Content == nil {
-		return "", errors.WithDetails(
-			ErrUnexpectedMessageType,
-			"apiRequest", requestID,
-		)
-	}
-
-	return *response.Choices[0].Message.Content, nil
 }
 
 // InitOutputJSONSchema implements WithOutputJSONSchema interface.
@@ -359,10 +461,31 @@ func (o *OpenAITextProvider) InitOutputJSONSchema(_ context.Context, schema []by
 	return nil
 }
 
+func (o *OpenAITextProvider) callTool(ctx context.Context, toolCall openAIToolCall) (string, errors.E) {
+	tool, ok := o.Tools[toolCall.Function.Name]
+	if !ok {
+		return "", errors.Errorf("%w: %s", ErrToolNotFound, toolCall.Function.Name)
+	}
+
+	logger := zerolog.Ctx(ctx).With().Str("tool", toolCall.ID).Logger()
+	ctx = logger.WithContext(ctx)
+
+	return tool.Call(ctx, json.RawMessage(toolCall.Function.Arguments))
+}
+
 func (o *OpenAITextProvider) recordMessage(recorder *TextProviderRecorder, message openAIMessage) {
-	if message.Content != nil {
-		recorder.addMessage(message.Role, *message.Content)
-	} else if message.Refusal != nil {
-		recorder.addMessage(message.Role, *message.Refusal, "isRefusal", "true")
+	if message.Role == "tool" {
+		if message.Content != nil {
+			recorder.addMessage(roleToolResult, *message.Content, "id", message.ToolCallID)
+		}
+	} else {
+		if message.Content != nil {
+			recorder.addMessage(message.Role, *message.Content)
+		} else if message.Refusal != nil {
+			recorder.addMessage(message.Role, *message.Refusal, "isRefusal", "true")
+		}
+	}
+	for _, tool := range message.ToolCalls {
+		recorder.addMessage(roleToolUse, tool.Function.Arguments, "id", tool.ID, "name", tool.Function.Name)
 	}
 }
