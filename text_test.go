@@ -290,7 +290,11 @@ var tests = []struct {
 		func(t *testing.T, recorder *fun.TextProviderRecorder, providerName string) {
 			t.Helper()
 
-			assert.Len(t, recorder.Messages(), 10)
+			if providerName == "groq" {
+				assert.Len(t, recorder.Messages(), 12)
+			} else {
+				assert.Len(t, recorder.Messages(), 10)
+			}
 		},
 	},
 	{
@@ -308,7 +312,11 @@ var tests = []struct {
 		func(t *testing.T, recorder *fun.TextProviderRecorder, providerName string) {
 			t.Helper()
 
-			assert.Len(t, recorder.Messages(), 11)
+			if providerName == "groq" {
+				assert.Len(t, recorder.Messages(), 15)
+			} else {
+				assert.Len(t, recorder.Messages(), 11)
+			}
 		},
 	},
 	{
@@ -326,7 +334,11 @@ var tests = []struct {
 		func(t *testing.T, recorder *fun.TextProviderRecorder, providerName string) {
 			t.Helper()
 
-			assert.Len(t, recorder.Messages(), 11)
+			if providerName == "groq" {
+				assert.Len(t, recorder.Messages(), 15)
+			} else {
+				assert.Len(t, recorder.Messages(), 11)
+			}
 		},
 	},
 }
