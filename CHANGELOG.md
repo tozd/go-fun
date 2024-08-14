@@ -9,6 +9,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Context-based recorder for information about internal calls made to a model.
+- Transparent tool calling into Go code.
 - OpenAI provider.
 
 ## [0.3.0] - 2024-08-07
