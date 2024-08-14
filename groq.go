@@ -322,7 +322,7 @@ func (g *GroqTextProvider) Chat(ctx context.Context, message ChatMessage) (strin
 		)
 	}
 
-	if response.Choices[0].Message.Role != "assistant" {
+	if response.Choices[0].Message.Role != roleAssistant {
 		return "", errors.WithDetails(
 			ErrUnexpectedRole,
 			"role", response.Choices[0].Message.Role,
@@ -330,7 +330,7 @@ func (g *GroqTextProvider) Chat(ctx context.Context, message ChatMessage) (strin
 		)
 	}
 
-	if response.Choices[0].FinishReason != "stop" { //nolint:goconst
+	if response.Choices[0].FinishReason != stopReason {
 		return "", errors.WithDetails(
 			ErrUnexpectedStop,
 			"reason", response.Choices[0].FinishReason,

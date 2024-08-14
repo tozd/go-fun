@@ -24,6 +24,16 @@ const (
 	TextToJSONPrompt = `Output only JSON.`
 )
 
+const (
+	roleAssistant  = "assistant"
+	roleUser       = "user"
+	roleToolUse    = "tool_use"
+	roleToolResult = "tool_result"
+
+	typeText   = "text"
+	stopReason = "stop"
+)
+
 func compileValidator[T any](jsonSchema []byte) (*jsonschema.Schema, []byte, errors.E) {
 	if jsonSchema == nil {
 		// We construct JSON Schema from Go value.
@@ -220,11 +230,11 @@ func (t *Text[Input, Output]) Init(ctx context.Context) errors.E {
 		}
 
 		messages = append(messages, ChatMessage{
-			Role:    "user",
+			Role:    roleUser,
 			Content: input,
 		})
 		messages = append(messages, ChatMessage{
-			Role:    "assistant",
+			Role:    roleAssistant,
 			Content: output,
 		})
 	}
@@ -266,7 +276,7 @@ func (t *Text[Input, Output]) Call(ctx context.Context, input ...Input) (Output,
 	}
 
 	content, errE := t.Provider.Chat(ctx, ChatMessage{
-		Role:    "user",
+		Role:    roleUser,
 		Content: i,
 	})
 	if errE != nil {

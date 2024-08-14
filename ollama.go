@@ -235,14 +235,14 @@ func (o *OllamaTextProvider) Chat(ctx context.Context, message ChatMessage) (str
 		)
 	}
 
-	if responses[0].Message.Role != "assistant" {
+	if responses[0].Message.Role != roleAssistant {
 		return "", errors.WithDetails(
 			ErrUnexpectedRole,
 			"role", responses[0].Message.Role,
 		)
 	}
 
-	if responses[0].DoneReason != "stop" {
+	if responses[0].DoneReason != stopReason {
 		return "", errors.WithDetails(
 			ErrUnexpectedStop,
 			"reason", responses[0].DoneReason,

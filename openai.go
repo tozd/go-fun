@@ -298,7 +298,7 @@ func (o *OpenAITextProvider) Chat(ctx context.Context, message ChatMessage) (str
 		)
 	}
 
-	if response.Choices[0].Message.Role != "assistant" {
+	if response.Choices[0].Message.Role != roleAssistant {
 		return "", errors.WithDetails(
 			ErrUnexpectedRole,
 			"role", response.Choices[0].Message.Role,
@@ -306,7 +306,7 @@ func (o *OpenAITextProvider) Chat(ctx context.Context, message ChatMessage) (str
 		)
 	}
 
-	if response.Choices[0].FinishReason != "stop" {
+	if response.Choices[0].FinishReason != stopReason {
 		return "", errors.WithDetails(
 			ErrUnexpectedStop,
 			"reason", response.Choices[0].FinishReason,

@@ -165,7 +165,7 @@ func (a *AnthropicTextProvider) Init(ctx context.Context, messages []ChatMessage
 				Role: message.Role,
 				Content: []anthropicContent{
 					{ //nolint:exhaustruct
-						Type: "text",
+						Type: typeText,
 						Text: message.Content,
 					},
 				},
@@ -244,7 +244,7 @@ func (a *AnthropicTextProvider) Chat(ctx context.Context, message ChatMessage) (
 		Role: message.Role,
 		Content: []anthropicContent{
 			{ //nolint:exhaustruct
-				Type: "text",
+				Type: typeText,
 				Text: message.Content,
 			},
 		},
@@ -357,7 +357,7 @@ func (a *AnthropicTextProvider) Chat(ctx context.Context, message ChatMessage) (
 			)
 		}
 
-		if response.Role != "assistant" { //nolint:goconst
+		if response.Role != roleAssistant {
 			return "", errors.WithDetails(
 				ErrUnexpectedRole,
 				"role", response.Role,
@@ -365,7 +365,7 @@ func (a *AnthropicTextProvider) Chat(ctx context.Context, message ChatMessage) (
 			)
 		}
 
-		if response.StopReason == "tool_use" { //nolint:goconst
+		if response.StopReason == roleToolUse {
 			if len(response.Content) == 0 {
 				return "", errors.WithDetails(
 					ErrUnexpectedNumberOfMessages,
@@ -376,7 +376,7 @@ func (a *AnthropicTextProvider) Chat(ctx context.Context, message ChatMessage) (
 
 			// We have already recorded this message above.
 			messages = append(messages, anthropicMessage{
-				Role:    "assistant",
+				Role:    roleAssistant,
 				Content: response.Content,
 			})
 
@@ -384,9 +384,9 @@ func (a *AnthropicTextProvider) Chat(ctx context.Context, message ChatMessage) (
 
 			for _, content := range response.Content {
 				switch content.Type {
-				case "text": //nolint:goconst
+				case typeText:
 					// We do nothing.
-				case "tool_use":
+				case roleToolUse:
 					output, errE := a.callTool(ctx, content)
 					if errE != nil {
 						e := zerolog.Ctx(ctx).Warn().Err(errE).Str("name", content.Name).Str("apiRequest", requestID).Str("tool", content.ID)
@@ -395,14 +395,14 @@ func (a *AnthropicTextProvider) Chat(ctx context.Context, message ChatMessage) (
 						}
 						e.Msg("tool error")
 						outputContent = append(outputContent, anthropicContent{ //nolint:exhaustruct
-							Type:      "tool_result",
+							Type:      roleToolResult,
 							ToolUseID: content.ID,
 							IsError:   true,
 							Content:   errE.Error(),
 						})
 					} else {
 						outputContent = append(outputContent, anthropicContent{ //nolint:exhaustruct
-							Type:      "tool_result",
+							Type:      roleToolResult,
 							ToolUseID: content.ID,
 							Content:   output,
 						})
@@ -424,7 +424,7 @@ func (a *AnthropicTextProvider) Chat(ctx context.Context, message ChatMessage) (
 			}
 
 			messages = append(messages, anthropicMessage{
-				Role:    "user",
+				Role:    roleUser,
 				Content: outputContent,
 			})
 
@@ -450,7 +450,7 @@ func (a *AnthropicTextProvider) Chat(ctx context.Context, message ChatMessage) (
 				"apiRequest", requestID,
 			)
 		}
-		if response.Content[0].Type != "text" {
+		if response.Content[0].Type != typeText {
 			return "", errors.WithDetails(
 				ErrUnexpectedMessageType,
 				"type", response.Content[0].Type,
@@ -496,16 +496,16 @@ func (a *AnthropicTextProvider) callTool(ctx context.Context, content anthropicC
 func (a *AnthropicTextProvider) recordMessage(recorder *TextProviderRecorder, message anthropicMessage) {
 	for _, content := range message.Content {
 		switch content.Type {
-		case "text":
+		case typeText:
 			recorder.addMessage(message.Role, content.Text)
-		case "tool_use":
-			recorder.addMessage("tool_use", string(content.Input), "id", content.ID, "name", content.Name)
-		case "tool_result":
+		case roleToolUse:
+			recorder.addMessage(roleToolUse, string(content.Input), "id", content.ID, "name", content.Name)
+		case roleToolResult:
 			params := []string{"id", content.ToolUseID}
 			if content.IsError {
 				params = append(params, "isError", "true")
 			}
-			recorder.addMessage("tool_result", content.Content, params...)
+			recorder.addMessage(roleToolResult, content.Content, params...)
 		}
 	}
 }
