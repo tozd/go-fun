@@ -305,6 +305,11 @@ func (g *GroqTextProvider) Chat(ctx context.Context, message ChatMessage) (strin
 			response.Usage.PromptTokens,
 			response.Usage.CompletionTokens,
 		)
+		recorder.addUsedTime(
+			requestID,
+			time.Duration(response.Usage.PromptTime*float64(time.Second)),
+			time.Duration(response.Usage.CompletionTime*float64(time.Second)),
+		)
 
 		g.recordMessage(recorder, response.Choices[0].Message)
 	}

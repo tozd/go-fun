@@ -219,6 +219,11 @@ func (o *OllamaTextProvider) Chat(ctx context.Context, message ChatMessage) (str
 			responses[0].Metrics.PromptEvalCount,
 			responses[0].Metrics.EvalCount,
 		)
+		recorder.addUsedTime(
+			"",
+			responses[0].Metrics.PromptEvalDuration,
+			responses[0].Metrics.EvalDuration,
+		)
 
 		o.recordMessage(recorder, responses[0].Message)
 	}

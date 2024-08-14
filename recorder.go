@@ -4,6 +4,7 @@ import (
 	"context"
 	"strings"
 	"sync"
+	"time"
 
 	"gitlab.com/tozd/go/errors"
 )
@@ -18,11 +19,18 @@ type TextProviderRecorderUsedTokens struct {
 	Total       int `json:"total"`
 }
 
+type TextProviderRecorderUsedTime struct {
+	Prompt   time.Duration `json:"prompt"`
+	Response time.Duration `json:"response"`
+	Total    time.Duration `json:"total"`
+}
+
 type TextProviderRecorder struct {
 	mu sync.Mutex
 
 	messages   []map[string]string
 	usedTokens map[string]TextProviderRecorderUsedTokens
+	usedTime   map[string]TextProviderRecorderUsedTime
 }
 
 func (t *TextProviderRecorder) addMessage(role, message string, params ...string) {
@@ -74,6 +82,28 @@ func (t *TextProviderRecorder) UsedTokens() map[string]TextProviderRecorderUsedT
 	defer t.mu.Unlock()
 
 	return t.usedTokens
+}
+
+func (t *TextProviderRecorder) addUsedTime(requestID string, prompt, response time.Duration) {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+
+	if t.usedTime == nil {
+		t.usedTime = map[string]TextProviderRecorderUsedTime{}
+	}
+
+	t.usedTime[requestID] = TextProviderRecorderUsedTime{
+		Prompt:   prompt,
+		Response: response,
+		Total:    prompt + response,
+	}
+}
+
+func (t *TextProviderRecorder) UsedTime() map[string]TextProviderRecorderUsedTime {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+
+	return t.usedTime
 }
 
 func WithTextProviderRecorder(ctx context.Context) context.Context {
