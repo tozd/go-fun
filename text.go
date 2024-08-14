@@ -68,27 +68,25 @@ func validateJSON(validator *jsonschema.Schema, data json.RawMessage) errors.E {
 	return nil
 }
 
-func valueToJSON(validator *jsonschema.Schema, value any) ([]byte, errors.E) {
+func validate(validator *jsonschema.Schema, value any) errors.E {
+	if validator == nil {
+		return nil
+	}
+
+	var data []byte
+	var errE errors.E
 	// If type is a string, we want to support when string is a valid JSON that one can validate it as-is. At the same time we want to support using
 	// JSON Schema to validate strings themselves (in which case we first have to marshal the string into JSON string with quotes). The issue with this
 	// approach is if a) value is of string type b) user has a JSON Schema expecting non-string to validate JSON as string c) string is expected to be
 	// JSON to validate, but d) input is not valid JSON. In that case instead of failing at UnmarshalJSON call below, we will marshal it into the JSON
 	// string and then probably JSON Schema will fail to validate it. Hopefully we are not too smart here and this heuristic will work out well in practice.
 	if v, ok := value.(string); ok && !slices.Equal(validator.Types.ToStrings(), []string{"string"}) && json.Valid([]byte(v)) {
-		return []byte(v), nil
-	}
-
-	return x.MarshalWithoutEscapeHTML(value)
-}
-
-func validate(validator *jsonschema.Schema, value any) errors.E {
-	if validator == nil {
-		return nil
-	}
-
-	data, errE := valueToJSON(validator, value)
-	if errE != nil {
-		return errE
+		data = []byte(v)
+	} else {
+		data, errE = x.MarshalWithoutEscapeHTML(value)
+		if errE != nil {
+			return errE
+		}
 	}
 
 	return validateJSON(validator, data)

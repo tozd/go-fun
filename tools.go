@@ -75,17 +75,12 @@ func (t *Tool[Input, Output]) Call(ctx context.Context, input ...json.RawMessage
 		return "", errE
 	}
 
-	data, errE := valueToJSON(t.outputValidator, output)
+	errE = validate(t.outputValidator, output)
 	if errE != nil {
 		return "", errE
 	}
 
-	errE = validateJSON(t.outputValidator, data)
-	if errE != nil {
-		return "", errE
-	}
-
-	return string(data), nil
+	return toOutputString(output)
 }
 
 func (t *Tool[Input, Output]) GetDescription() string {
