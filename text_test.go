@@ -11,6 +11,8 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"gitlab.com/tozd/go/errors"
+
 	"gitlab.com/tozd/go/fun"
 )
 
@@ -100,10 +102,12 @@ type OutputStruct struct {
 	Children []OutputStruct `json:"children,omitempty"`
 }
 
-var providers = []struct {
+type testProvider struct {
 	Name     string
 	Provider func(t *testing.T) fun.TextProvider
-}{
+}
+
+var providers = []testProvider{
 	{
 		"ollama",
 		func(t *testing.T) fun.TextProvider {
@@ -185,6 +189,55 @@ var providers = []struct {
 	},
 }
 
+type toolInput struct {
+	String string `json:"string"`
+}
+
+var toolInputJSONSchema = []byte(`
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "properties": {
+    "string": {
+      "type": "string"
+    }
+  },
+  "additionalProperties": false,
+  "type": "object",
+  "required": [
+    "string"
+  ]
+}
+`)
+
+var providersWithTools = []testProvider{
+	{
+		"anthropic",
+		func(t *testing.T) fun.TextProvider {
+			t.Helper()
+
+			if os.Getenv("ANTHROPIC_API_KEY") == "" {
+				t.Skip("ANTHROPIC_API_KEY is not available")
+			}
+			return &fun.AnthropicTextProvider{
+				Client: nil,
+				APIKey: os.Getenv("ANTHROPIC_API_KEY"),
+				Model:  "claude-3-5-sonnet-20240620",
+				Tools: map[string]fun.Tooler{
+					"repeat_string": &fun.Tool[toolInput, string]{
+						Description:      "Repeats the input twice, by concatenating the input string without any space.",
+						InputJSONSchema:  toolInputJSONSchema,
+						OutputJSONSchema: jsonSchemaString,
+						Fun: func(_ context.Context, input toolInput) (string, errors.E) {
+							return input.String + input.String, nil
+						},
+					},
+				},
+				Temperature: 0,
+			}
+		},
+	},
+}
+
 var tests = []struct {
 	Name   string
 	Prompt string
@@ -232,15 +285,80 @@ var tests = []struct {
 	},
 }
 
+func runTextTests(t *testing.T, providers []testProvider, tests []textTestCase) {
+	t.Helper()
+
+	for _, provider := range providers {
+		provider := provider
+
+		t.Run(provider.Name, func(t *testing.T) {
+			t.Parallel()
+
+			for _, tt := range tests {
+				tt := tt
+
+				t.Run(tt.Name, func(t *testing.T) {
+					if provider.Name != "ollama" {
+						t.Parallel()
+					}
+
+					f := fun.Text[string, string]{
+						Provider:         provider.Provider(t),
+						InputJSONSchema:  jsonSchemaString,
+						OutputJSONSchema: jsonSchemaString,
+						Prompt:           tt.Prompt,
+						Data:             tt.Data,
+					}
+
+					ctx := zerolog.New(zerolog.NewTestWriter(t)).WithContext(context.Background())
+
+					errE := f.Init(ctx)
+					require.NoError(t, errE, "% -+#.1v", errE)
+
+					for _, d := range tt.Data {
+						d := d
+
+						t.Run(fmt.Sprintf("input=%s", d.Input), func(t *testing.T) {
+							if provider.Name != "ollama" {
+								t.Parallel()
+							}
+
+							output, errE := f.Call(ctx, d.Input...)
+							assert.NoError(t, errE, "% -+#.1v", errE)
+							assert.Equal(t, d.Output, output)
+						})
+					}
+
+					for _, c := range tt.Cases {
+						c := c
+
+						t.Run(fmt.Sprintf("input=%s", c.Input), func(t *testing.T) {
+							if provider.Name != "ollama" {
+								t.Parallel()
+							}
+
+							output, errE := f.Call(ctx, c.Input...)
+							assert.NoError(t, errE, "% -+#.1v", errE)
+							assert.Equal(t, c.Output, output)
+						})
+					}
+				})
+			}
+		})
+	}
+}
+
+type textTestCase struct {
+	Name   string
+	Prompt string
+	Data   []fun.InputOutput[string, string]
+	Cases  []fun.InputOutput[string, string]
+}
+
 func TestText(t *testing.T) { //nolint:paralleltest,tparallel
 	// We do not run test cases in parallel, so that we can run Ollama tests in sequence.
 
-	tests := []struct {
-		Name   string
-		Prompt string
-		Data   []fun.InputOutput[string, string]
-		Cases  []fun.InputOutput[string, string]
-	}{
+	tests := []textTestCase{
 		{
 			"just_prompt",
 			"Repeat the input twice, by concatenating the input string without any space. Return just the result.",
@@ -311,64 +429,27 @@ func TestText(t *testing.T) { //nolint:paralleltest,tparallel
 		},
 	}
 
-	for _, provider := range providers {
-		provider := provider
+	runTextTests(t, providers, tests)
+}
 
-		t.Run(provider.Name, func(t *testing.T) {
-			t.Parallel()
+func TestTextTools(t *testing.T) { //nolint:paralleltest,tparallel
+	// We do not run test cases in parallel, so that we can run Ollama tests in sequence.
 
-			for _, tt := range tests {
-				tt := tt
-
-				t.Run(tt.Name, func(t *testing.T) {
-					if provider.Name != "ollama" {
-						t.Parallel()
-					}
-
-					f := fun.Text[string, string]{
-						Provider:         provider.Provider(t),
-						InputJSONSchema:  jsonSchemaString,
-						OutputJSONSchema: jsonSchemaString,
-						Prompt:           tt.Prompt,
-						Data:             tt.Data,
-					}
-
-					ctx := zerolog.New(zerolog.NewTestWriter(t)).WithContext(context.Background())
-
-					errE := f.Init(ctx)
-					require.NoError(t, errE, "% -+#.1v", errE)
-
-					for _, d := range tt.Data {
-						d := d
-
-						t.Run(fmt.Sprintf("input=%s", d.Input), func(t *testing.T) {
-							if provider.Name != "ollama" {
-								t.Parallel()
-							}
-
-							output, errE := f.Call(ctx, d.Input...)
-							assert.NoError(t, errE, "% -+#.1v", errE)
-							assert.Equal(t, d.Output, output)
-						})
-					}
-
-					for _, c := range tt.Cases {
-						c := c
-
-						t.Run(fmt.Sprintf("input=%s", c.Input), func(t *testing.T) {
-							if provider.Name != "ollama" {
-								t.Parallel()
-							}
-
-							output, errE := f.Call(ctx, c.Input...)
-							assert.NoError(t, errE, "% -+#.1v", errE)
-							assert.Equal(t, c.Output, output)
-						})
-					}
-				})
-			}
-		})
+	tests := []textTestCase{
+		{
+			"just_prompt",
+			"Repeat the input twice, by concatenating the input string without any space. Return only the resulting string. Do not explain anything.",
+			nil,
+			[]fun.InputOutput[string, string]{
+				{[]string{"foo"}, "foofoo"},
+				{[]string{"bar"}, "barbar"},
+				{[]string{"test"}, "testtest"},
+				{[]string{"zzz"}, "zzzzzz"},
+			},
+		},
 	}
+
+	runTextTests(t, providersWithTools, tests)
 }
 
 func TestTextStruct(t *testing.T) { //nolint:paralleltest,tparallel
