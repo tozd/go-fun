@@ -237,6 +237,8 @@ func (a *AnthropicTextProvider) Init(ctx context.Context, messages []ChatMessage
 
 // Chat implements TextProvider interface.
 func (a *AnthropicTextProvider) Chat(ctx context.Context, message ChatMessage) (string, errors.E) { //nolint:maintidx
+	recorder := GetTextProviderRecorder(ctx)
+
 	messages := slices.Clone(a.messages)
 	messages = append(messages, anthropicMessage{
 		Role: message.Role,
@@ -247,6 +249,16 @@ func (a *AnthropicTextProvider) Chat(ctx context.Context, message ChatMessage) (
 			},
 		},
 	})
+
+	if recorder != nil {
+		if a.system != "" {
+			recorder.addMessage("system", a.system)
+		}
+
+		for _, message := range messages {
+			a.recordMessage(recorder, message)
+		}
+	}
 
 	for {
 		request, errE := x.MarshalWithoutEscapeHTML(anthropicRequest{
@@ -299,59 +311,70 @@ func (a *AnthropicTextProvider) Chat(ctx context.Context, message ChatMessage) (
 		defer resp.Body.Close()
 		defer io.Copy(io.Discard, resp.Body) //nolint:errcheck
 
+		if requestID == "" {
+			return "", errors.WithStack(ErrMissingRequestID)
+		}
+
 		var response anthropicResponse
 		errE = x.DecodeJSON(resp.Body, &response)
 		if errE != nil {
-			if requestID != "" {
-				errors.Details(errE)["apiRequest"] = requestID
-			}
+			errors.Details(errE)["apiRequest"] = requestID
 			return "", errE
 		}
 
 		if response.Error != nil {
-			errE = errors.WithDetails(ErrAPIResponseError, "payload", response.Error)
-			if requestID != "" {
-				errors.Details(errE)["apiRequest"] = requestID
-			}
-			return "", errE
+			return "", errors.WithDetails(
+				ErrAPIResponseError,
+				"body", response.Error,
+				"apiRequest", requestID,
+			)
 		}
 
-		tokens := zerolog.Dict()
-		tokens.Int("maxTotal", estimatedTokens)
-		tokens.Int("maxResponse", anthropicMaxResponseTokens)
-		tokens.Int("prompt", response.Usage.InputTokens)
-		tokens.Int("response", response.Usage.OutputTokens)
-		tokens.Int("total", response.Usage.InputTokens+response.Usage.OutputTokens)
-		e := zerolog.Ctx(ctx).Debug().Str("model", a.Model).Dict("tokens", tokens)
-		if requestID != "" {
-			e = e.Str("apiRequest", requestID)
+		if recorder != nil {
+			recorder.addUsage(
+				requestID,
+				estimatedTokens,
+				anthropicMaxResponseTokens,
+				response.Usage.InputTokens,
+				response.Usage.OutputTokens,
+			)
+
+			a.recordMessage(recorder, anthropicMessage{
+				Role:    response.Role,
+				Content: response.Content,
+			})
 		}
-		e.Msg("usage")
 
 		if response.Usage.InputTokens+response.Usage.OutputTokens > estimatedTokens {
-			errE = errors.WithDetails(
+			return "", errors.WithDetails(
 				ErrUnexpectedNumberOfTokens,
 				"prompt", response.Usage.InputTokens,
 				"response", response.Usage.OutputTokens,
 				"total", response.Usage.InputTokens+response.Usage.OutputTokens,
 				"maxTotal", estimatedTokens,
 				"maxResponse", anthropicMaxResponseTokens,
+				"apiRequest", requestID,
 			)
-			if requestID != "" {
-				errors.Details(errE)["apiRequest"] = requestID
-			}
-			return "", errE
 		}
 
-		if response.StopReason == "tool_use" {
+		if response.Role != "assistant" { //nolint:goconst
+			return "", errors.WithDetails(
+				ErrUnexpectedRole,
+				"role", response.Role,
+				"apiRequest", requestID,
+			)
+		}
+
+		if response.StopReason == "tool_use" { //nolint:goconst
 			if len(response.Content) == 0 {
-				errE = errors.WithDetails(ErrUnexpectedNumberOfMessages, "number", len(response.Content))
-				if requestID != "" {
-					errors.Details(errE)["apiRequest"] = requestID
-				}
-				return "", errE
+				return "", errors.WithDetails(
+					ErrUnexpectedNumberOfMessages,
+					"number", len(response.Content),
+					"apiRequest", requestID,
+				)
 			}
 
+			// We have already recorded this message above.
 			messages = append(messages, anthropicMessage{
 				Role:    "assistant",
 				Content: response.Content,
@@ -361,17 +384,14 @@ func (a *AnthropicTextProvider) Chat(ctx context.Context, message ChatMessage) (
 
 			for _, content := range response.Content {
 				switch content.Type {
-				case "text":
+				case "text": //nolint:goconst
 					// We do nothing.
 				case "tool_use":
-					output, errE := a.callTool(ctx, content) //nolint:govet
+					output, errE := a.callTool(ctx, content)
 					if errE != nil {
-						e := zerolog.Ctx(ctx).Warn().Err(errE).Str("name", content.Name)
+						e := zerolog.Ctx(ctx).Warn().Err(errE).Str("name", content.Name).Str("apiRequest", requestID).Str("tool", content.ID)
 						if content.Input != nil {
 							e = e.RawJSON("input", content.Input)
-						}
-						if requestID != "" {
-							e = e.Str("apiRequest", requestID)
 						}
 						e.Msg("tool error")
 						outputContent = append(outputContent, anthropicContent{ //nolint:exhaustruct
@@ -388,20 +408,19 @@ func (a *AnthropicTextProvider) Chat(ctx context.Context, message ChatMessage) (
 						})
 					}
 				default:
-					errE = errors.WithDetails(ErrUnexpectedMessageType, "type", content.Type)
-					if requestID != "" {
-						errors.Details(errE)["apiRequest"] = requestID
-					}
-					return "", errE
+					return "", errors.WithDetails(
+						ErrUnexpectedMessageType,
+						"type", content.Type,
+						"apiRequest", requestID,
+					)
 				}
 			}
 
 			if len(outputContent) == 0 {
-				errE = errors.WithStack(ErrToolCallsWithoutCalls)
-				if requestID != "" {
-					errors.Details(errE)["apiRequest"] = requestID
-				}
-				return "", errE
+				return "", errors.WithDetails(
+					ErrToolCallsWithoutCalls,
+					"apiRequest", requestID,
+				)
 			}
 
 			messages = append(messages, anthropicMessage{
@@ -409,30 +428,34 @@ func (a *AnthropicTextProvider) Chat(ctx context.Context, message ChatMessage) (
 				Content: outputContent,
 			})
 
+			if recorder != nil {
+				a.recordMessage(recorder, messages[len(messages)-1])
+			}
+
 			continue
 		}
 
 		if response.StopReason != "end_turn" {
-			errE = errors.WithDetails(ErrUnexpectedStop, "reason", response.StopReason)
-			if requestID != "" {
-				errors.Details(errE)["apiRequest"] = requestID
-			}
-			return "", errE
+			return "", errors.WithDetails(
+				ErrUnexpectedStop,
+				"reason", response.StopReason,
+				"apiRequest", requestID,
+			)
 		}
 
 		if len(response.Content) != 1 {
-			errE = errors.WithDetails(ErrUnexpectedNumberOfMessages, "number", len(response.Content))
-			if requestID != "" {
-				errors.Details(errE)["apiRequest"] = requestID
-			}
-			return "", errE
+			return "", errors.WithDetails(
+				ErrUnexpectedNumberOfMessages,
+				"number", len(response.Content),
+				"apiRequest", requestID,
+			)
 		}
 		if response.Content[0].Type != "text" {
-			errE = errors.WithDetails(ErrUnexpectedMessageType, "type", response.Content[0].Type)
-			if requestID != "" {
-				errors.Details(errE)["apiRequest"] = requestID
-			}
-			return "", errE
+			return "", errors.WithDetails(
+				ErrUnexpectedMessageType,
+				"type", response.Content[0].Type,
+				"apiRequest", requestID,
+			)
 		}
 
 		return response.Content[0].Text, nil
@@ -468,4 +491,21 @@ func (a *AnthropicTextProvider) callTool(ctx context.Context, content anthropicC
 	ctx = logger.WithContext(ctx)
 
 	return tool.Call(ctx, content.Input)
+}
+
+func (a *AnthropicTextProvider) recordMessage(recorder *TextProviderRecorder, message anthropicMessage) {
+	for _, content := range message.Content {
+		switch content.Type {
+		case "text":
+			recorder.addMessage(message.Role, content.Text)
+		case "tool_use":
+			recorder.addMessage("tool_use", string(content.Input), "id", content.ID, "name", content.Name)
+		case "tool_result":
+			params := []string{"id", content.ToolUseID}
+			if content.IsError {
+				params = append(params, "isError", "true")
+			}
+			recorder.addMessage("tool_result", content.Content, params...)
+		}
+	}
 }

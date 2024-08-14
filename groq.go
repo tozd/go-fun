@@ -11,7 +11,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/rs/zerolog"
 	"gitlab.com/tozd/go/errors"
 	"gitlab.com/tozd/go/x"
 	"golang.org/x/time/rate"
@@ -51,12 +50,9 @@ type groqResponse struct {
 	Model             string `json:"model"`
 	SystemFingerprint string `json:"system_fingerprint"`
 	Choices           []struct {
-		Index   int `json:"index"`
-		Message struct {
-			Role    string `json:"role"`
-			Content string `json:"content"`
-		} `json:"message"`
-		FinishReason string `json:"finish_reason"`
+		Index        int         `json:"index"`
+		Message      ChatMessage `json:"message"`
+		FinishReason string      `json:"finish_reason"`
 	} `json:"choices"`
 	Usage struct {
 		PromptTokens     int     `json:"prompt_tokens"`
@@ -167,59 +163,54 @@ func (g *GroqTextProvider) Init(ctx context.Context, messages []ChatMessage) err
 	defer resp.Body.Close()
 	defer io.Copy(io.Discard, resp.Body) //nolint:errcheck
 
+	if requestID == "" {
+		return errors.WithStack(ErrMissingRequestID)
+	}
+
 	var model groqModel
 	errE := x.DecodeJSON(resp.Body, &model)
 	if errE != nil {
-		if requestID != "" {
-			errors.Details(errE)["apiRequest"] = requestID
-		}
+		errors.Details(errE)["apiRequest"] = requestID
 		return errE
 	}
 
 	if model.Error != nil {
-		errE = errors.WithDetails(ErrAPIResponseError, "body", model.Error)
-		if requestID != "" {
-			errors.Details(errE)["apiRequest"] = requestID
-		}
-		return errE
+		return errors.WithDetails(
+			ErrAPIResponseError,
+			"body", model.Error,
+			"apiRequest", requestID,
+		)
 	}
 
 	if !model.Active {
-		errE := errors.WithStack(ErrModelNotActive)
-		if requestID != "" {
-			errors.Details(errE)["apiRequest"] = requestID
-		}
-		return errE
+		return errors.WithDetails(
+			ErrModelNotActive,
+			"apiRequest", requestID,
+		)
 	}
 
 	if g.MaxContextLength == 0 {
 		g.MaxContextLength = g.maxContextLength(model)
 	}
 	if g.MaxContextLength > g.maxContextLength(model) {
-		errE := errors.WithDetails(
+		return errors.WithDetails(
 			ErrMaxContextLengthOverModel,
 			"maxTotal", g.MaxContextLength,
 			"model", g.maxContextLength(model),
+			"apiRequest", requestID,
 		)
-		if requestID != "" {
-			errors.Details(errE)["apiRequest"] = requestID
-		}
-		return errE
 	}
 
 	if g.MaxResponseLength == 0 {
 		g.MaxResponseLength = g.maxResponseTokens(model)
 	}
 	if g.MaxResponseLength > g.MaxContextLength {
-		errE := errors.WithDetails(
+		return errors.WithDetails(
 			ErrMaxResponseLengthOverContext,
 			"maxTotal", g.MaxContextLength,
 			"maxResponse", g.MaxResponseLength,
+			"apiRequest", requestID,
 		)
-		if requestID != "" {
-			errors.Details(errE)["apiRequest"] = requestID
-		}
-		return errE
 	}
 
 	return nil
@@ -227,8 +218,16 @@ func (g *GroqTextProvider) Init(ctx context.Context, messages []ChatMessage) err
 
 // Chat implements TextProvider interface.
 func (g *GroqTextProvider) Chat(ctx context.Context, message ChatMessage) (string, errors.E) {
+	recorder := GetTextProviderRecorder(ctx)
+
 	messages := slices.Clone(g.messages)
 	messages = append(messages, message)
+
+	if recorder != nil {
+		for _, message := range messages {
+			g.recordMessage(recorder, message)
+		}
+	}
 
 	request, errE := x.MarshalWithoutEscapeHTML(groqRequest{
 		Messages:    messages,
@@ -271,40 +270,47 @@ func (g *GroqTextProvider) Chat(ctx context.Context, message ChatMessage) (strin
 	defer resp.Body.Close()
 	defer io.Copy(io.Discard, resp.Body) //nolint:errcheck
 
+	if requestID == "" {
+		return "", errors.WithStack(ErrMissingRequestID)
+	}
+
 	var response groqResponse
 	errE = x.DecodeJSON(resp.Body, &response)
 	if errE != nil {
-		if requestID != "" {
-			errors.Details(errE)["apiRequest"] = requestID
-		}
+		errors.Details(errE)["apiRequest"] = requestID
 		return "", errE
 	}
 
 	if response.Error != nil {
-		errE = errors.WithDetails(ErrAPIResponseError, "body", response.Error)
-		if requestID != "" {
-			errors.Details(errE)["apiRequest"] = requestID
-		}
-		return "", errE
+		return "", errors.WithDetails(
+			ErrAPIResponseError,
+			"body", response.Error,
+			"apiRequest", requestID,
+		)
 	}
 
 	if len(response.Choices) != 1 {
-		errE = errors.WithDetails(ErrUnexpectedNumberOfMessages, "number", len(response.Choices))
-		if requestID != "" {
-			errors.Details(errE)["apiRequest"] = requestID
-		}
-		return "", errE
+		return "", errors.WithDetails(
+			ErrUnexpectedNumberOfMessages,
+			"number", len(response.Choices),
+			"apiRequest", requestID,
+		)
 	}
-	if response.Choices[0].FinishReason != "stop" { //nolint:goconst
-		errE = errors.WithDetails(ErrUnexpectedStop, "reason", response.Choices[0].FinishReason)
-		if requestID != "" {
-			errors.Details(errE)["apiRequest"] = requestID
-		}
-		return "", errE
+
+	if recorder != nil {
+		recorder.addUsage(
+			requestID,
+			g.MaxContextLength,
+			g.MaxResponseLength,
+			response.Usage.PromptTokens,
+			response.Usage.CompletionTokens,
+		)
+
+		g.recordMessage(recorder, response.Choices[0].Message)
 	}
 
 	if response.Usage.TotalTokens >= g.MaxContextLength {
-		errE = errors.WithDetails(
+		return "", errors.WithDetails(
 			ErrUnexpectedNumberOfTokens,
 			"content", response.Choices[0].Message.Content,
 			"prompt", response.Usage.PromptTokens,
@@ -312,28 +318,25 @@ func (g *GroqTextProvider) Chat(ctx context.Context, message ChatMessage) (strin
 			"total", response.Usage.TotalTokens,
 			"maxTotal", g.MaxContextLength,
 			"maxResponse", g.MaxResponseLength,
+			"apiRequest", requestID,
 		)
-		if requestID != "" {
-			errors.Details(errE)["apiRequest"] = requestID
-		}
-		return "", errE
 	}
 
-	tokens := zerolog.Dict()
-	tokens.Int("maxTotal", g.MaxContextLength)
-	tokens.Int("maxResponse", g.MaxResponseLength)
-	tokens.Int("prompt", response.Usage.PromptTokens)
-	tokens.Int("response", response.Usage.CompletionTokens)
-	tokens.Int("total", response.Usage.TotalTokens)
-	duration := zerolog.Dict()
-	duration.Dur("prompt", time.Duration(response.Usage.PromptTime*float64(time.Second)))
-	duration.Dur("response", time.Duration(response.Usage.CompletionTime*float64(time.Second)))
-	duration.Dur("total", time.Duration(response.Usage.TotalTime*float64(time.Second)))
-	e := zerolog.Ctx(ctx).Debug().Dict("duration", duration).Str("model", g.Model).Dict("tokens", tokens)
-	if requestID != "" {
-		e = e.Str("apiRequest", requestID)
+	if response.Choices[0].Message.Role != "assistant" {
+		return "", errors.WithDetails(
+			ErrUnexpectedRole,
+			"role", response.Choices[0].Message.Role,
+			"apiRequest", requestID,
+		)
 	}
-	e.Msg("usage")
+
+	if response.Choices[0].FinishReason != "stop" { //nolint:goconst
+		return "", errors.WithDetails(
+			ErrUnexpectedStop,
+			"reason", response.Choices[0].FinishReason,
+			"apiRequest", requestID,
+		)
+	}
 
 	return response.Choices[0].Message.Content, nil
 }
@@ -355,4 +358,8 @@ func (g *GroqTextProvider) maxResponseTokens(model groqModel) int {
 		return 8000 //nolint:gomnd
 	}
 	return g.maxContextLength(model)
+}
+
+func (g *GroqTextProvider) recordMessage(recorder *TextProviderRecorder, message ChatMessage) {
+	recorder.addMessage(message.Role, message.Content)
 }

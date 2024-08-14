@@ -9,7 +9,6 @@ import (
 	"sync"
 
 	"github.com/ollama/ollama/api"
-	"github.com/rs/zerolog"
 	"gitlab.com/tozd/go/errors"
 )
 
@@ -164,11 +163,19 @@ func (o *OllamaTextProvider) Init(ctx context.Context, messages []ChatMessage) e
 
 // Chat implements TextProvider interface.
 func (o *OllamaTextProvider) Chat(ctx context.Context, message ChatMessage) (string, errors.E) {
+	recorder := GetTextProviderRecorder(ctx)
+
 	messages := slices.Clone(o.messages)
 	messages = append(messages, api.Message{ //nolint:exhaustruct
 		Role:    message.Role,
 		Content: message.Content,
 	})
+
+	if recorder != nil {
+		for _, message := range messages {
+			o.recordMessage(recorder, message)
+		}
+	}
 
 	// We allow only one request at a time to an Ollama host.
 	// TODO: Should we do something better? Currently Ollama does not work well with multiple parallel requests.
@@ -198,10 +205,22 @@ func (o *OllamaTextProvider) Chat(ctx context.Context, message ChatMessage) (str
 	}
 
 	if len(responses) != 1 {
-		return "", errors.WithDetails(ErrUnexpectedNumberOfMessages, "number", len(responses))
+		return "", errors.WithDetails(
+			ErrUnexpectedNumberOfMessages,
+			"number", len(responses),
+		)
 	}
-	if responses[0].DoneReason != "stop" {
-		return "", errors.WithDetails(ErrUnexpectedStop, "reason", responses[0].DoneReason)
+
+	if recorder != nil {
+		recorder.addUsage(
+			"",
+			o.MaxContextLength,
+			o.MaxResponseLength,
+			responses[0].Metrics.PromptEvalCount,
+			responses[0].Metrics.EvalCount,
+		)
+
+		o.recordMessage(recorder, responses[0].Message)
 	}
 
 	if responses[0].Metrics.PromptEvalCount+responses[0].Metrics.EvalCount >= o.MaxContextLength {
@@ -216,18 +235,23 @@ func (o *OllamaTextProvider) Chat(ctx context.Context, message ChatMessage) (str
 		)
 	}
 
-	tokens := zerolog.Dict()
-	tokens.Int("maxTotal", o.MaxContextLength)
-	tokens.Int("maxResponse", o.MaxResponseLength)
-	tokens.Int("prompt", responses[0].Metrics.PromptEvalCount)
-	tokens.Int("response", responses[0].Metrics.EvalCount)
-	tokens.Int("total", responses[0].Metrics.PromptEvalCount+responses[0].Metrics.EvalCount)
-	duration := zerolog.Dict()
-	duration.Dur("load", responses[0].Metrics.LoadDuration)
-	duration.Dur("prompt", responses[0].Metrics.PromptEvalDuration)
-	duration.Dur("response", responses[0].Metrics.EvalDuration)
-	duration.Dur("total", responses[0].Metrics.TotalDuration)
-	zerolog.Ctx(ctx).Debug().Dict("duration", duration).Str("model", o.Model.Model).Dict("tokens", tokens).Msg("usage")
+	if responses[0].Message.Role != "assistant" {
+		return "", errors.WithDetails(
+			ErrUnexpectedRole,
+			"role", responses[0].Message.Role,
+		)
+	}
+
+	if responses[0].DoneReason != "stop" {
+		return "", errors.WithDetails(
+			ErrUnexpectedStop,
+			"reason", responses[0].DoneReason,
+		)
+	}
 
 	return responses[0].Message.Content, nil
+}
+
+func (o *OllamaTextProvider) recordMessage(recorder *TextProviderRecorder, message api.Message) {
+	recorder.addMessage(message.Role, message.Content)
 }

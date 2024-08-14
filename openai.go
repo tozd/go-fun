@@ -11,7 +11,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/rs/zerolog"
 	"github.com/santhosh-tekuri/jsonschema/v6"
 	"gitlab.com/tozd/go/errors"
 	"gitlab.com/tozd/go/x"
@@ -66,6 +65,12 @@ type openAIRequest struct {
 	ResponseFormat *openAIResponseFormat `json:"response_format,omitempty"`
 }
 
+type openAIMessage struct {
+	Role    string  `json:"role"`
+	Content *string `json:"content,omitempty"`
+	Refusal *string `json:"refusal,omitempty"`
+}
+
 type openAIResponse struct {
 	ID                string  `json:"id"`
 	Object            string  `json:"object"`
@@ -74,13 +79,9 @@ type openAIResponse struct {
 	SystemFingerprint string  `json:"system_fingerprint"`
 	ServiceTier       *string `json:"service_tier,omitempty"`
 	Choices           []struct {
-		Index   int `json:"index"`
-		Message struct {
-			Role    string  `json:"role"`
-			Content *string `json:"content,omitempty"`
-			Refusal *string `json:"refusal,omitempty"`
-		} `json:"message"`
-		FinishReason string `json:"finish_reason"`
+		Index        int           `json:"index"`
+		Message      openAIMessage `json:"message"`
+		FinishReason string        `json:"finish_reason"`
 	} `json:"choices"`
 	Usage struct {
 		PromptTokens     int `json:"prompt_tokens"`
@@ -174,8 +175,21 @@ func (o *OpenAITextProvider) Init(_ context.Context, messages []ChatMessage) err
 
 // Chat implements TextProvider interface.
 func (o *OpenAITextProvider) Chat(ctx context.Context, message ChatMessage) (string, errors.E) {
+	recorder := GetTextProviderRecorder(ctx)
+
 	messages := slices.Clone(o.messages)
 	messages = append(messages, message)
+
+	if recorder != nil {
+		for _, message := range messages {
+			message := message
+			o.recordMessage(recorder, openAIMessage{
+				Role:    message.Role,
+				Content: &message.Content,
+				Refusal: nil,
+			})
+		}
+	}
 
 	oReq := openAIRequest{
 		Messages:       messages,
@@ -232,59 +246,47 @@ func (o *OpenAITextProvider) Chat(ctx context.Context, message ChatMessage) (str
 	defer resp.Body.Close()
 	defer io.Copy(io.Discard, resp.Body) //nolint:errcheck
 
+	if requestID == "" {
+		return "", errors.WithStack(ErrMissingRequestID)
+	}
+
 	var response openAIResponse
 	errE = x.DecodeJSON(resp.Body, &response)
 	if errE != nil {
-		if requestID != "" {
-			errors.Details(errE)["apiRequest"] = requestID
-		}
+		errors.Details(errE)["apiRequest"] = requestID
 		return "", errE
 	}
 
 	if response.Error != nil {
-		errE = errors.WithDetails(ErrAPIResponseError, "body", response.Error)
-		if requestID != "" {
-			errors.Details(errE)["apiRequest"] = requestID
-		}
-		return "", errE
+		return "", errors.WithDetails(
+			ErrAPIResponseError,
+			"body", response.Error,
+			"apiRequest", requestID,
+		)
 	}
 
 	if len(response.Choices) != 1 {
-		errE = errors.WithDetails(ErrUnexpectedNumberOfMessages, "number", len(response.Choices))
-		if requestID != "" {
-			errors.Details(errE)["apiRequest"] = requestID
-		}
-		return "", errE
-	}
-	if response.Choices[0].FinishReason != "stop" {
-		errE = errors.WithDetails(ErrUnexpectedStop, "reason", response.Choices[0].FinishReason)
-		if requestID != "" {
-			errors.Details(errE)["apiRequest"] = requestID
-		}
-		return "", errE
-	}
-
-	if response.Choices[0].Message.Refusal != nil {
-		errE = errors.WithDetails(
-			ErrRefused,
-			"refusal", *response.Choices[0].Message.Refusal,
+		return "", errors.WithDetails(
+			ErrUnexpectedNumberOfMessages,
+			"number", len(response.Choices),
+			"apiRequest", requestID,
 		)
-		if requestID != "" {
-			errors.Details(errE)["apiRequest"] = requestID
-		}
-		return "", errE
 	}
 
-	if response.Choices[0].Message.Content == nil {
-		errE = errors.WithStack(ErrUnexpectedMessageType)
-		if requestID != "" {
-			errors.Details(errE)["apiRequest"] = requestID
-		}
-		return "", errE
+	if recorder != nil {
+		recorder.addUsage(
+			requestID,
+			o.MaxContextLength,
+			o.MaxResponseLength,
+			response.Usage.PromptTokens,
+			response.Usage.CompletionTokens,
+		)
+
+		o.recordMessage(recorder, response.Choices[0].Message)
 	}
 
 	if response.Usage.TotalTokens >= o.MaxContextLength {
-		errE = errors.WithDetails(
+		return "", errors.WithDetails(
 			ErrUnexpectedNumberOfTokens,
 			"content", *response.Choices[0].Message.Content,
 			"prompt", response.Usage.PromptTokens,
@@ -292,24 +294,40 @@ func (o *OpenAITextProvider) Chat(ctx context.Context, message ChatMessage) (str
 			"total", response.Usage.TotalTokens,
 			"maxTotal", o.MaxContextLength,
 			"maxResponse", o.MaxResponseLength,
+			"apiRequest", requestID,
 		)
-		if requestID != "" {
-			errors.Details(errE)["apiRequest"] = requestID
-		}
-		return "", errE
 	}
 
-	tokens := zerolog.Dict()
-	tokens.Int("maxTotal", o.MaxContextLength)
-	tokens.Int("maxResponse", o.MaxResponseLength)
-	tokens.Int("prompt", response.Usage.PromptTokens)
-	tokens.Int("response", response.Usage.CompletionTokens)
-	tokens.Int("total", response.Usage.TotalTokens)
-	e := zerolog.Ctx(ctx).Debug().Str("model", o.Model).Dict("tokens", tokens)
-	if requestID != "" {
-		e = e.Str("apiRequest", requestID)
+	if response.Choices[0].Message.Role != "assistant" {
+		return "", errors.WithDetails(
+			ErrUnexpectedRole,
+			"role", response.Choices[0].Message.Role,
+			"apiRequest", requestID,
+		)
 	}
-	e.Msg("usage")
+
+	if response.Choices[0].FinishReason != "stop" {
+		return "", errors.WithDetails(
+			ErrUnexpectedStop,
+			"reason", response.Choices[0].FinishReason,
+			"apiRequest", requestID,
+		)
+	}
+
+	if response.Choices[0].Message.Refusal != nil {
+		return "", errors.WithDetails(
+			ErrRefused,
+			"refusal", *response.Choices[0].Message.Refusal,
+			"apiRequest", requestID,
+		)
+	}
+
+	if response.Choices[0].Message.Content == nil {
+		return "", errors.WithDetails(
+			ErrUnexpectedMessageType,
+			"apiRequest", requestID,
+		)
+	}
 
 	return *response.Choices[0].Message.Content, nil
 }
@@ -339,4 +357,12 @@ func (o *OpenAITextProvider) InitOutputJSONSchema(_ context.Context, schema []by
 	}
 
 	return nil
+}
+
+func (o *OpenAITextProvider) recordMessage(recorder *TextProviderRecorder, message openAIMessage) {
+	if message.Content != nil {
+		recorder.addMessage(message.Role, *message.Content)
+	} else if message.Refusal != nil {
+		recorder.addMessage(message.Role, *message.Refusal, "isRefusal", "true")
+	}
 }
