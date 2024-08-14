@@ -327,7 +327,7 @@ func (c *CallCommand) processFile(ctx context.Context, fn fun.Callee[string, str
 
 	ctx = fun.WithTextProviderRecorder(ctx)
 	defer func() {
-		e := zerolog.Ctx(ctx).Debug()
+		e := zerolog.Ctx(ctx).Debug() //nolint:zerologlint
 		if e.Enabled() {
 			recorder := fun.GetTextProviderRecorder(ctx)
 			hasData := false

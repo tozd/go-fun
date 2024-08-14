@@ -143,6 +143,7 @@ issues:
         - godot
     - path: .*_test\.go
       linters:
+        - dupl
         - exhaustruct
         - gochecknoglobals
         - goconst
