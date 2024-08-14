@@ -239,10 +239,11 @@ var providersWithTools = []testProvider{
 }
 
 var tests = []struct {
-	Name   string
-	Prompt string
-	Data   []fun.InputOutput[string, OutputStruct]
-	Cases  []fun.InputOutput[string, OutputStruct]
+	Name          string
+	Prompt        string
+	Data          []fun.InputOutput[string, OutputStruct]
+	Cases         []fun.InputOutput[string, OutputStruct]
+	CheckRecorder func(t *testing.T, recorder *fun.TextProviderRecorder)
 }{
 	{
 		"just_data",
@@ -255,6 +256,11 @@ var tests = []struct {
 		},
 		[]fun.InputOutput[string, OutputStruct]{
 			{[]string{"name=42 [first=2 second=1]"}, OutputStruct{Key: "name", Value: 42, Children: []OutputStruct{{Key: "first", Value: 2}, {Key: "second", Value: 1}}}},
+		},
+		func(t *testing.T, recorder *fun.TextProviderRecorder) {
+			t.Helper()
+
+			assert.Len(t, recorder.Messages(), 10)
 		},
 	},
 	{
@@ -269,6 +275,11 @@ var tests = []struct {
 		[]fun.InputOutput[string, OutputStruct]{
 			{[]string{"name=42 [first=2 second=1]"}, OutputStruct{Key: "name", Value: 42, Children: []OutputStruct{{Key: "first", Value: 2}, {Key: "second", Value: 1}}}},
 		},
+		func(t *testing.T, recorder *fun.TextProviderRecorder) {
+			t.Helper()
+
+			assert.Len(t, recorder.Messages(), 11)
+		},
 	},
 	{
 		"json_only_prompt_and_data",
@@ -281,6 +292,11 @@ var tests = []struct {
 		},
 		[]fun.InputOutput[string, OutputStruct]{
 			{[]string{"name=42 [first=2 second=1]"}, OutputStruct{Key: "name", Value: 42, Children: []OutputStruct{{Key: "first", Value: 2}, {Key: "second", Value: 1}}}},
+		},
+		func(t *testing.T, recorder *fun.TextProviderRecorder) {
+			t.Helper()
+
+			assert.Len(t, recorder.Messages(), 11)
 		},
 	},
 }
@@ -323,9 +339,11 @@ func runTextTests(t *testing.T, providers []testProvider, tests []textTestCase) 
 								t.Parallel()
 							}
 
-							output, errE := f.Call(ctx, d.Input...)
+							ct := fun.WithTextProviderRecorder(ctx)
+							output, errE := f.Call(ct, d.Input...)
 							assert.NoError(t, errE, "% -+#.1v", errE)
 							assert.Equal(t, d.Output, output)
+							tt.CheckRecorder(t, fun.GetTextProviderRecorder(ct))
 						})
 					}
 
@@ -337,9 +355,11 @@ func runTextTests(t *testing.T, providers []testProvider, tests []textTestCase) 
 								t.Parallel()
 							}
 
-							output, errE := f.Call(ctx, c.Input...)
+							ct := fun.WithTextProviderRecorder(ctx)
+							output, errE := f.Call(ct, c.Input...)
 							assert.NoError(t, errE, "% -+#.1v", errE)
 							assert.Equal(t, c.Output, output)
+							tt.CheckRecorder(t, fun.GetTextProviderRecorder(ct))
 						})
 					}
 				})
@@ -349,10 +369,11 @@ func runTextTests(t *testing.T, providers []testProvider, tests []textTestCase) 
 }
 
 type textTestCase struct {
-	Name   string
-	Prompt string
-	Data   []fun.InputOutput[string, string]
-	Cases  []fun.InputOutput[string, string]
+	Name          string
+	Prompt        string
+	Data          []fun.InputOutput[string, string]
+	Cases         []fun.InputOutput[string, string]
+	CheckRecorder func(t *testing.T, recorder *fun.TextProviderRecorder)
 }
 
 func TestText(t *testing.T) { //nolint:paralleltest,tparallel
@@ -368,6 +389,11 @@ func TestText(t *testing.T) { //nolint:paralleltest,tparallel
 				{[]string{"bar"}, "barbar"},
 				{[]string{"test"}, "testtest"},
 				{[]string{"zzz"}, "zzzzzz"},
+			},
+			func(t *testing.T, recorder *fun.TextProviderRecorder) {
+				t.Helper()
+
+				assert.Len(t, recorder.Messages(), 3)
 			},
 		},
 		{
@@ -395,6 +421,11 @@ func TestText(t *testing.T) { //nolint:paralleltest,tparallel
 				{[]string{"bar"}, "barbar"},
 				{[]string{"test"}, "testtest"},
 				// {[]string{"zzz"}, "zzzzzz"}, // Returns "zzz..." with llama3.8b.
+			},
+			func(t *testing.T, recorder *fun.TextProviderRecorder) {
+				t.Helper()
+
+				assert.Len(t, recorder.Messages(), 28)
 			},
 		},
 		{
@@ -426,6 +457,11 @@ func TestText(t *testing.T) { //nolint:paralleltest,tparallel
 				{[]string{"test"}, "testtest"},
 				// {[]string{"zzz"}, "zzzzzz"}, // Returns "zzzZZZ" with llama3.8b.
 			},
+			func(t *testing.T, recorder *fun.TextProviderRecorder) {
+				t.Helper()
+
+				assert.Len(t, recorder.Messages(), 35)
+			},
 		},
 	}
 
@@ -445,6 +481,19 @@ func TestTextTools(t *testing.T) { //nolint:paralleltest,tparallel
 				{[]string{"bar"}, "barbar"},
 				{[]string{"test"}, "testtest"},
 				{[]string{"zzz"}, "zzzzzz"},
+			},
+			func(t *testing.T, recorder *fun.TextProviderRecorder) {
+				t.Helper()
+
+				assert.Len(t, recorder.Messages(), 6)
+
+				usedTool := 0
+				for _, message := range recorder.Messages() {
+					if message["role"] == "tool_use" || message["role"] == "tool_result" {
+						usedTool++
+					}
+				}
+				assert.Equal(t, 2, usedTool, recorder.Messages())
 			},
 		},
 	}
@@ -505,9 +554,11 @@ func TestTextStruct(t *testing.T) { //nolint:paralleltest,tparallel
 								t.Parallel()
 							}
 
-							output, errE := f.Call(ctx, d.Input...)
+							ct := fun.WithTextProviderRecorder(ctx)
+							output, errE := f.Call(ct, d.Input...)
 							assert.NoError(t, errE, "% -+#.1v", errE)
 							assert.Equal(t, d.Output, output)
+							tt.CheckRecorder(t, fun.GetTextProviderRecorder(ct))
 						})
 					}
 
@@ -519,9 +570,11 @@ func TestTextStruct(t *testing.T) { //nolint:paralleltest,tparallel
 								t.Parallel()
 							}
 
-							output, errE := f.Call(ctx, c.Input...)
+							ct := fun.WithTextProviderRecorder(ctx)
+							output, errE := f.Call(ct, c.Input...)
 							assert.NoError(t, errE, "% -+#.1v", errE)
 							assert.Equal(t, c.Output, output)
+							tt.CheckRecorder(t, fun.GetTextProviderRecorder(ct))
 						})
 					}
 				})
@@ -579,9 +632,11 @@ func TestOpenAIJSONSchema(t *testing.T) {
 				t.Run(fmt.Sprintf("input=%s", d.Input), func(t *testing.T) {
 					t.Parallel()
 
-					output, errE := f.Call(ctx, d.Input...)
+					ct := fun.WithTextProviderRecorder(ctx)
+					output, errE := f.Call(ct, d.Input...)
 					assert.NoError(t, errE, "% -+#.1v", errE)
 					assert.Equal(t, d.Output, output)
+					tt.CheckRecorder(t, fun.GetTextProviderRecorder(ct))
 				})
 			}
 
@@ -591,9 +646,11 @@ func TestOpenAIJSONSchema(t *testing.T) {
 				t.Run(fmt.Sprintf("input=%s", c.Input), func(t *testing.T) {
 					t.Parallel()
 
-					output, errE := f.Call(ctx, c.Input...)
+					ct := fun.WithTextProviderRecorder(ctx)
+					output, errE := f.Call(ct, c.Input...)
 					assert.NoError(t, errE, "% -+#.1v", errE)
 					assert.Equal(t, toOutputStructWithoutOmitEmpty(c.Output), output)
+					tt.CheckRecorder(t, fun.GetTextProviderRecorder(ct))
 				})
 			}
 		})
