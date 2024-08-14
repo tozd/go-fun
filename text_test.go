@@ -312,11 +312,7 @@ var tests = []struct {
 		func(t *testing.T, recorder *fun.TextProviderRecorder, providerName string) {
 			t.Helper()
 
-			if providerName == "groq" {
-				assert.Len(t, recorder.Messages(), 15)
-			} else {
-				assert.Len(t, recorder.Messages(), 11)
-			}
+			assert.Len(t, recorder.Messages(), 11)
 		},
 	},
 	{
