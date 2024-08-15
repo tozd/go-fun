@@ -309,7 +309,7 @@ var tests = []struct {
 		[]fun.InputOutput[string, OutputStruct]{
 			{[]string{"name=42 [first=2 second=1]"}, OutputStruct{Key: "name", Value: 42, Children: []OutputStruct{{Key: "first", Value: 2}, {Key: "second", Value: 1}}}},
 		},
-		func(t *testing.T, recorder *fun.TextProviderRecorder, providerName string) {
+		func(t *testing.T, recorder *fun.TextProviderRecorder, _ string) {
 			t.Helper()
 
 			assert.Len(t, recorder.Messages(), 11)
@@ -330,7 +330,7 @@ var tests = []struct {
 		func(t *testing.T, recorder *fun.TextProviderRecorder, providerName string) {
 			t.Helper()
 
-			if providerName == "groq" {
+			if providerName == "groq" || providerName == "ollama" {
 				assert.Len(t, recorder.Messages(), 15)
 			} else {
 				assert.Len(t, recorder.Messages(), 11)
@@ -428,7 +428,7 @@ func TestText(t *testing.T) { //nolint:paralleltest,tparallel
 				{[]string{"test"}, "testtest"},
 				{[]string{"zzz"}, "zzzzzz"},
 			},
-			func(t *testing.T, recorder *fun.TextProviderRecorder, providerName string) {
+			func(t *testing.T, recorder *fun.TextProviderRecorder, _ string) {
 				t.Helper()
 
 				assert.Len(t, recorder.Messages(), 3)
@@ -460,7 +460,7 @@ func TestText(t *testing.T) { //nolint:paralleltest,tparallel
 				{[]string{"test"}, "testtest"},
 				// {[]string{"zzz"}, "zzzzzz"}, // Returns "zzz..." with llama3.8b.
 			},
-			func(t *testing.T, recorder *fun.TextProviderRecorder, providerName string) {
+			func(t *testing.T, recorder *fun.TextProviderRecorder, _ string) {
 				t.Helper()
 
 				assert.Len(t, recorder.Messages(), 28)
@@ -495,7 +495,7 @@ func TestText(t *testing.T) { //nolint:paralleltest,tparallel
 				{[]string{"test"}, "testtest"},
 				// {[]string{"zzz"}, "zzzzzz"}, // Returns "zzzZZZ" with llama3.8b.
 			},
-			func(t *testing.T, recorder *fun.TextProviderRecorder, providerName string) {
+			func(t *testing.T, recorder *fun.TextProviderRecorder, _ string) {
 				t.Helper()
 
 				assert.Len(t, recorder.Messages(), 35)
