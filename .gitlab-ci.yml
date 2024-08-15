@@ -33,6 +33,7 @@ test:
 
   variables:
     OLLAMA_HOST: http://ollama:11434
+    CI_DEBUG_SERVICES: "true"
 
   before_script:
     - apk --update add make bash gcc musl-dev
