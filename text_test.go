@@ -211,6 +211,35 @@ var toolInputJSONSchema = []byte(`
 
 var providersWithTools = []testProvider{
 	{
+		"groq",
+		func(t *testing.T) fun.TextProvider {
+			t.Helper()
+
+			if os.Getenv("GROQ_API_KEY") == "" {
+				t.Skip("GROQ_API_KEY is not available")
+			}
+			return &fun.GroqTextProvider{
+				Client:            nil,
+				APIKey:            os.Getenv("GROQ_API_KEY"),
+				Model:             "llama3-groq-70b-8192-tool-use-preview",
+				MaxContextLength:  0,
+				MaxResponseLength: 0,
+				Tools: map[string]fun.Tooler{
+					"repeat_string": &fun.Tool[toolInput, string]{
+						Description:      "Repeats the input twice, by concatenating the input string without any space.",
+						InputJSONSchema:  toolInputJSONSchema,
+						OutputJSONSchema: jsonSchemaString,
+						Fun: func(_ context.Context, input toolInput) (string, errors.E) {
+							return input.String + input.String, nil
+						},
+					},
+				},
+				Seed:        42,
+				Temperature: 0,
+			}
+		},
+	},
+	{
 		"anthropic",
 		func(t *testing.T) fun.TextProvider {
 			t.Helper()
@@ -515,7 +544,8 @@ func TestTextTools(t *testing.T) { //nolint:paralleltest,tparallel
 			"Repeat the input twice, by concatenating the input string without any space. Return only the resulting string. Do not explain anything.",
 			nil,
 			[]fun.InputOutput[string, string]{
-				{[]string{"foo"}, "foofoo"},
+				// We cannot use "foo" here because groq makes trash output.
+				{[]string{"bla"}, "blabla"},
 				{[]string{"bar"}, "barbar"},
 				{[]string{"test"}, "testtest"},
 				{[]string{"zzz"}, "zzzzzz"},
@@ -523,19 +553,24 @@ func TestTextTools(t *testing.T) { //nolint:paralleltest,tparallel
 			func(t *testing.T, recorder *fun.TextProviderRecorder, providerName string) {
 				t.Helper()
 
-				if providerName == "anthropic" {
-					assert.Len(t, recorder.Messages(), 6)
-				} else {
-					assert.Len(t, recorder.Messages(), 5)
-				}
-
 				usedTool := 0
 				for _, message := range recorder.Messages() {
 					if message["role"] == "tool_use" || message["role"] == "tool_result" {
 						usedTool++
 					}
 				}
-				assert.Equal(t, 2, usedTool, recorder.Messages())
+				if providerName == "groq" {
+					// For some reason groq calls the tool twice.
+					assert.Equal(t, 4, usedTool, recorder.Messages())
+				} else {
+					assert.Equal(t, 2, usedTool, recorder.Messages())
+				}
+
+				if providerName == "anthropic" {
+					assert.Len(t, recorder.Messages(), 4+usedTool)
+				} else {
+					assert.Len(t, recorder.Messages(), 3+usedTool)
+				}
 			},
 		},
 	}

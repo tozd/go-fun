@@ -58,6 +58,8 @@ type openAIResponseFormat struct {
 }
 
 // TODO: How can we make parameters optional?
+//	     See: https://gitlab.com/tozd/go/fun/-/issues/3
+
 type openAIFunction struct {
 	Name            string          `json:"name"`
 	Description     string          `json:"description,omitempty"`
