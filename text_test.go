@@ -195,7 +195,6 @@ type toolInput struct {
 
 var toolInputJSONSchema = []byte(`
 {
-  "$schema": "https://json-schema.org/draft/2020-12/schema",
   "properties": {
     "string": {
       "type": "string"
@@ -209,7 +208,43 @@ var toolInputJSONSchema = []byte(`
 }
 `)
 
+var tools = map[string]fun.Tooler{
+	"repeat_string": &fun.Tool[toolInput, string]{
+		Description:      "Repeats the input twice, by concatenating the input string without any space.",
+		InputJSONSchema:  toolInputJSONSchema,
+		OutputJSONSchema: jsonSchemaString,
+		Fun: func(_ context.Context, input toolInput) (string, errors.E) {
+			return input.String + input.String, nil
+		},
+	},
+}
+
 var providersWithTools = []testProvider{
+	{
+		"ollama",
+		func(t *testing.T) fun.TextProvider {
+			t.Helper()
+
+			if os.Getenv("OLLAMA_HOST") == "" {
+				t.Skip("OLLAMA_HOST is not available")
+			}
+			return &fun.OllamaTextProvider{
+				Client: nil,
+				Base:   os.Getenv("OLLAMA_HOST"),
+				Model: fun.OllamaModel{
+					Model:    "llama3-groq-tool-use:70b",
+					Insecure: false,
+					Username: "",
+					Password: "",
+				},
+				MaxContextLength:  0,
+				MaxResponseLength: 0,
+				Tools:             tools,
+				Seed:              42,
+				Temperature:       0,
+			}
+		},
+	},
 	{
 		"groq",
 		func(t *testing.T) fun.TextProvider {
@@ -224,18 +259,9 @@ var providersWithTools = []testProvider{
 				Model:             "llama3-groq-70b-8192-tool-use-preview",
 				MaxContextLength:  0,
 				MaxResponseLength: 0,
-				Tools: map[string]fun.Tooler{
-					"repeat_string": &fun.Tool[toolInput, string]{
-						Description:      "Repeats the input twice, by concatenating the input string without any space.",
-						InputJSONSchema:  toolInputJSONSchema,
-						OutputJSONSchema: jsonSchemaString,
-						Fun: func(_ context.Context, input toolInput) (string, errors.E) {
-							return input.String + input.String, nil
-						},
-					},
-				},
-				Seed:        42,
-				Temperature: 0,
+				Tools:             tools,
+				Seed:              42,
+				Temperature:       0,
 			}
 		},
 	},
@@ -248,19 +274,10 @@ var providersWithTools = []testProvider{
 				t.Skip("ANTHROPIC_API_KEY is not available")
 			}
 			return &fun.AnthropicTextProvider{
-				Client: nil,
-				APIKey: os.Getenv("ANTHROPIC_API_KEY"),
-				Model:  "claude-3-5-sonnet-20240620",
-				Tools: map[string]fun.Tooler{
-					"repeat_string": &fun.Tool[toolInput, string]{
-						Description:      "Repeats the input twice, by concatenating the input string without any space.",
-						InputJSONSchema:  toolInputJSONSchema,
-						OutputJSONSchema: jsonSchemaString,
-						Fun: func(_ context.Context, input toolInput) (string, errors.E) {
-							return input.String + input.String, nil
-						},
-					},
-				},
+				Client:      nil,
+				APIKey:      os.Getenv("ANTHROPIC_API_KEY"),
+				Model:       "claude-3-5-sonnet-20240620",
+				Tools:       tools,
 				Temperature: 0,
 			}
 		},
@@ -274,21 +291,12 @@ var providersWithTools = []testProvider{
 				t.Skip("OPENAI_API_KEY is not available")
 			}
 			return &fun.OpenAITextProvider{
-				Client:            nil,
-				APIKey:            os.Getenv("OPENAI_API_KEY"),
-				Model:             "gpt-4o-mini-2024-07-18",
-				MaxContextLength:  128_000,
-				MaxResponseLength: 16_384,
-				Tools: map[string]fun.Tooler{
-					"repeat_string": &fun.Tool[toolInput, string]{
-						Description:      "Repeats the input twice, by concatenating the input string without any space.",
-						InputJSONSchema:  toolInputJSONSchema,
-						OutputJSONSchema: jsonSchemaString,
-						Fun: func(_ context.Context, input toolInput) (string, errors.E) {
-							return input.String + input.String, nil
-						},
-					},
-				},
+				Client:                nil,
+				APIKey:                os.Getenv("OPENAI_API_KEY"),
+				Model:                 "gpt-4o-mini-2024-07-18",
+				MaxContextLength:      128_000,
+				MaxResponseLength:     16_384,
+				Tools:                 tools,
 				ForceOutputJSONSchema: false,
 				Seed:                  42,
 				Temperature:           0,

@@ -385,7 +385,7 @@ func (o *OpenAITextProvider) Chat(ctx context.Context, message ChatMessage) (str
 						Str("tool", toolCall.ID).RawJSON("input", json.RawMessage(toolCall.Function.Arguments)).Msg("tool error")
 					content := fmt.Sprintf("Error: %s", errE.Error())
 					messages = append(messages, openAIMessage{
-						Role:       "tool",
+						Role:       roleTool,
 						Content:    &content,
 						Refusal:    nil,
 						ToolCalls:  nil,
@@ -393,7 +393,7 @@ func (o *OpenAITextProvider) Chat(ctx context.Context, message ChatMessage) (str
 					})
 				} else {
 					messages = append(messages, openAIMessage{
-						Role:       "tool",
+						Role:       roleTool,
 						Content:    &output,
 						Refusal:    nil,
 						ToolCalls:  nil,
@@ -476,7 +476,7 @@ func (o *OpenAITextProvider) callTool(ctx context.Context, toolCall openAIToolCa
 }
 
 func (o *OpenAITextProvider) recordMessage(recorder *TextProviderRecorder, message openAIMessage) {
-	if message.Role == "tool" {
+	if message.Role == roleTool {
 		if message.Content != nil {
 			recorder.addMessage(roleToolResult, *message.Content, "id", message.ToolCallID)
 		}

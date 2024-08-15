@@ -27,6 +27,7 @@ const (
 const (
 	roleAssistant  = "assistant"
 	roleUser       = "user"
+	roleTool       = "tool"
 	roleToolUse    = "tool_use"
 	roleToolResult = "tool_result"
 

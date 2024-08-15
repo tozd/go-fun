@@ -421,14 +421,14 @@ func (g *GroqTextProvider) Chat(ctx context.Context, message ChatMessage) (strin
 						Str("tool", toolCall.ID).RawJSON("input", json.RawMessage(toolCall.Function.Arguments)).Msg("tool error")
 					content := fmt.Sprintf("Error: %s", errE.Error())
 					messages = append(messages, groqMessage{
-						Role:       "tool",
+						Role:       roleTool,
 						Content:    &content,
 						ToolCalls:  nil,
 						ToolCallID: toolCall.ID,
 					})
 				} else {
 					messages = append(messages, groqMessage{
-						Role:       "tool",
+						Role:       roleTool,
 						Content:    &output,
 						ToolCalls:  nil,
 						ToolCallID: toolCall.ID,
@@ -493,7 +493,7 @@ func (g *GroqTextProvider) callTool(ctx context.Context, toolCall groqToolCall) 
 }
 
 func (g *GroqTextProvider) recordMessage(recorder *TextProviderRecorder, message groqMessage) {
-	if message.Role == "tool" {
+	if message.Role == roleTool {
 		if message.Content != nil {
 			recorder.addMessage(roleToolResult, *message.Content, "id", message.ToolCallID)
 		}

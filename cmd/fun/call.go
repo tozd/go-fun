@@ -67,6 +67,7 @@ func (c *CallCommand) Run(logger zerolog.Logger) errors.E { //nolint:maintidx
 			},
 			MaxContextLength:  0,
 			MaxResponseLength: 0,
+			Tools:             nil, // TODO: How to make it configurable?
 			Seed:              defaultSeed,
 			Temperature:       0,
 		}

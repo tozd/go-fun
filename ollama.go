@@ -1,15 +1,21 @@
 package fun
 
 import (
+	"bytes"
 	"context"
+	"encoding/json"
 	"fmt"
 	"net/http"
 	"net/url"
 	"slices"
+	"strconv"
 	"sync"
 
 	"github.com/ollama/ollama/api"
+	"github.com/rs/zerolog"
+	"github.com/santhosh-tekuri/jsonschema/v6"
 	"gitlab.com/tozd/go/errors"
+	"gitlab.com/tozd/go/x"
 )
 
 var (
@@ -41,6 +47,18 @@ func ollamaRateLimiterLock(key string) *sync.Mutex {
 	return ollamaRateLimiter[key]
 }
 
+// This is a copy of what is supported in ToolFunction.
+// See: https://github.com/ollama/ollama/issues/6377
+type ollamaToolFunctionParameters struct {
+	Type       string   `json:"type"`
+	Required   []string `json:"required"`
+	Properties map[string]struct {
+		Type        string   `json:"type"`
+		Description string   `json:"description"`
+		Enum        []string `json:"enum,omitempty"`
+	} `json:"properties"`
+}
+
 var _ TextProvider = (*OllamaTextProvider)(nil)
 
 // OllamaModel describes a model for [OllamaTextProvider].
@@ -62,11 +80,14 @@ type OllamaTextProvider struct {
 	MaxContextLength  int
 	MaxResponseLength int
 
+	Tools map[string]Tooler
+
 	Seed        int
 	Temperature float64
 
 	client   *api.Client
 	messages []api.Message
+	tools    api.Tools
 }
 
 // Init implements TextProvider interface.
@@ -100,6 +121,53 @@ func (o *OllamaTextProvider) Init(ctx context.Context, messages []ChatMessage) e
 			Images:    nil,
 			ToolCalls: nil,
 		}
+	}
+
+	for name, tool := range o.Tools {
+		errE := tool.Init(ctx)
+		if errE != nil {
+			errors.Details(errE)["name"] = name
+			return errE
+		}
+
+		// Ollama is very restricted in what JSON Schema it supports so we have to
+		// manually convert JSON Schema for its API.
+		schema := tool.GetInputJSONSchema()
+
+		// We want to remove additionalProperties which is required for OpenAI but
+		// not supported in ollamaToolFunctionParameters.
+		tempSchema, err := jsonschema.UnmarshalJSON(bytes.NewReader(schema)) //nolint:govet
+		if err != nil {
+			errE = errors.Prefix(err, ErrInvalidJSONSchema)
+			errors.Details(errE)["name"] = name
+			return errE
+		}
+		if ts, ok := tempSchema.(map[string]any); ok {
+			delete(ts, "additionalProperties")
+			schema, errE = x.MarshalWithoutEscapeHTML(ts)
+			if errE != nil {
+				errors.Details(errE)["name"] = name
+				return errE
+			}
+		}
+
+		// We do not allow unknown fields to make sure we can fully support provided JSON Schema.
+		var parameters ollamaToolFunctionParameters
+		errE = x.UnmarshalWithoutUnknownFields(schema, &parameters)
+		if errE != nil {
+			errE = errors.Prefix(errE, ErrInvalidJSONSchema)
+			errors.Details(errE)["name"] = name
+			return errE
+		}
+
+		o.tools = append(o.tools, api.Tool{
+			Type: "function",
+			Function: api.ToolFunction{
+				Name:        name,
+				Description: tool.GetDescription(),
+				Parameters:  parameters,
+			},
+		})
 	}
 
 	stream := false
@@ -166,9 +234,11 @@ func (o *OllamaTextProvider) Chat(ctx context.Context, message ChatMessage) (str
 	recorder := GetTextProviderRecorder(ctx)
 
 	messages := slices.Clone(o.messages)
-	messages = append(messages, api.Message{ //nolint:exhaustruct
-		Role:    message.Role,
-		Content: message.Content,
+	messages = append(messages, api.Message{
+		Role:      message.Role,
+		Content:   message.Content,
+		Images:    nil,
+		ToolCalls: nil,
 	})
 
 	if recorder != nil {
@@ -183,80 +253,146 @@ func (o *OllamaTextProvider) Chat(ctx context.Context, message ChatMessage) (str
 	mu.Lock()
 	defer mu.Unlock()
 
-	responses := []api.ChatResponse{}
+	// Ollama does not provide request ID, so we make one ourselves.
+	requestIDNumber := 0
+	for {
+		requestIDNumber++
+		requestID := strconv.Itoa(requestIDNumber)
 
-	stream := false
-	err := o.client.Chat(ctx, &api.ChatRequest{ //nolint:exhaustruct
-		Model:    o.Model.Model,
-		Messages: messages,
-		Stream:   &stream,
-		Options: map[string]interface{}{
-			"num_ctx":     o.MaxContextLength,
-			"num_predict": o.MaxResponseLength,
-			"seed":        o.Seed,
-			"temperature": o.Temperature,
-		},
-	}, func(resp api.ChatResponse) error {
-		responses = append(responses, resp)
-		return nil
-	})
-	if err != nil {
-		return "", getStatusError(err)
+		responses := []api.ChatResponse{}
+
+		stream := false
+		err := o.client.Chat(ctx, &api.ChatRequest{ //nolint:exhaustruct
+			Model:    o.Model.Model,
+			Messages: messages,
+			Stream:   &stream,
+			Options: map[string]interface{}{
+				"num_ctx":     o.MaxContextLength,
+				"num_predict": o.MaxResponseLength,
+				"seed":        o.Seed,
+				"temperature": o.Temperature,
+			},
+		}, func(resp api.ChatResponse) error {
+			responses = append(responses, resp)
+			return nil
+		})
+		if err != nil {
+			errE := getStatusError(err)
+			errors.Details(errE)["apiRequest"] = requestID
+			return "", errE
+		}
+
+		if len(responses) != 1 {
+			return "", errors.WithDetails(
+				ErrUnexpectedNumberOfMessages,
+				"number", len(responses),
+				"apiRequest", requestID,
+			)
+		}
+
+		if recorder != nil {
+			recorder.addUsedTokens(
+				requestID,
+				o.MaxContextLength,
+				o.MaxResponseLength,
+				responses[0].Metrics.PromptEvalCount,
+				responses[0].Metrics.EvalCount,
+			)
+			recorder.addUsedTime(
+				requestID,
+				responses[0].Metrics.PromptEvalDuration,
+				responses[0].Metrics.EvalDuration,
+			)
+
+			o.recordMessage(recorder, responses[0].Message)
+		}
+
+		if responses[0].Metrics.PromptEvalCount+responses[0].Metrics.EvalCount >= o.MaxContextLength {
+			return "", errors.WithDetails(
+				ErrUnexpectedNumberOfTokens,
+				"content", responses[0].Message.Content,
+				"prompt", responses[0].Metrics.PromptEvalCount,
+				"response", responses[0].Metrics.EvalCount,
+				"total", responses[0].Metrics.PromptEvalCount+responses[0].Metrics.EvalCount,
+				"maxTotal", o.MaxContextLength,
+				"maxResponse", o.MaxResponseLength,
+				"apiRequest", requestID,
+			)
+		}
+
+		if responses[0].Message.Role != roleAssistant {
+			return "", errors.WithDetails(
+				ErrUnexpectedRole,
+				"role", responses[0].Message.Role,
+				"apiRequest", requestID,
+			)
+		}
+
+		if responses[0].DoneReason != stopReason {
+			return "", errors.WithDetails(
+				ErrUnexpectedStop,
+				"reason", responses[0].DoneReason,
+				"apiRequest", requestID,
+			)
+		}
+
+		if len(responses[0].Message.ToolCalls) > 0 {
+			// We have already recorded this message above.
+			messages = append(messages, responses[0].Message)
+
+			for i, toolCall := range responses[0].Message.ToolCalls {
+				output, errE := o.callTool(ctx, toolCall, i)
+				if errE != nil {
+					zerolog.Ctx(ctx).Warn().Err(errE).Str("name", toolCall.Function.Name).Str("apiRequest", requestID).
+						Str("tool", strconv.Itoa(i)).RawJSON("input", json.RawMessage(toolCall.Function.Arguments.String())).Msg("tool error")
+					content := fmt.Sprintf("Error: %s", errE.Error())
+					messages = append(messages, api.Message{
+						Role:      roleTool,
+						Content:   content,
+						Images:    nil,
+						ToolCalls: nil,
+					})
+				} else {
+					messages = append(messages, api.Message{
+						Role:      roleTool,
+						Content:   output,
+						Images:    nil,
+						ToolCalls: nil,
+					})
+				}
+
+				if recorder != nil {
+					o.recordMessage(recorder, messages[len(messages)-1])
+				}
+			}
+
+			continue
+		}
+
+		return responses[0].Message.Content, nil
+	}
+}
+
+func (o *OllamaTextProvider) callTool(ctx context.Context, toolCall api.ToolCall, i int) (string, errors.E) {
+	tool, ok := o.Tools[toolCall.Function.Name]
+	if !ok {
+		return "", errors.Errorf("%w: %s", ErrToolNotFound, toolCall.Function.Name)
 	}
 
-	if len(responses) != 1 {
-		return "", errors.WithDetails(
-			ErrUnexpectedNumberOfMessages,
-			"number", len(responses),
-		)
-	}
+	logger := zerolog.Ctx(ctx).With().Str("tool", strconv.Itoa(i)).Logger()
+	ctx = logger.WithContext(ctx)
 
-	if recorder != nil {
-		recorder.addUsedTokens(
-			"",
-			o.MaxContextLength,
-			o.MaxResponseLength,
-			responses[0].Metrics.PromptEvalCount,
-			responses[0].Metrics.EvalCount,
-		)
-		recorder.addUsedTime(
-			"",
-			responses[0].Metrics.PromptEvalDuration,
-			responses[0].Metrics.EvalDuration,
-		)
-
-		o.recordMessage(recorder, responses[0].Message)
-	}
-
-	if responses[0].Metrics.PromptEvalCount+responses[0].Metrics.EvalCount >= o.MaxContextLength {
-		return "", errors.WithDetails(
-			ErrUnexpectedNumberOfTokens,
-			"content", responses[0].Message.Content,
-			"prompt", responses[0].Metrics.PromptEvalCount,
-			"response", responses[0].Metrics.EvalCount,
-			"total", responses[0].Metrics.PromptEvalCount+responses[0].Metrics.EvalCount,
-			"maxTotal", o.MaxContextLength,
-			"maxResponse", o.MaxResponseLength,
-		)
-	}
-
-	if responses[0].Message.Role != roleAssistant {
-		return "", errors.WithDetails(
-			ErrUnexpectedRole,
-			"role", responses[0].Message.Role,
-		)
-	}
-
-	if responses[0].DoneReason != stopReason {
-		return "", errors.WithDetails(
-			ErrUnexpectedStop,
-			"reason", responses[0].DoneReason,
-		)
-	}
-
-	return responses[0].Message.Content, nil
+	return tool.Call(ctx, json.RawMessage(toolCall.Function.Arguments.String()))
 }
 
 func (o *OllamaTextProvider) recordMessage(recorder *TextProviderRecorder, message api.Message) {
-	recorder.addMessage(message.Role, message.Content)
+	if message.Role == roleTool {
+		// TODO: How to provide our tool call ID (the "i" parameter to callTool method).
+		recorder.addMessage(roleToolResult, message.Content)
+	} else {
+		recorder.addMessage(message.Role, message.Content)
+	}
+	for i, tool := range message.ToolCalls {
+		recorder.addMessage(roleToolUse, tool.Function.Arguments.String(), "id", strconv.Itoa(i), "name", tool.Function.Name)
+	}
 }
