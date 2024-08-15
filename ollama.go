@@ -132,6 +132,7 @@ func (o *OllamaTextProvider) Init(ctx context.Context, messages []ChatMessage) e
 
 		// Ollama is very restricted in what JSON Schema it supports so we have to
 		// manually convert JSON Schema for its API.
+		// See: https://github.com/ollama/ollama/issues/6377
 		schema := tool.GetInputJSONSchema()
 
 		// We want to remove additionalProperties which is required for OpenAI but
