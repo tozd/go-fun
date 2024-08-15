@@ -208,15 +208,17 @@ var toolInputJSONSchema = []byte(`
 }
 `)
 
-var tools = map[string]fun.Tooler{
-	"repeat_string": &fun.Tool[toolInput, string]{
-		Description:      "Repeats the input twice, by concatenating the input string without any space.",
-		InputJSONSchema:  toolInputJSONSchema,
-		OutputJSONSchema: jsonSchemaString,
-		Fun: func(_ context.Context, input toolInput) (string, errors.E) {
-			return input.String + input.String, nil
+func tools() map[string]fun.Tooler {
+	return map[string]fun.Tooler{
+		"repeat_string": &fun.Tool[toolInput, string]{
+			Description:      "Repeats the input twice, by concatenating the input string without any space.",
+			InputJSONSchema:  toolInputJSONSchema,
+			OutputJSONSchema: jsonSchemaString,
+			Fun: func(_ context.Context, input toolInput) (string, errors.E) {
+				return input.String + input.String, nil
+			},
 		},
-	},
+	}
 }
 
 var providersWithTools = []testProvider{
@@ -239,7 +241,7 @@ var providersWithTools = []testProvider{
 				},
 				MaxContextLength:  0,
 				MaxResponseLength: 0,
-				Tools:             tools,
+				Tools:             tools(),
 				Seed:              42,
 				Temperature:       0,
 			}
@@ -259,7 +261,7 @@ var providersWithTools = []testProvider{
 				Model:             "llama3-groq-70b-8192-tool-use-preview",
 				MaxContextLength:  0,
 				MaxResponseLength: 0,
-				Tools:             tools,
+				Tools:             tools(),
 				Seed:              42,
 				Temperature:       0,
 			}
@@ -277,7 +279,7 @@ var providersWithTools = []testProvider{
 				Client:      nil,
 				APIKey:      os.Getenv("ANTHROPIC_API_KEY"),
 				Model:       "claude-3-5-sonnet-20240620",
-				Tools:       tools,
+				Tools:       tools(),
 				Temperature: 0,
 			}
 		},
@@ -296,7 +298,7 @@ var providersWithTools = []testProvider{
 				Model:                 "gpt-4o-mini-2024-07-18",
 				MaxContextLength:      128_000,
 				MaxResponseLength:     16_384,
-				Tools:                 tools,
+				Tools:                 tools(),
 				ForceOutputJSONSchema: false,
 				Seed:                  42,
 				Temperature:           0,
