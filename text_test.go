@@ -242,7 +242,7 @@ var providersForTools = []testProvider{
 				MaxContextLength:  0,
 				MaxResponseLength: 0,
 				Seed:              42,
-				Temperature:       0.5,
+				Temperature:       0.3,
 			}
 		},
 	},
