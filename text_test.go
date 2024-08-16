@@ -234,7 +234,7 @@ var providersForTools = []testProvider{
 				Client: nil,
 				Base:   os.Getenv("OLLAMA_HOST"),
 				Model: fun.OllamaModel{
-					Model:    "llama3-groq-tool-use:70b",
+					Model:    "llama3-groq-tool-use:70b-fp16",
 					Insecure: false,
 					Username: "",
 					Password: "",
@@ -548,7 +548,7 @@ func TestTextTools(t *testing.T) { //nolint:paralleltest,tparallel
 	tests := []textTestCase{
 		{
 			"just_prompt",
-			"Repeat the input twice, by concatenating the input string without any space. Return only the resulting string. Do not explain anything. Do not output \"The repeated string is: \".",
+			"Repeat the input twice, by concatenating the input string without any space. Return only the resulting string. Do not explain anything.",
 			nil,
 			[]fun.InputOutput[string, string]{
 				// We cannot use "foo" here because groq makes trash output.
