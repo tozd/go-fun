@@ -374,7 +374,7 @@ var tests = []struct {
 	},
 }
 
-func runTextTests(t *testing.T, providers []testProvider, tests []textTestCase) {
+func runTextTests(t *testing.T, providers []testProvider, tests []textTestCase, tools func() map[string]fun.Tooler) {
 	t.Helper()
 
 	for _, provider := range providers {
@@ -539,7 +539,7 @@ func TestText(t *testing.T) { //nolint:paralleltest,tparallel
 		},
 	}
 
-	runTextTests(t, providers, tests)
+	runTextTests(t, providers, tests, func() map[string]fun.Tooler { return nil })
 }
 
 func TestTextTools(t *testing.T) { //nolint:paralleltest,tparallel
@@ -582,7 +582,7 @@ func TestTextTools(t *testing.T) { //nolint:paralleltest,tparallel
 		},
 	}
 
-	runTextTests(t, providersForTools, tests)
+	runTextTests(t, providersForTools, tests, tools)
 }
 
 func TestTextStruct(t *testing.T) { //nolint:paralleltest,tparallel
