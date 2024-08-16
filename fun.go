@@ -31,3 +31,8 @@ type TextProvider interface {
 type WithOutputJSONSchema interface {
 	InitOutputJSONSchema(ctx context.Context, schema []byte) errors.E
 }
+
+// WithTools is a provider which supports tools.
+type WithTools interface {
+	InitTools(ctx context.Context, tools map[string]Tooler) errors.E
+}

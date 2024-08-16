@@ -70,6 +70,7 @@ type openAIFunction struct {
 type openAITool struct {
 	Type     string         `json:"type"`
 	Function openAIFunction `json:"function"`
+	tool     Tooler
 }
 
 type openAIRequest struct {
@@ -137,7 +138,6 @@ type OpenAITextProvider struct {
 	MaxContextLength  int
 	MaxResponseLength int
 
-	Tools                 map[string]Tooler
 	ForceOutputJSONSchema bool
 
 	Seed        int
@@ -151,10 +151,12 @@ type OpenAITextProvider struct {
 }
 
 // Init implements TextProvider interface.
-func (o *OpenAITextProvider) Init(ctx context.Context, messages []ChatMessage) errors.E {
+func (o *OpenAITextProvider) Init(_ context.Context, messages []ChatMessage) errors.E {
 	if o.messages != nil {
 		return errors.WithStack(ErrAlreadyInitialized)
 	}
+	o.messages = []openAIMessage{}
+
 	for _, message := range messages {
 		message := message
 		o.messages = append(o.messages, openAIMessage{
@@ -163,24 +165,6 @@ func (o *OpenAITextProvider) Init(ctx context.Context, messages []ChatMessage) e
 			Refusal:    nil,
 			ToolCalls:  nil,
 			ToolCallID: "",
-		})
-	}
-
-	for name, tool := range o.Tools {
-		errE := tool.Init(ctx)
-		if errE != nil {
-			errors.Details(errE)["name"] = name
-			return errE
-		}
-
-		o.tools = append(o.tools, openAITool{
-			Type: "function",
-			Function: openAIFunction{
-				Name:            name,
-				Description:     tool.GetDescription(),
-				InputJSONSchema: tool.GetInputJSONSchema(),
-				Strict:          true,
-			},
 		})
 	}
 
@@ -446,6 +430,9 @@ func (o *OpenAITextProvider) InitOutputJSONSchema(_ context.Context, schema []by
 		return errors.Errorf(`%w: output JSON Schema is missing`, ErrInvalidJSONSchema)
 	}
 
+	if o.outputJSONSchema != nil {
+		return errors.WithStack(ErrAlreadyInitialized)
+	}
 	o.outputJSONSchema = schema
 
 	s, err := jsonschema.UnmarshalJSON(bytes.NewReader(schema))
@@ -463,9 +450,44 @@ func (o *OpenAITextProvider) InitOutputJSONSchema(_ context.Context, schema []by
 	return nil
 }
 
+// InitTools implements WithTools interface.
+func (o *OpenAITextProvider) InitTools(ctx context.Context, tools map[string]Tooler) errors.E {
+	if o.tools != nil {
+		return errors.WithStack(ErrAlreadyInitialized)
+	}
+	o.tools = []openAITool{}
+
+	for name, tool := range tools {
+		errE := tool.Init(ctx)
+		if errE != nil {
+			errors.Details(errE)["name"] = name
+			return errE
+		}
+
+		o.tools = append(o.tools, openAITool{
+			Type: "function",
+			Function: openAIFunction{
+				Name:            name,
+				Description:     tool.GetDescription(),
+				InputJSONSchema: tool.GetInputJSONSchema(),
+				Strict:          true,
+			},
+			tool: tool,
+		})
+	}
+
+	return nil
+}
+
 func (o *OpenAITextProvider) callTool(ctx context.Context, toolCall openAIToolCall) (string, errors.E) {
-	tool, ok := o.Tools[toolCall.Function.Name]
-	if !ok {
+	var tool Tooler
+	for _, t := range o.tools {
+		if t.Function.Name == toolCall.Function.Name {
+			tool = t.tool
+			break
+		}
+	}
+	if tool == nil {
 		return "", errors.Errorf("%w: %s", ErrToolNotFound, toolCall.Function.Name)
 	}
 

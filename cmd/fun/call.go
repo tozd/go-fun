@@ -67,7 +67,6 @@ func (c *CallCommand) Run(logger zerolog.Logger) errors.E { //nolint:maintidx
 			},
 			MaxContextLength:  0,
 			MaxResponseLength: 0,
-			Tools:             nil, // TODO: How to make it configurable?
 			Seed:              defaultSeed,
 			Temperature:       0,
 		}
@@ -81,7 +80,6 @@ func (c *CallCommand) Run(logger zerolog.Logger) errors.E { //nolint:maintidx
 			Model:             c.Model,
 			MaxContextLength:  0,
 			MaxResponseLength: 0,
-			Tools:             nil, // TODO: How to make it configurable?
 			Seed:              defaultSeed,
 			Temperature:       0,
 		}
@@ -93,7 +91,6 @@ func (c *CallCommand) Run(logger zerolog.Logger) errors.E { //nolint:maintidx
 			Client:      nil,
 			APIKey:      os.Getenv("ANTHROPIC_API_KEY"),
 			Model:       c.Model,
-			Tools:       nil, // TODO: How to make it configurable?
 			Temperature: 0,
 		}
 	case "openai":
@@ -106,7 +103,6 @@ func (c *CallCommand) Run(logger zerolog.Logger) errors.E { //nolint:maintidx
 			Model:                 c.Model,
 			MaxContextLength:      0,     // TODO: How to make it configurable?
 			MaxResponseLength:     0,     // TODO: How to make it configurable?
-			Tools:                 nil,   // TODO: How to make it configurable?
 			ForceOutputJSONSchema: false, // TODO: How to make it configurable?
 			Seed:                  defaultSeed,
 			Temperature:           0,
@@ -155,6 +151,7 @@ func (c *CallCommand) Run(logger zerolog.Logger) errors.E { //nolint:maintidx
 		OutputJSONSchema: c.OutputJSONSchema,
 		Prompt:           prompt,
 		Data:             data,
+		Tools:            nil, // TODO: How to make it configurable?
 	}
 
 	errE := fn.Init(logger.WithContext(ctx))

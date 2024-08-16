@@ -126,6 +126,8 @@ type anthropicTool struct {
 	Name            string          `json:"name"`
 	Description     string          `json:"description,omitempty"`
 	InputJSONSchema json.RawMessage `json:"input_schema"`
+
+	tool Tooler
 }
 
 var _ TextProvider = (*AnthropicTextProvider)(nil)
@@ -139,8 +141,6 @@ type AnthropicTextProvider struct {
 	APIKey string
 	Model  string
 
-	Tools map[string]Tooler
-
 	Temperature float64
 
 	system   string
@@ -149,11 +149,12 @@ type AnthropicTextProvider struct {
 }
 
 // Init implements TextProvider interface.
-func (a *AnthropicTextProvider) Init(ctx context.Context, messages []ChatMessage) errors.E {
+func (a *AnthropicTextProvider) Init(_ context.Context, messages []ChatMessage) errors.E {
 	if a.messages != nil {
 		return errors.WithStack(ErrAlreadyInitialized)
 	}
-	messagesWithoutSystem := []anthropicMessage{}
+	a.messages = []anthropicMessage{}
+
 	for _, message := range messages {
 		if message.Role == "system" {
 			if a.system != "" {
@@ -161,7 +162,7 @@ func (a *AnthropicTextProvider) Init(ctx context.Context, messages []ChatMessage
 			}
 			a.system = message.Content
 		} else {
-			messagesWithoutSystem = append(messagesWithoutSystem, anthropicMessage{
+			a.messages = append(a.messages, anthropicMessage{
 				Role: message.Role,
 				Content: []anthropicContent{
 					{ //nolint:exhaustruct
@@ -171,21 +172,6 @@ func (a *AnthropicTextProvider) Init(ctx context.Context, messages []ChatMessage
 				},
 			})
 		}
-	}
-	a.messages = messagesWithoutSystem
-
-	for name, tool := range a.Tools {
-		errE := tool.Init(ctx)
-		if errE != nil {
-			errors.Details(errE)["name"] = name
-			return errE
-		}
-
-		a.tools = append(a.tools, anthropicTool{
-			Name:            name,
-			Description:     tool.GetDescription(),
-			InputJSONSchema: tool.GetInputJSONSchema(),
-		})
 	}
 
 	if a.Client == nil {
@@ -481,9 +467,40 @@ func (a *AnthropicTextProvider) estimatedTokens(messages []anthropicMessage) int
 	return tokens + 2*anthropicMaxResponseTokens
 }
 
+// InitTools implements WithTools interface.
+func (a *AnthropicTextProvider) InitTools(ctx context.Context, tools map[string]Tooler) errors.E {
+	if a.tools != nil {
+		return errors.WithStack(ErrAlreadyInitialized)
+	}
+	a.tools = []anthropicTool{}
+
+	for name, tool := range tools {
+		errE := tool.Init(ctx)
+		if errE != nil {
+			errors.Details(errE)["name"] = name
+			return errE
+		}
+
+		a.tools = append(a.tools, anthropicTool{
+			Name:            name,
+			Description:     tool.GetDescription(),
+			InputJSONSchema: tool.GetInputJSONSchema(),
+			tool:            tool,
+		})
+	}
+
+	return nil
+}
+
 func (a *AnthropicTextProvider) callTool(ctx context.Context, content anthropicContent) (string, errors.E) {
-	tool, ok := a.Tools[content.Name]
-	if !ok {
+	var tool Tooler
+	for _, t := range a.tools {
+		if t.Name == content.Name {
+			tool = t.tool
+			break
+		}
+	}
+	if tool == nil {
 		return "", errors.Errorf("%w: %s", ErrToolNotFound, content.Name)
 	}
 

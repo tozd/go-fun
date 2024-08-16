@@ -221,7 +221,7 @@ func tools() map[string]fun.Tooler {
 	}
 }
 
-var providersWithTools = []testProvider{
+var providersForTools = []testProvider{
 	{
 		"ollama",
 		func(t *testing.T) fun.TextProvider {
@@ -241,7 +241,6 @@ var providersWithTools = []testProvider{
 				},
 				MaxContextLength:  0,
 				MaxResponseLength: 0,
-				Tools:             tools(),
 				Seed:              42,
 				Temperature:       0,
 			}
@@ -261,7 +260,6 @@ var providersWithTools = []testProvider{
 				Model:             "llama3-groq-70b-8192-tool-use-preview",
 				MaxContextLength:  0,
 				MaxResponseLength: 0,
-				Tools:             tools(),
 				Seed:              42,
 				Temperature:       0,
 			}
@@ -279,7 +277,6 @@ var providersWithTools = []testProvider{
 				Client:      nil,
 				APIKey:      os.Getenv("ANTHROPIC_API_KEY"),
 				Model:       "claude-3-5-sonnet-20240620",
-				Tools:       tools(),
 				Temperature: 0,
 			}
 		},
@@ -298,7 +295,6 @@ var providersWithTools = []testProvider{
 				Model:                 "gpt-4o-mini-2024-07-18",
 				MaxContextLength:      128_000,
 				MaxResponseLength:     16_384,
-				Tools:                 tools(),
 				ForceOutputJSONSchema: false,
 				Seed:                  42,
 				Temperature:           0,
@@ -401,6 +397,7 @@ func runTextTests(t *testing.T, providers []testProvider, tests []textTestCase) 
 						OutputJSONSchema: jsonSchemaString,
 						Prompt:           tt.Prompt,
 						Data:             tt.Data,
+						Tools:            tools(),
 					}
 
 					ctx := zerolog.New(zerolog.NewTestWriter(t)).WithContext(context.Background())
@@ -585,7 +582,7 @@ func TestTextTools(t *testing.T) { //nolint:paralleltest,tparallel
 		},
 	}
 
-	runTextTests(t, providersWithTools, tests)
+	runTextTests(t, providersForTools, tests)
 }
 
 func TestTextStruct(t *testing.T) { //nolint:paralleltest,tparallel

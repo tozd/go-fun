@@ -49,6 +49,8 @@ type groqFunction struct {
 type groqTool struct {
 	Type     string       `json:"type"`
 	Function groqFunction `json:"function"`
+
+	tool Tooler
 }
 
 type groqRequest struct {
@@ -117,8 +119,6 @@ type GroqTextProvider struct {
 	MaxContextLength  int
 	MaxResponseLength int
 
-	Tools map[string]Tooler
-
 	Seed        int
 	Temperature float64
 
@@ -131,6 +131,8 @@ func (g *GroqTextProvider) Init(ctx context.Context, messages []ChatMessage) err
 	if g.messages != nil {
 		return errors.WithStack(ErrAlreadyInitialized)
 	}
+	g.messages = []groqMessage{}
+
 	for _, message := range messages {
 		message := message
 		g.messages = append(g.messages, groqMessage{
@@ -138,23 +140,6 @@ func (g *GroqTextProvider) Init(ctx context.Context, messages []ChatMessage) err
 			Content:    &message.Content,
 			ToolCalls:  nil,
 			ToolCallID: "",
-		})
-	}
-
-	for name, tool := range g.Tools {
-		errE := tool.Init(ctx)
-		if errE != nil {
-			errors.Details(errE)["name"] = name
-			return errE
-		}
-
-		g.tools = append(g.tools, groqTool{
-			Type: "function",
-			Function: groqFunction{
-				Name:            name,
-				Description:     tool.GetDescription(),
-				InputJSONSchema: tool.GetInputJSONSchema(),
-			},
 		})
 	}
 
@@ -480,9 +465,43 @@ func (g *GroqTextProvider) maxResponseTokens(model groqModel) int {
 	return g.maxContextLength(model)
 }
 
+// InitTools implements WithTools interface.
+func (g *GroqTextProvider) InitTools(ctx context.Context, tools map[string]Tooler) errors.E {
+	if g.tools != nil {
+		return errors.WithStack(ErrAlreadyInitialized)
+	}
+	g.tools = []groqTool{}
+
+	for name, tool := range tools {
+		errE := tool.Init(ctx)
+		if errE != nil {
+			errors.Details(errE)["name"] = name
+			return errE
+		}
+
+		g.tools = append(g.tools, groqTool{
+			Type: "function",
+			Function: groqFunction{
+				Name:            name,
+				Description:     tool.GetDescription(),
+				InputJSONSchema: tool.GetInputJSONSchema(),
+			},
+			tool: tool,
+		})
+	}
+
+	return nil
+}
+
 func (g *GroqTextProvider) callTool(ctx context.Context, toolCall groqToolCall) (string, errors.E) {
-	tool, ok := g.Tools[toolCall.Function.Name]
-	if !ok {
+	var tool Tooler
+	for _, t := range g.tools {
+		if t.Function.Name == toolCall.Function.Name {
+			tool = t.tool
+			break
+		}
+	}
+	if tool == nil {
 		return "", errors.Errorf("%w: %s", ErrToolNotFound, toolCall.Function.Name)
 	}
 

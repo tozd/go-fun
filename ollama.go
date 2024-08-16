@@ -80,14 +80,13 @@ type OllamaTextProvider struct {
 	MaxContextLength  int
 	MaxResponseLength int
 
-	Tools map[string]Tooler
-
 	Seed        int
 	Temperature float64
 
 	client   *api.Client
 	messages []api.Message
 	tools    api.Tools
+	toolers  map[string]Tooler
 }
 
 // Init implements TextProvider interface.
@@ -113,61 +112,13 @@ func (o *OllamaTextProvider) Init(ctx context.Context, messages []ChatMessage) e
 	}
 	o.client = api.NewClient(base, client)
 
-	o.messages = make([]api.Message, len(messages))
-	for i, message := range messages {
-		o.messages[i] = api.Message{
+	o.messages = []api.Message{}
+	for _, message := range messages {
+		o.messages = append(o.messages, api.Message{
 			Role:      message.Role,
 			Content:   message.Content,
 			Images:    nil,
 			ToolCalls: nil,
-		}
-	}
-
-	for name, tool := range o.Tools {
-		errE := tool.Init(ctx)
-		if errE != nil {
-			errors.Details(errE)["name"] = name
-			return errE
-		}
-
-		// Ollama is very restricted in what JSON Schema it supports so we have to
-		// manually convert JSON Schema for its API.
-		// See: https://github.com/ollama/ollama/issues/6377
-		schema := tool.GetInputJSONSchema()
-
-		// We want to remove additionalProperties which is required for OpenAI but
-		// not supported in ollamaToolFunctionParameters.
-		tempSchema, err := jsonschema.UnmarshalJSON(bytes.NewReader(schema)) //nolint:govet
-		if err != nil {
-			errE = errors.Prefix(err, ErrInvalidJSONSchema)
-			errors.Details(errE)["name"] = name
-			return errE
-		}
-		if ts, ok := tempSchema.(map[string]any); ok {
-			delete(ts, "additionalProperties")
-			schema, errE = x.MarshalWithoutEscapeHTML(ts)
-			if errE != nil {
-				errors.Details(errE)["name"] = name
-				return errE
-			}
-		}
-
-		// We do not allow unknown fields to make sure we can fully support provided JSON Schema.
-		var parameters ollamaToolFunctionParameters
-		errE = x.UnmarshalWithoutUnknownFields(schema, &parameters)
-		if errE != nil {
-			errE = errors.Prefix(errE, ErrInvalidJSONSchema)
-			errors.Details(errE)["name"] = name
-			return errE
-		}
-
-		o.tools = append(o.tools, api.Tool{
-			Type: "function",
-			Function: api.ToolFunction{
-				Name:        name,
-				Description: tool.GetDescription(),
-				Parameters:  parameters,
-			},
 		})
 	}
 
@@ -267,6 +218,7 @@ func (o *OllamaTextProvider) Chat(ctx context.Context, message ChatMessage) (str
 			Model:    o.Model.Model,
 			Messages: messages,
 			Stream:   &stream,
+			Tools:    o.tools,
 			Options: map[string]interface{}{
 				"num_ctx":     o.MaxContextLength,
 				"num_predict": o.MaxResponseLength,
@@ -374,8 +326,68 @@ func (o *OllamaTextProvider) Chat(ctx context.Context, message ChatMessage) (str
 	}
 }
 
+// InitTools implements WithTools interface.
+func (o *OllamaTextProvider) InitTools(ctx context.Context, tools map[string]Tooler) errors.E {
+	if o.tools != nil {
+		return errors.WithStack(ErrAlreadyInitialized)
+	}
+	o.tools = []api.Tool{}
+	o.toolers = map[string]Tooler{}
+
+	for name, tool := range tools {
+		errE := tool.Init(ctx)
+		if errE != nil {
+			errors.Details(errE)["name"] = name
+			return errE
+		}
+
+		// Ollama is very restricted in what JSON Schema it supports so we have to
+		// manually convert JSON Schema for its API.
+		// See: https://github.com/ollama/ollama/issues/6377
+		schema := tool.GetInputJSONSchema()
+
+		// We want to remove additionalProperties which is required for OpenAI but
+		// not supported in ollamaToolFunctionParameters.
+		tempSchema, err := jsonschema.UnmarshalJSON(bytes.NewReader(schema))
+		if err != nil {
+			errE = errors.Prefix(err, ErrInvalidJSONSchema)
+			errors.Details(errE)["name"] = name
+			return errE
+		}
+		if ts, ok := tempSchema.(map[string]any); ok {
+			delete(ts, "additionalProperties")
+			schema, errE = x.MarshalWithoutEscapeHTML(ts)
+			if errE != nil {
+				errors.Details(errE)["name"] = name
+				return errE
+			}
+		}
+
+		// We do not allow unknown fields to make sure we can fully support provided JSON Schema.
+		var parameters ollamaToolFunctionParameters
+		errE = x.UnmarshalWithoutUnknownFields(schema, &parameters)
+		if errE != nil {
+			errE = errors.Prefix(errE, ErrInvalidJSONSchema)
+			errors.Details(errE)["name"] = name
+			return errE
+		}
+
+		o.tools = append(o.tools, api.Tool{
+			Type: "function",
+			Function: api.ToolFunction{
+				Name:        name,
+				Description: tool.GetDescription(),
+				Parameters:  parameters,
+			},
+		})
+		o.toolers[name] = tool
+	}
+
+	return nil
+}
+
 func (o *OllamaTextProvider) callTool(ctx context.Context, toolCall api.ToolCall, i int) (string, errors.E) {
-	tool, ok := o.Tools[toolCall.Function.Name]
+	tool, ok := o.toolers[toolCall.Function.Name]
 	if !ok {
 		return "", errors.Errorf("%w: %s", ErrToolNotFound, toolCall.Function.Name)
 	}

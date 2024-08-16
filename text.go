@@ -170,6 +170,9 @@ type Text[Input, Output any] struct {
 	// Data is example inputs with corresponding outputs for the function.
 	Data []InputOutput[Input, Output]
 
+	// Tools can be called by the AI model.
+	Tools map[string]Tooler
+
 	inputValidator  *jsonschema.Schema
 	outputValidator *jsonschema.Schema
 }
@@ -257,6 +260,17 @@ func (t *Text[Input, Output]) Init(ctx context.Context) errors.E {
 		errE = p.InitOutputJSONSchema(ctx, outputSchema)
 		if errE != nil {
 			return errE
+		}
+	}
+
+	if len(t.Tools) > 0 {
+		if p, ok := t.Provider.(WithTools); ok {
+			errE = p.InitTools(ctx, t.Tools)
+			if errE != nil {
+				return errE
+			}
+		} else {
+			return errors.New("provider does not support tools, but tools are provided")
 		}
 	}
 
