@@ -120,7 +120,7 @@ var providers = []testProvider{
 				Client: nil,
 				Base:   os.Getenv("OLLAMA_HOST"),
 				Model: fun.OllamaModel{
-					Model:    "llama3:8b",
+					Model:    "llama3-groq-tool-use:8b",
 					Insecure: false,
 					Username: "",
 					Password: "",
@@ -234,7 +234,7 @@ var providersWithTools = []testProvider{
 				Client: nil,
 				Base:   os.Getenv("OLLAMA_HOST"),
 				Model: fun.OllamaModel{
-					Model:    "llama3-groq-tool-use:70b",
+					Model:    "llama3-groq-tool-use:8b",
 					Insecure: false,
 					Username: "",
 					Password: "",
