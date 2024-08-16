@@ -548,7 +548,7 @@ func TestTextTools(t *testing.T) { //nolint:paralleltest,tparallel
 	tests := []textTestCase{
 		{
 			"just_prompt",
-			"Repeat the input twice, by concatenating the input string without any space. Return only the resulting string. Do not explain anything.",
+			"Repeat the input twice, by concatenating the input string without any space. Return only the resulting string. Do not explain anything. Do not output \"The repeated string is: \".",
 			nil,
 			[]fun.InputOutput[string, string]{
 				// We cannot use "foo" here because groq makes trash output.
