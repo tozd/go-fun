@@ -402,7 +402,9 @@ func (o *OllamaTextProvider) recordMessage(recorder *TextProviderRecorder, messa
 	if message.Role == roleTool {
 		// TODO: How to provide our tool call ID (the "i" parameter to callTool method).
 		recorder.addMessage(roleToolResult, message.Content)
-	} else {
+	} else if message.Content != "" || len(message.ToolCalls) == 0 {
+		// Often with ToolCalls present, the content is empty and we do not record the content in that case.
+		// But we do want to record empty content when there are no ToolCalls.
 		recorder.addMessage(message.Role, message.Content)
 	}
 	for i, tool := range message.ToolCalls {
