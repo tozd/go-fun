@@ -234,7 +234,7 @@ var providersForTools = []testProvider{
 				Client: nil,
 				Base:   os.Getenv("OLLAMA_HOST"),
 				Model: fun.OllamaModel{
-					Model:    "llama3-groq-tool-use:70b-fp16",
+					Model:    "llama3-groq-tool-use:70b",
 					Insecure: false,
 					Username: "",
 					Password: "",
@@ -242,7 +242,7 @@ var providersForTools = []testProvider{
 				MaxContextLength:  0,
 				MaxResponseLength: 0,
 				Seed:              42,
-				Temperature:       0,
+				Temperature:       0.5,
 			}
 		},
 	},
