@@ -13,8 +13,10 @@ Features:
 
 - A common interface to support both code-defined, data-defined, and description-defined functions.
 - Functions are strongly typed so inputs and outputs can be Go structs and values.
-- Provides [Groq](https://groq.com/), [Anthropic](https://www.anthropic.com/) and
+- Provides [OpenAI](https://openai.com/), [Groq](https://groq.com/), [Anthropic](https://www.anthropic.com/) and
   [Ollama](https://ollama.com/) integrations for AI models.
+- Support for tool calling which transparently calls into Go functions with Go structs and values
+  as inputs and outputs.
 - Uses adaptive rate limiting to maximize throughput of API calls made to integrated AI models.
 - Provides a CLI tool `fun` which makes it easy to run data-defined and description-defined functions on files.
 
