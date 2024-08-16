@@ -28,9 +28,24 @@ type TextProviderRecorderUsedTime struct {
 type TextProviderRecorder struct {
 	mu sync.Mutex
 
+	id         string
 	messages   []map[string]string
 	usedTokens map[string]TextProviderRecorderUsedTokens
 	usedTime   map[string]TextProviderRecorderUsedTime
+}
+
+func (t *TextProviderRecorder) setID(id string) {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+
+	t.id = id
+}
+
+func (t *TextProviderRecorder) ID() string {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+
+	return t.id
 }
 
 func (t *TextProviderRecorder) addMessage(role, message string, params ...string) {

@@ -180,7 +180,11 @@ func (t *Text[Input, Output]) Init(ctx context.Context) errors.E {
 		return errors.WithStack(ErrAlreadyInitialized)
 	}
 
-	logger := zerolog.Ctx(ctx).With().Str("fun", identifier.New().String()).Logger()
+	callID := identifier.New().String()
+	if recorder := GetTextProviderRecorder(ctx); recorder != nil {
+		recorder.setID(callID)
+	}
+	logger := zerolog.Ctx(ctx).With().Str("fun", callID).Logger()
 	ctx = logger.WithContext(ctx)
 
 	validator, inputSchema, errE := compileValidator[Input](t.InputJSONSchema)
@@ -261,7 +265,11 @@ func (t *Text[Input, Output]) Init(ctx context.Context) errors.E {
 
 // Call implements [Callee] interface.
 func (t *Text[Input, Output]) Call(ctx context.Context, input ...Input) (Output, errors.E) { //nolint:ireturn
-	logger := zerolog.Ctx(ctx).With().Str("fun", identifier.New().String()).Logger()
+	callID := identifier.New().String()
+	if recorder := GetTextProviderRecorder(ctx); recorder != nil {
+		recorder.setID(callID)
+	}
+	logger := zerolog.Ctx(ctx).With().Str("fun", callID).Logger()
 	ctx = logger.WithContext(ctx)
 
 	for _, i := range input {
