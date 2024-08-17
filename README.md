@@ -8,13 +8,14 @@
 A Go package that allows you to define functions with code (the usual way), data
 (providing examples of inputs and expected outputs which are then used with an AI model),
 or natural language description.
+It is the simplest but powerful way to use large language models (LLMs) in Go.
 
 Features:
 
 - A common interface to support both code-defined, data-defined, and description-defined functions.
 - Functions are strongly typed so inputs and outputs can be Go structs and values.
 - Provides [OpenAI](https://openai.com/), [Groq](https://groq.com/), [Anthropic](https://www.anthropic.com/) and
-  [Ollama](https://ollama.com/) integrations for AI models.
+  [Ollama](https://ollama.com/) integrations for AI (LLM) models.
 - Support for tool calling which transparently calls into Go functions with Go structs and values
   as inputs and outputs.
 - Uses adaptive rate limiting to maximize throughput of API calls made to integrated AI models.
