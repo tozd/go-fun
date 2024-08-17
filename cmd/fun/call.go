@@ -1,7 +1,9 @@
 package main
 
 import (
+	"bytes"
 	"context"
+	"encoding/json"
 	"io/fs"
 	"math"
 	"os"
@@ -268,11 +270,13 @@ func (c *CallCommand) Run(logger zerolog.Logger) errors.E { //nolint:maintidx
 }
 
 func (c *CallCommand) processFile(ctx context.Context, fn fun.Callee[string, string], inputPath, outputPath string) (errE errors.E) { //nolint:nonamedreturns
+	// Was there an output error?
+	var errorErrE errors.E
 	// Is output invalid?
 	var invalidErrE errors.E
 	defer func() {
-		// Add invalidErrE to any existing error. If both errors are nil, this is still nil.
-		errE = errors.Join(errE, invalidErrE)
+		// Add outputErrE or invalidErrE to any existing error. If all errors are nil, this is still nil.
+		errE = errors.Join(errE, errorErrE, invalidErrE)
 	}()
 
 	f, err := os.OpenFile(outputPath, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o644) //nolint:gomnd
@@ -285,13 +289,37 @@ func (c *CallCommand) processFile(ctx context.Context, fn fun.Callee[string, str
 	defer func() {
 		errE2 := errors.WithStack(f.Close())
 		var errE3 errors.E
-		// We always remove this file if the output was invalid. We remove it on any other error as well (so that run can be redone).
-		if errE != nil || invalidErrE != nil {
+		// We always remove this file if the output was invalid or there was output error.
+		// We remove it on any other error as well (so that run can be redone).
+		if errE != nil || invalidErrE != nil || errorErrE != nil {
 			// It is correct that we remove this file if we return errFileSkipped below. This means that .invalid
-			// file already exist and our temporary data file we managed to create should be removed.
+			// or .error file already exist and our temporary data file we managed to create should be removed.
 			errE3 = errors.WithStack(os.Remove(outputPath))
 			if errE3 != nil {
-				zerolog.Ctx(ctx).Error().Err(errE3).Msg("unable to remove data output file after error")
+				zerolog.Ctx(ctx).Error().Err(errE3).Msg("unable to remove output file after error")
+			}
+		}
+		// Combine any non-nil errors together.
+		errE = errors.Join(errE, errE2, errE3)
+	}()
+
+	errorOutputPath := outputPath + ".error"
+	fError, err := os.OpenFile(errorOutputPath, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o644) //nolint:gomnd
+	if errors.Is(err, fs.ErrExist) {
+		// We skip files which already exist.
+		return errors.Prefix(err, errFileSkipped)
+	} else if err != nil {
+		return errors.WithStack(err)
+	}
+	defer func() {
+		errE2 := errors.WithStack(fError.Close())
+		var errE3 errors.E
+		// We always remove this file if the output was valid or if the output was invalid.
+		// We remove it on any other error as well (so that run can be redone).
+		if errE != nil || (errorErrE == nil && invalidErrE == nil) || invalidErrE != nil {
+			errE3 = errors.WithStack(os.Remove(errorOutputPath))
+			if errE3 != nil {
+				zerolog.Ctx(ctx).Error().Err(errE3).Msg("unable to remove output error file after error")
 			}
 		}
 		// Combine any non-nil errors together.
@@ -309,11 +337,12 @@ func (c *CallCommand) processFile(ctx context.Context, fn fun.Callee[string, str
 	defer func() {
 		errE2 := errors.WithStack(fInvalid.Close())
 		var errE3 errors.E
-		// We always remove this file if the output was valid. We remove it on any other error as well (so that run can be redone).
-		if errE != nil || invalidErrE == nil {
+		// We always remove this file if the output was valid or if there was an output error.
+		// We remove it on any other error as well (so that run can be redone).
+		if errE != nil || (errorErrE == nil && invalidErrE == nil) || errorErrE != nil {
 			errE3 = errors.WithStack(os.Remove(invalidOutputPath))
 			if errE3 != nil {
-				zerolog.Ctx(ctx).Error().Err(errE3).Msg("unable to remove invalid flag output file after error")
+				zerolog.Ctx(ctx).Error().Err(errE3).Msg("unable to remove invalid output file after error")
 			}
 		}
 		// Combine any non-nil errors together.
@@ -361,7 +390,18 @@ func (c *CallCommand) processFile(ctx context.Context, fn fun.Callee[string, str
 		if output != "" {
 			errors.Details(errE)["output"] = output
 		}
-		return errE
+		errorErrE, errE = errE, nil
+		errJSON, errE := x.MarshalWithoutEscapeHTML(errors.Formatter{Error: errorErrE}) //nolint:exhaustruct
+		if errE != nil {
+			return errE
+		}
+		out := new(bytes.Buffer)
+		err = json.Indent(out, errJSON, "", "  ")
+		if err != nil {
+			return errors.WithStack(err)
+		}
+		_, err = out.WriteTo(fError)
+		return errors.WithStack(err)
 	}
 
 	_, err = f.WriteString(output)

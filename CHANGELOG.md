@@ -9,6 +9,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Create files with `.error` suffix for outputs with errors skip them on followup
+  runs of the `fun` tool.
 - Context-based recorder for information about internal calls made to a model.
 - Transparent tool calling into Go code.
 - OpenAI provider.

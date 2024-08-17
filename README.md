@@ -89,6 +89,9 @@ You have to provide example inputs and outputs or a prompt, and you can provide 
   - `fun` supports splitting input files into batches so one run of `fun` can operate
     only on a particular batch. Useful if you want to distribute execution across multiple
     machines.
+  - If output fails to validate the JSON Schema, the output is stored into a file with
+    additional suffix `.invalid`. If calling the function fails for some other reason,
+    the error is stored into a file with additional suffix `.error`.
 
 For details on all CLI arguments possible, run `fun --help`:
 
