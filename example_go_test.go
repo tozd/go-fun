@@ -20,12 +20,12 @@ func Example_go() {
 	}
 	errE := f.Init(ctx)
 	if errE != nil {
-		log.Fatalln(errE)
+		log.Fatalf("% -+#.1v\n", errE)
 	}
 
 	output, errE := f.Call(ctx, 38, 4)
 	if errE != nil {
-		log.Fatalln(errE)
+		log.Fatalf("% -+#.1v\n", errE)
 	}
 	fmt.Println(output)
 
