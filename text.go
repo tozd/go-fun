@@ -328,3 +328,17 @@ func (t *Text[Input, Output]) Call(ctx context.Context, input ...Input) (Output,
 
 	return output, nil
 }
+
+// Variadic implements [Callee] interface.
+func (t *Text[Input, Output]) Variadic() func(ctx context.Context, input ...Input) (Output, errors.E) {
+	return func(ctx context.Context, input ...Input) (Output, errors.E) {
+		return t.Call(ctx, input...)
+	}
+}
+
+// Unary implements [Callee] interface.
+func (t *Text[Input, Output]) Unary() func(ctx context.Context, input Input) (Output, errors.E) {
+	return func(ctx context.Context, input Input) (Output, errors.E) {
+		return t.Call(ctx, input)
+	}
+}

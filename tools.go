@@ -83,6 +83,20 @@ func (t *Tool[Input, Output]) Call(ctx context.Context, input ...json.RawMessage
 	return toOutputString(output)
 }
 
+// Variadic implements [Callee] interface.
+func (t *Tool[Input, Output]) Variadic() func(ctx context.Context, input ...json.RawMessage) (string, errors.E) {
+	return func(ctx context.Context, input ...json.RawMessage) (string, errors.E) {
+		return t.Call(ctx, input...)
+	}
+}
+
+// Unary implements [Callee] interface.
+func (t *Tool[Input, Output]) Unary() func(ctx context.Context, input json.RawMessage) (string, errors.E) {
+	return func(ctx context.Context, input json.RawMessage) (string, errors.E) {
+		return t.Call(ctx, input)
+	}
+}
+
 func (t *Tool[Input, Output]) GetDescription() string {
 	return t.Description
 }

@@ -28,3 +28,17 @@ func (f *Go[Input, Output]) Call(ctx context.Context, input ...Input) (Output, e
 
 	return f.Fun(ctx, input...)
 }
+
+// Variadic implements [Callee] interface.
+func (f *Go[Input, Output]) Variadic() func(ctx context.Context, input ...Input) (Output, errors.E) {
+	return func(ctx context.Context, input ...Input) (Output, errors.E) {
+		return f.Call(ctx, input...)
+	}
+}
+
+// Unary implements [Callee] interface.
+func (f *Go[Input, Output]) Unary() func(ctx context.Context, input Input) (Output, errors.E) {
+	return func(ctx context.Context, input Input) (Output, errors.E) {
+		return f.Call(ctx, input)
+	}
+}

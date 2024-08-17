@@ -13,6 +13,8 @@ import (
 type Callee[Input, Output any] interface {
 	Init(ctx context.Context) errors.E
 	Call(ctx context.Context, input ...Input) (Output, errors.E)
+	Variadic() func(ctx context.Context, input ...Input) (Output, errors.E)
+	Unary() func(ctx context.Context, input Input) (Output, errors.E)
 }
 
 // ChatMessage is a message struct for TextProvider.
