@@ -17,7 +17,7 @@ func Example_description() {
 
 	ctx := context.Background()
 
-	f := fun.Text[[]int, int]{
+	f := fun.Text[int, int]{
 		Provider: &fun.GroqTextProvider{
 			APIKey: os.Getenv("GROQ_API_KEY"),
 			Model:  "llama3-8b-8192",
@@ -30,7 +30,7 @@ func Example_description() {
 		log.Fatalln(errE)
 	}
 
-	output, errE := f.Call(ctx, []int{38, 4})
+	output, errE := f.Call(ctx, 38, 4)
 	if errE != nil {
 		log.Fatalln(errE)
 	}
