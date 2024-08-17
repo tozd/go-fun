@@ -27,7 +27,7 @@ var jsonSchemaString = []byte(`{"type": "string"}`)
 // See: https://github.com/invopop/jsonschema/issues/148
 var outputStructJSONSchema = []byte(`
 {
-  "$schema": "https://json-schema.org/draft/2020-12/schema",
+	"$schema": "https://json-schema.org/draft/2020-12/schema",
 	"$defs": {
 		"OutputStruct": {
 			"properties": {
@@ -53,28 +53,28 @@ var outputStructJSONSchema = []byte(`
 			]
 		}
 	},
-  "properties": {
-    "key": {
-      "type": "string"
-    },
-    "value": {
-      "type": "integer"
-    },
-    "children": {
-      "items": {
-        "$ref": "#/$defs/OutputStruct"
-      },
-      "type": "array"
-    }
-  },
-  "additionalProperties": false,
-  "type": "object",
-  "required": [
-    "key",
-    "value",
+	"properties": {
+		"key": {
+			"type": "string"
+		},
+		"value": {
+			"type": "integer"
+		},
+		"children": {
+			"items": {
+				"$ref": "#/$defs/OutputStruct"
+			},
+			"type": "array"
+		}
+	},
+	"additionalProperties": false,
+	"type": "object",
+	"required": [
+		"key",
+		"value",
 		"children"
-  ],
-  "title": "OutputStruct"
+	],
+	"title": "OutputStruct"
 }
 `)
 
@@ -190,32 +190,32 @@ var providers = []testProvider{
 	},
 }
 
-type toolInput struct {
+type toolStringInput struct {
 	String string `json:"string"`
 }
 
 var toolInputJSONSchema = []byte(`
 {
-  "properties": {
-    "string": {
-      "type": "string"
-    }
-  },
-  "additionalProperties": false,
-  "type": "object",
-  "required": [
-    "string"
-  ]
+	"properties": {
+		"string": {
+			"type": "string"
+		}
+	},
+	"additionalProperties": false,
+	"type": "object",
+	"required": [
+		"string"
+	]
 }
 `)
 
 func tools() map[string]fun.Tooler {
 	return map[string]fun.Tooler{
-		"repeat_string": &fun.Tool[toolInput, string]{
+		"repeat_string": &fun.Tool[toolStringInput, string]{
 			Description:      "Repeats the input twice, by concatenating the input string without any space.",
 			InputJSONSchema:  toolInputJSONSchema,
 			OutputJSONSchema: jsonSchemaString,
-			Fun: func(_ context.Context, input toolInput) (string, errors.E) {
+			Fun: func(_ context.Context, input toolStringInput) (string, errors.E) {
 				return input.String + input.String, nil
 			},
 		},
