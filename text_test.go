@@ -601,7 +601,7 @@ func TestTextTools(t *testing.T) { //nolint:paralleltest,tparallel
 		if providerName == "ollama" {
 			// TODO: Remove this special case.
 			// Ollama adds this prefix to the output and no prompt manipulation could remove it.
-			output = strings.TrimPrefix(output, "Your repeated string is: ")
+			output = strings.TrimPrefix(output, "The repeated string is: ")
 		}
 
 		assert.Equal(t, tt.Output, output)
