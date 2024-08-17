@@ -9,7 +9,7 @@ import (
 	"gitlab.com/tozd/go/fun"
 )
 
-func Example_description() {
+func ExampleText_description() {
 	if os.Getenv("GROQ_API_KEY") == "" {
 		fmt.Println("skipped")
 		return

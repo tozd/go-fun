@@ -10,7 +10,7 @@ import (
 	"gitlab.com/tozd/go/fun"
 )
 
-func Example_go() {
+func ExampleGo() {
 	ctx := context.Background()
 
 	f := fun.Go[int, int]{

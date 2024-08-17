@@ -14,6 +14,7 @@ import (
 
 var (
 	// It has to be an object and not just an array of numbers.
+	// This is current limitation of AI providers.
 	jsonSchemaNumbers = []byte(`
 		{
 			"type": "object",
@@ -33,7 +34,7 @@ type toolInput struct {
 	Numbers []float64 `json:"numbers"`
 }
 
-func Example_tools() {
+func ExampleTool() {
 	if os.Getenv("OPENAI_API_KEY") == "" {
 		fmt.Println("skipped")
 		return

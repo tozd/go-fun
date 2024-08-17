@@ -9,7 +9,7 @@ import (
 	"gitlab.com/tozd/go/fun"
 )
 
-func Example_data() {
+func ExampleText_data() {
 	if os.Getenv("ANTHROPIC_API_KEY") == "" {
 		fmt.Println("skipped")
 		return
