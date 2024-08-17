@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"slices"
+	"strings"
 	"testing"
 
 	"github.com/rs/zerolog"
@@ -242,7 +243,7 @@ var providersForTools = []testProvider{
 				MaxContextLength:  0,
 				MaxResponseLength: 0,
 				Seed:              42,
-				Temperature:       0.3,
+				Temperature:       0,
 			}
 		},
 	},
@@ -374,7 +375,11 @@ var tests = []struct {
 	},
 }
 
-func runTextTests(t *testing.T, providers []testProvider, tests []textTestCase, tools func() map[string]fun.Tooler) {
+func runTextTests(
+	t *testing.T, providers []testProvider, tests []textTestCase,
+	tools func() map[string]fun.Tooler,
+	checkOutput func(t *testing.T, providerName string, tt fun.InputOutput[string, string], output string),
+) {
 	t.Helper()
 
 	for _, provider := range providers {
@@ -416,7 +421,7 @@ func runTextTests(t *testing.T, providers []testProvider, tests []textTestCase, 
 							ct := fun.WithTextProviderRecorder(ctx)
 							output, errE := f.Call(ct, d.Input...)
 							assert.NoError(t, errE, "% -+#.1v", errE)
-							assert.Equal(t, d.Output, output)
+							checkOutput(t, provider.Name, d, output)
 							tt.CheckRecorder(t, fun.GetTextProviderRecorder(ct), provider.Name)
 						})
 					}
@@ -432,7 +437,7 @@ func runTextTests(t *testing.T, providers []testProvider, tests []textTestCase, 
 							ct := fun.WithTextProviderRecorder(ctx)
 							output, errE := f.Call(ct, c.Input...)
 							assert.NoError(t, errE, "% -+#.1v", errE)
-							assert.Equal(t, c.Output, output)
+							checkOutput(t, provider.Name, c, output)
 							tt.CheckRecorder(t, fun.GetTextProviderRecorder(ct), provider.Name)
 						})
 					}
@@ -539,7 +544,15 @@ func TestText(t *testing.T) { //nolint:paralleltest,tparallel
 		},
 	}
 
-	runTextTests(t, providers, tests, func() map[string]fun.Tooler { return nil })
+	runTextTests(
+		t, providers, tests,
+		func() map[string]fun.Tooler { return nil },
+		func(t *testing.T, _ string, tt fun.InputOutput[string, string], output string) {
+			t.Helper()
+
+			assert.Equal(t, tt.Output, output)
+		},
+	)
 }
 
 func TestTextTools(t *testing.T) { //nolint:paralleltest,tparallel
@@ -582,7 +595,17 @@ func TestTextTools(t *testing.T) { //nolint:paralleltest,tparallel
 		},
 	}
 
-	runTextTests(t, providersForTools, tests, tools)
+	runTextTests(t, providersForTools, tests, tools, func(t *testing.T, providerName string, tt fun.InputOutput[string, string], output string) {
+		t.Helper()
+
+		if providerName == "ollama" {
+			// TODO: Remove this special case.
+			// Ollama adds this prefix to the output and no prompt manipulation could remove it.
+			output = strings.TrimPrefix(output, "Your repeated string is: ")
+		}
+
+		assert.Equal(t, tt.Output, output)
+	})
 }
 
 func TestTextStruct(t *testing.T) { //nolint:paralleltest,tparallel
