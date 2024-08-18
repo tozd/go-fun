@@ -192,6 +192,7 @@ func (c *CallCommand) Run(logger zerolog.Logger) errors.E { //nolint:maintidx
 
 	count := x.Counter(0)
 	failed := x.Counter(0)
+	errored := x.Counter(0)
 	invalid := x.Counter(0)
 	skipped := x.Counter(0)
 	done := x.Counter(0)
@@ -200,9 +201,9 @@ func (c *CallCommand) Run(logger zerolog.Logger) errors.E { //nolint:maintidx
 	go func() {
 		for p := range ticker.C {
 			logger.Info().
-				Int64("failed", failed.Count()).Int64("invalid", invalid.Count()).Int64("skipped", skipped.Count()).
-				Int64("done", done.Count()).Int64("count", p.Count).Str("eta", p.Remaining().Truncate(time.Second).String()).
-				Send()
+				Int64("failed", failed.Count()).Int64("errored", errored.Count()).Int64("invalid", invalid.Count()).
+				Int64("skipped", skipped.Count()).Int64("done", done.Count()).Int64("count", p.Count).
+				Str("eta", p.Remaining().Truncate(time.Second).String()).Send()
 		}
 	}()
 
@@ -240,7 +241,7 @@ func (c *CallCommand) Run(logger zerolog.Logger) errors.E { //nolint:maintidx
 
 				count.Increment()
 
-				errE := c.processFile(l.WithContext(ctx), fn, inputPath, outputPath) //nolint:govet
+				hasErrored, errE := c.processFile(l.WithContext(ctx), fn, inputPath, outputPath) //nolint:govet
 				if errE != nil {
 					if errors.Is(errE, context.Canceled) || errors.Is(errE, context.DeadlineExceeded) {
 						return errE
@@ -250,7 +251,9 @@ func (c *CallCommand) Run(logger zerolog.Logger) errors.E { //nolint:maintidx
 						continue
 					}
 					l.Warn().Err(errE).Msg("error processing file")
-					if errors.Is(errE, fun.ErrJSONSchemaValidation) {
+					if hasErrored {
+						errored.Increment()
+					} else if errors.Is(errE, fun.ErrJSONSchemaValidation) {
 						invalid.Increment()
 					} else {
 						failed.Increment()
@@ -264,12 +267,12 @@ func (c *CallCommand) Run(logger zerolog.Logger) errors.E { //nolint:maintidx
 	}
 
 	errE = errors.WithStack(g.Wait())
-	logger.Info().Int64("failed", failed.Count()).Int64("invalid", invalid.Count()).Int64("skipped", skipped.Count()).
-		Int64("done", done.Count()).Int64("count", count.Count()).Msg("done")
+	logger.Info().Int64("failed", failed.Count()).Int64("errored", errored.Count()).Int64("invalid", invalid.Count()).
+		Int64("skipped", skipped.Count()).Int64("done", done.Count()).Int64("count", count.Count()).Msg("done")
 	return errE
 }
 
-func (c *CallCommand) processFile(ctx context.Context, fn fun.Callee[string, string], inputPath, outputPath string) (errE errors.E) { //nolint:nonamedreturns
+func (c *CallCommand) processFile(ctx context.Context, fn fun.Callee[string, string], inputPath, outputPath string) (errored bool, errE errors.E) { //nolint:nonamedreturns
 	// Was there an output error?
 	var errorErrE errors.E
 	// Is output invalid?
@@ -278,13 +281,16 @@ func (c *CallCommand) processFile(ctx context.Context, fn fun.Callee[string, str
 		// Add outputErrE or invalidErrE to any existing error. If all errors are nil, this is still nil.
 		errE = errors.Join(errE, errorErrE, invalidErrE)
 	}()
+	defer func() {
+		errored = errE == nil && errorErrE != nil && invalidErrE == nil
+	}()
 
 	f, err := os.OpenFile(outputPath, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o644) //nolint:gomnd
 	if errors.Is(err, fs.ErrExist) {
 		// We skip files which already exist.
-		return errors.Prefix(err, errFileSkipped)
+		return false, errors.Prefix(err, errFileSkipped)
 	} else if err != nil {
-		return errors.WithStack(err)
+		return false, errors.WithStack(err)
 	}
 	defer func() {
 		errE2 := errors.WithStack(f.Close())
@@ -307,9 +313,9 @@ func (c *CallCommand) processFile(ctx context.Context, fn fun.Callee[string, str
 	fError, err := os.OpenFile(errorOutputPath, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o644) //nolint:gomnd
 	if errors.Is(err, fs.ErrExist) {
 		// We skip files which already exist.
-		return errors.Prefix(err, errFileSkipped)
+		return false, errors.Prefix(err, errFileSkipped)
 	} else if err != nil {
-		return errors.WithStack(err)
+		return false, errors.WithStack(err)
 	}
 	defer func() {
 		errE2 := errors.WithStack(fError.Close())
@@ -330,9 +336,9 @@ func (c *CallCommand) processFile(ctx context.Context, fn fun.Callee[string, str
 	fInvalid, err := os.OpenFile(invalidOutputPath, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o644) //nolint:gomnd
 	if errors.Is(err, fs.ErrExist) {
 		// We skip files which already exist.
-		return errors.Prefix(err, errFileSkipped)
+		return false, errors.Prefix(err, errFileSkipped)
 	} else if err != nil {
-		return errors.WithStack(err)
+		return false, errors.WithStack(err)
 	}
 	defer func() {
 		errE2 := errors.WithStack(fInvalid.Close())
@@ -351,7 +357,7 @@ func (c *CallCommand) processFile(ctx context.Context, fn fun.Callee[string, str
 
 	inputData, err := os.ReadFile(inputPath)
 	if err != nil {
-		return errors.WithStack(err)
+		return false, errors.WithStack(err)
 	}
 
 	ctx = fun.WithTextRecorder(ctx)
@@ -371,7 +377,7 @@ func (c *CallCommand) processFile(ctx context.Context, fn fun.Callee[string, str
 	if errors.Is(errE, fun.ErrJSONSchemaValidation) {
 		invalidErrE, errE = errE, nil
 		_, err = fInvalid.WriteString(output)
-		return errors.WithStack(err)
+		return false, errors.WithStack(err)
 	} else if errE != nil {
 		if output != "" {
 			errors.Details(errE)["output"] = output
@@ -379,17 +385,17 @@ func (c *CallCommand) processFile(ctx context.Context, fn fun.Callee[string, str
 		errorErrE, errE = errE, nil
 		errJSON, errE := x.MarshalWithoutEscapeHTML(errors.Formatter{Error: errorErrE}) //nolint:exhaustruct
 		if errE != nil {
-			return errE
+			return false, errE
 		}
 		out := new(bytes.Buffer)
 		err = json.Indent(out, errJSON, "", "  ")
 		if err != nil {
-			return errors.WithStack(err)
+			return false, errors.WithStack(err)
 		}
 		_, err = out.WriteTo(fError)
-		return errors.WithStack(err)
+		return false, errors.WithStack(err)
 	}
 
 	_, err = f.WriteString(output)
-	return errors.WithStack(err)
+	return false, errors.WithStack(err)
 }
