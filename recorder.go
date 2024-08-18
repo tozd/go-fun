@@ -42,41 +42,47 @@ type TextRecorderUsedTime struct {
 	Total time.Duration `json:"total"`
 }
 
+// TextRecorderCall describes a call to an AI model.
+//
+// There might be multiple requests made to an AI model
+// during a call (e.g., when using tools).
 type TextRecorderCall struct {
-	ID       string       `json:"id"`
-	Type     string       `json:"type"`
-	Provider TextProvider `json:"provider"`
-	Messages []any        `json:"messages,omitempty"`
+	// ID is a random ID assigned to this call so that it is
+	// possible to correlate the call with logging.
+	ID string `json:"id"`
 
-	// UsedTokens
+	// Provider for this call.
+	Provider TextProvider `json:"provider"`
+
+	Messages []TextRecorderMessage `json:"messages,omitempty"`
+
+	// UsedTokens for each request made to an AI model.
 	UsedTokens map[string]TextRecorderUsedTokens `json:"usedTokens,omitempty"`
-	UsedTime   map[string]TextRecorderUsedTime   `json:"usedTime,omitempty"`
+
+	// UsedTime for each request made to an AI model.
+	UsedTime map[string]TextRecorderUsedTime `json:"usedTime,omitempty"`
 }
 
 type TextRecorderMessage struct {
-	Type        string `json:"type"`
-	Role        string `json:"role"`
-	Message     string `json:"message"`
-	ToolUseID   string `json:"toolUseId,omitempty"`
-	ToolUseName string `json:"toolUseName,omitempty"`
-	IsError     bool   `json:"isError,omitempty"`
-	IsRefusal   bool   `json:"isRefusal,omitempty"`
+	Role        string             `json:"role"`
+	Message     string             `json:"message"`
+	ToolUseID   string             `json:"toolUseId,omitempty"`
+	ToolUseName string             `json:"toolUseName,omitempty"`
+	IsError     bool               `json:"isError,omitempty"`
+	IsRefusal   bool               `json:"isRefusal,omitempty"`
+	Calls       []TextRecorderCall `json:"calls,omitempty"`
 }
 
-func (c *TextRecorderCall) addMessage(role, message, toolID, toolName string, isError, isRefusal bool) {
+func (c *TextRecorderCall) addMessage(role, message, toolID, toolName string, isError, isRefusal bool, calls []TextRecorderCall) {
 	c.Messages = append(c.Messages, TextRecorderMessage{
-		Type:        "message",
 		Role:        role,
 		Message:     message,
 		ToolUseID:   toolID,
 		ToolUseName: toolName,
 		IsError:     isError,
 		IsRefusal:   isRefusal,
+		Calls:       calls,
 	})
-}
-
-func (c *TextRecorderCall) addCall(call TextRecorderCall) {
-	c.Messages = append(c.Messages, call)
 }
 
 func (c *TextRecorderCall) addUsedTokens(requestID string, maxTotal, maxResponse, prompt, response int) {
@@ -109,76 +115,33 @@ func (c *TextRecorderCall) addUsedTime(requestID string, prompt, response time.D
 // with the AI model and track usage.
 //
 // It can be used to record multiple calls, but it is suggested that
-// create a new instance with [WithTextRecorder] for every top-level call.
-//
-// It supports recording recursive calls (e.g., a tool call which calls into
-// an AI model again).
+// you create a new instance with [WithTextRecorder] for every call.
 type TextRecorder struct {
 	mu sync.Mutex
 
-	stack         []*TextRecorderCall
-	topLevelCalls []TextRecorderCall
+	calls []TextRecorderCall
 }
 
-func (t *TextRecorder) pushCall(id string, provider TextProvider) {
+func (t *TextRecorder) recordCall(call *TextRecorderCall) {
 	t.mu.Lock()
 	defer t.mu.Unlock()
 
-	call := &TextRecorderCall{
-		ID:         id,
-		Type:       "call",
-		Provider:   provider,
-		Messages:   nil,
-		UsedTokens: nil,
-		UsedTime:   nil,
-	}
-
-	t.stack = append(t.stack, call)
+	t.calls = append(t.calls, *call)
 }
 
-func (t *TextRecorder) popCall() {
-	t.mu.Lock()
-	defer t.mu.Unlock()
-
-	call := t.stack[len(t.stack)-1]
-	t.stack = t.stack[:len(t.stack)-1]
-	if len(t.stack) == 0 {
-		t.topLevelCalls = append(t.topLevelCalls, *call)
-	} else {
-		t.stack[len(t.stack)-1].addCall(*call)
-	}
-}
-
-// TextRecorderCall returns top-level call records recorded by this recorder.
+// TextRecorderCall returns calls records recorded by this recorder.
 //
 // In most cases this will be just one call record unless you are reusing
 // same context across multiple calls.
 func (t *TextRecorder) Calls() []TextRecorderCall {
+	if t == nil {
+		return nil
+	}
+
 	t.mu.Lock()
 	defer t.mu.Unlock()
 
-	return t.topLevelCalls
-}
-
-func (t *TextRecorder) addMessage(role, message, toolID, toolName string, isError, isRefusal bool) {
-	t.mu.Lock()
-	defer t.mu.Unlock()
-
-	t.stack[len(t.stack)-1].addMessage(role, message, toolID, toolName, isError, isRefusal)
-}
-
-func (t *TextRecorder) addUsedTokens(requestID string, maxTotal, maxResponse, prompt, response int) {
-	t.mu.Lock()
-	defer t.mu.Unlock()
-
-	t.stack[len(t.stack)-1].addUsedTokens(requestID, maxTotal, maxResponse, prompt, response)
-}
-
-func (t *TextRecorder) addUsedTime(requestID string, prompt, response time.Duration) {
-	t.mu.Lock()
-	defer t.mu.Unlock()
-
-	t.stack[len(t.stack)-1].addUsedTime(requestID, prompt, response)
+	return t.calls
 }
 
 // WithTextRecorder returns a copy of the context in which an instance

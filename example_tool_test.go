@@ -94,30 +94,25 @@ func ExampleTool() {
 	// 42
 	// [
 	//   {
-	//     "type": "message",
 	//     "role": "system",
 	//     "message": "Sum numbers together. Output only the number."
 	//   },
 	//   {
-	//     "type": "message",
 	//     "role": "user",
 	//     "message": "[38,4]"
 	//   },
 	//   {
-	//     "type": "message",
 	//     "role": "tool_use",
 	//     "message": "{\"numbers\":[38,4]}",
 	//     "toolUseId": "call_1_2",
 	//     "toolUseName": "sum_numbers"
 	//   },
 	//   {
-	//     "type": "message",
 	//     "role": "tool_result",
 	//     "message": "42",
 	//     "toolUseId": "call_1_2"
 	//   },
 	//   {
-	//     "type": "message",
 	//     "role": "assistant",
 	//     "message": "42"
 	//   }

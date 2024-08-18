@@ -15,6 +15,7 @@ import (
 	"github.com/rs/zerolog"
 	"gitlab.com/tozd/go/errors"
 	"gitlab.com/tozd/go/x"
+	"gitlab.com/tozd/identifier"
 )
 
 // Max output tokens for current set of models.
@@ -237,7 +238,21 @@ func (a *AnthropicTextProvider) Init(_ context.Context, messages []ChatMessage) 
 
 // Chat implements TextProvider interface.
 func (a *AnthropicTextProvider) Chat(ctx context.Context, message ChatMessage) (string, errors.E) { //nolint:maintidx
-	recorder := GetTextRecorder(ctx)
+	callID := identifier.New().String()
+	logger := zerolog.Ctx(ctx).With().Str("fun", callID).Logger()
+	ctx = logger.WithContext(ctx)
+
+	var callRecorder *TextRecorderCall
+	if recorder := GetTextRecorder(ctx); recorder != nil {
+		callRecorder = &TextRecorderCall{
+			ID:         callID,
+			Provider:   a,
+			Messages:   nil,
+			UsedTokens: nil,
+			UsedTime:   nil,
+		}
+		defer recorder.recordCall(callRecorder)
+	}
 
 	messages := slices.Clone(a.messages)
 	messages = append(messages, anthropicMessage{
@@ -250,13 +265,13 @@ func (a *AnthropicTextProvider) Chat(ctx context.Context, message ChatMessage) (
 		},
 	})
 
-	if recorder != nil {
+	if callRecorder != nil {
 		if a.system != "" {
-			recorder.addMessage("system", a.system, "", "", false, false)
+			callRecorder.addMessage("system", a.system, "", "", false, false, nil)
 		}
 
 		for _, message := range messages {
-			a.recordMessage(recorder, message)
+			a.recordMessage(callRecorder, message, nil)
 		}
 	}
 
@@ -330,8 +345,8 @@ func (a *AnthropicTextProvider) Chat(ctx context.Context, message ChatMessage) (
 			)
 		}
 
-		if recorder != nil {
-			recorder.addUsedTokens(
+		if callRecorder != nil {
+			callRecorder.addUsedTokens(
 				apiRequest,
 				estimatedTokens,
 				anthropicMaxResponseTokens,
@@ -339,10 +354,10 @@ func (a *AnthropicTextProvider) Chat(ctx context.Context, message ChatMessage) (
 				response.Usage.OutputTokens,
 			)
 
-			a.recordMessage(recorder, anthropicMessage{
+			a.recordMessage(callRecorder, anthropicMessage{
 				Role:    response.Role,
 				Content: response.Content,
-			})
+			}, nil)
 		}
 
 		if response.Usage.InputTokens+response.Usage.OutputTokens > estimatedTokens {
@@ -381,13 +396,14 @@ func (a *AnthropicTextProvider) Chat(ctx context.Context, message ChatMessage) (
 			})
 
 			outputContent := []anthropicContent{}
+			outputCalls := [][]TextRecorderCall{}
 
 			for _, content := range response.Content {
 				switch content.Type {
 				case typeText:
 					// We do nothing.
 				case roleToolUse:
-					output, errE := a.callTool(ctx, content)
+					output, calls, errE := a.callTool(ctx, content)
 					if errE != nil {
 						e := zerolog.Ctx(ctx).Warn().Err(errE).Str("name", content.Name).Str("apiRequest", apiRequest).Str("tool", content.ID)
 						if content.Input != nil {
@@ -407,6 +423,7 @@ func (a *AnthropicTextProvider) Chat(ctx context.Context, message ChatMessage) (
 							Content:   output,
 						})
 					}
+					outputCalls = append(outputCalls, calls)
 				default:
 					return "", errors.WithDetails(
 						ErrUnexpectedMessageType,
@@ -428,8 +445,8 @@ func (a *AnthropicTextProvider) Chat(ctx context.Context, message ChatMessage) (
 				Content: outputContent,
 			})
 
-			if recorder != nil {
-				a.recordMessage(recorder, messages[len(messages)-1])
+			if callRecorder != nil {
+				a.recordMessage(callRecorder, messages[len(messages)-1], outputCalls)
 			}
 
 			continue
@@ -506,7 +523,7 @@ func (a *AnthropicTextProvider) InitTools(ctx context.Context, tools map[string]
 	return nil
 }
 
-func (a *AnthropicTextProvider) callTool(ctx context.Context, content anthropicContent) (string, errors.E) {
+func (a *AnthropicTextProvider) callTool(ctx context.Context, content anthropicContent) (string, []TextRecorderCall, errors.E) {
 	var tool Tooler
 	for _, t := range a.tools {
 		if t.Name == content.Name {
@@ -515,24 +532,37 @@ func (a *AnthropicTextProvider) callTool(ctx context.Context, content anthropicC
 		}
 	}
 	if tool == nil {
-		return "", errors.Errorf("%w: %s", ErrToolNotFound, content.Name)
+		return "", nil, errors.Errorf("%w: %s", ErrToolNotFound, content.Name)
 	}
 
 	logger := zerolog.Ctx(ctx).With().Str("tool", content.ID).Logger()
 	ctx = logger.WithContext(ctx)
 
-	return tool.Call(ctx, content.Input)
+	if recorder := GetTextRecorder(ctx); recorder != nil {
+		// If recorder is present in the current content, we create a new context with
+		// a new recorder so that we can record a tool implemented with Text.
+		ctx = WithTextRecorder(ctx)
+	}
+
+	output, errE := tool.Call(ctx, content.Input)
+	// If there is no recorder, Calls returns nil.
+	// Calls returns nil as well if the tool was not implemented with Text.
+	return output, GetTextRecorder(ctx).Calls(), errE
 }
 
-func (a *AnthropicTextProvider) recordMessage(recorder *TextRecorder, message anthropicMessage) {
-	for _, content := range message.Content {
+func (a *AnthropicTextProvider) recordMessage(recorder *TextRecorderCall, message anthropicMessage, outputCalls [][]TextRecorderCall) {
+	for i, content := range message.Content {
+		var calls []TextRecorderCall
+		if len(outputCalls) > 0 {
+			calls = outputCalls[i]
+		}
 		switch content.Type {
 		case typeText:
-			recorder.addMessage(message.Role, content.Text, "", "", false, false)
+			recorder.addMessage(message.Role, content.Text, "", "", false, false, calls)
 		case roleToolUse:
-			recorder.addMessage(roleToolUse, string(content.Input), content.ID, content.Name, false, false)
+			recorder.addMessage(roleToolUse, string(content.Input), content.ID, content.Name, false, false, calls)
 		case roleToolResult:
-			recorder.addMessage(roleToolResult, content.Content, content.ToolUseID, "", content.IsError, false)
+			recorder.addMessage(roleToolResult, content.Content, content.ToolUseID, "", content.IsError, false, calls)
 		}
 	}
 }

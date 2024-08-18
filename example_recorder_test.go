@@ -81,7 +81,6 @@ func ExampleTextRecorder() {
 	// [
 	//   {
 	//     "id": "id_1",
-	//     "type": "call",
 	//     "provider": {
 	//       "type": "openai",
 	//       "model": "gpt-4o-mini-2024-07-18",
@@ -93,65 +92,58 @@ func ExampleTextRecorder() {
 	//     },
 	//     "messages": [
 	//       {
-	//         "type": "message",
 	//         "role": "system",
 	//         "message": "Sum numbers together. Output only the number."
 	//       },
 	//       {
-	//         "type": "message",
 	//         "role": "user",
 	//         "message": "[38,4]"
 	//       },
 	//       {
-	//         "type": "message",
 	//         "role": "tool_use",
 	//         "message": "{\"numbers\":[38,4]}",
 	//         "toolUseId": "call_1_2",
 	//         "toolUseName": "sum_numbers"
 	//       },
 	//       {
-	//         "id": "id_2",
-	//         "type": "call",
-	//         "provider": {
-	//           "type": "anthropic",
-	//           "model": "claude-3-haiku-20240307",
-	//           "temperature": 0
-	//         },
-	//         "messages": [
-	//           {
-	//             "type": "message",
-	//             "role": "system",
-	//             "message": "Sum numbers together. Output only the number."
-	//           },
-	//           {
-	//             "type": "message",
-	//             "role": "user",
-	//             "message": "[{\"numbers\":[38,4]}]"
-	//           },
-	//           {
-	//             "type": "message",
-	//             "role": "assistant",
-	//             "message": "42"
-	//           }
-	//         ],
-	//         "usedTokens": {
-	//           "req_2_1": {
-	//             "maxTotal": 8208,
-	//             "maxResponse": 4096,
-	//             "prompt": 26,
-	//             "response": 5,
-	//             "total": 31
-	//           }
-	//         }
-	//       },
-	//       {
-	//         "type": "message",
 	//         "role": "tool_result",
 	//         "message": "42",
-	//         "toolUseId": "call_1_2"
+	//         "toolUseId": "call_1_2",
+	//         "calls": [
+	//           {
+	//             "id": "id_2",
+	//             "provider": {
+	//               "type": "anthropic",
+	//               "model": "claude-3-haiku-20240307",
+	//               "temperature": 0
+	//             },
+	//             "messages": [
+	//               {
+	//                 "role": "system",
+	//                 "message": "Sum numbers together. Output only the number."
+	//               },
+	//               {
+	//                 "role": "user",
+	//                 "message": "[{\"numbers\":[38,4]}]"
+	//               },
+	//               {
+	//                 "role": "assistant",
+	//                 "message": "42"
+	//               }
+	//             ],
+	//             "usedTokens": {
+	//               "req_2_1": {
+	//                 "maxTotal": 8208,
+	//                 "maxResponse": 4096,
+	//                 "prompt": 26,
+	//                 "response": 5,
+	//                 "total": 31
+	//               }
+	//             }
+	//           }
+	//         ]
 	//       },
 	//       {
-	//         "type": "message",
 	//         "role": "assistant",
 	//         "message": "42"
 	//       }

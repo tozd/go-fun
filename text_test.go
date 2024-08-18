@@ -453,18 +453,16 @@ func cleanCall(call fun.TextRecorderCall, d *int) fun.TextRecorderCall {
 
 	toolUses := map[string]string{}
 	for i, message := range call.Messages {
-		switch m := message.(type) {
-		case fun.TextRecorderMessage:
-			if m.ToolUseID != "" {
-				if _, ok := toolUses[m.ToolUseID]; !ok {
-					toolUses[m.ToolUseID] = fmt.Sprintf("call_%d_%d", callID, i)
-				}
-				m.ToolUseID = toolUses[m.ToolUseID]
-				call.Messages[i] = m
+		if message.ToolUseID != "" {
+			if _, ok := toolUses[message.ToolUseID]; !ok {
+				toolUses[message.ToolUseID] = fmt.Sprintf("call_%d_%d", callID, i)
 			}
-		case fun.TextRecorderCall:
-			call.Messages[i] = cleanCall(m, d)
+			message.ToolUseID = toolUses[message.ToolUseID]
 		}
+		for j, call := range message.Calls {
+			message.Calls[j] = cleanCall(call, d)
+		}
+		call.Messages[i] = message
 	}
 
 	call.ID = fmt.Sprintf("id_%d", callID)
@@ -623,18 +621,15 @@ func TestTextTools(t *testing.T) { //nolint:paralleltest,tparallel
 				if assert.Len(t, recorder.Calls(), 1) {
 					usedTool := 0
 					for _, message := range recorder.Calls()[0].Messages {
-						if assert.IsType(t, fun.TextRecorderMessage{}, message) {
-							m := message.(fun.TextRecorderMessage) //nolint:errcheck,forcetypeassert
-							if m.Role == "tool_use" || m.Role == "tool_result" {
-								usedTool++
-							}
+						if message.Role == "tool_use" || message.Role == "tool_result" {
+							usedTool++
 						}
 					}
 					if providerName == "groq" {
 						// For some reason groq calls the tool twice.
-						assert.Equal(t, 4, usedTool, recorder.Calls()[0].Messages) //nolint:asasalint
+						assert.Equal(t, 4, usedTool, recorder.Calls()[0].Messages) 
 					} else {
-						assert.Equal(t, 2, usedTool, recorder.Calls()[0].Messages) //nolint:asasalint
+						assert.Equal(t, 2, usedTool, recorder.Calls()[0].Messages) 
 					}
 
 					if providerName == "anthropic" {
