@@ -9,6 +9,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- `combine` sub-command for the `fun` tool which combines multiple input
+  directories into one output directory with only those files which are equal in
+  all input directories.
 - Create files with `.error` suffix for outputs with errors skip them on followup
   runs of the `fun` tool.
 - Context-based recorder for information about internal calls made to a model.

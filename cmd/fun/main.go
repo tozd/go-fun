@@ -14,6 +14,7 @@ type App struct {
 
 	Extract ExtractCommand `cmd:"" help:"Extract data from JSON into files."`
 	Call    CallCommand    `cmd:"" help:"Call function on files defined with data and/or natural language description."`
+	Combine CombineCommand `cmd:"" help:"Combine multiple input directories into one output directory."`
 }
 
 func main() {

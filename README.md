@@ -92,6 +92,11 @@ You have to provide example inputs and outputs or a prompt, and you can provide 
   - If output fails to validate the JSON Schema, the output is stored into a file with
     additional suffix `.invalid`. If calling the function fails for some other reason,
     the error is stored into a file with additional suffix `.error`.
+- `combine` combines multiple input directories into one output directory with only
+  those files which are equal in all input directories.
+  - Provided input directories should be outputs from different models or different
+    configurations but all run on same input files.
+  - This allows decreasing false positives at the expense of having less outputs overall.
 
 For details on all CLI arguments possible, run `fun --help`:
 
