@@ -156,20 +156,20 @@ type Text[Input, Output any] struct {
 	Provider TextProvider
 
 	// InputJSONSchema is a JSON Schema to validate inputs against.
-	// If not provided it is automatically generated from the Input type.
+	// If not provided, it is automatically determined from the Input type.
 	InputJSONSchema []byte
 
 	// OutputJSONSchema is a JSON Schema to validate outputs against.
-	// If not provided it is automatically generated from the Output type.
+	// If not provided, it is automatically determined from the Output type.
 	OutputJSONSchema []byte
 
 	// Prompt is a natural language description of the logic.
 	Prompt string
 
-	// Data is example inputs with corresponding outputs for the function.
+	// Data are example inputs with corresponding outputs for the function.
 	Data []InputOutput[Input, Output]
 
-	// Tools can be called by the AI model.
+	// Tools that can be called by the AI model.
 	Tools map[string]TextTooler
 
 	inputValidator  *jsonschema.Schema

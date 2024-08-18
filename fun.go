@@ -47,10 +47,10 @@ type TextProvider interface {
 	Chat(ctx context.Context, message ChatMessage) (string, errors.E)
 }
 
-// WithOutputJSONSchema is a [TextProvider] which supports setting JSON Schema for its output.
+// WithOutputJSONSchema is a [TextProvider] which supports forcing JSON Schema for its output.
 type WithOutputJSONSchema interface {
 	// InitOutputJSONSchema provides the JSON Schema the provider
-	// should request the AI model to use for its output.
+	// should request the AI model to force for its output.
 	InitOutputJSONSchema(ctx context.Context, schema []byte) errors.E
 }
 

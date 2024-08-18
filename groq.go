@@ -115,13 +115,31 @@ var _ TextProvider = (*GroqTextProvider)(nil)
 //
 // [Groq]: https://groq.com/
 type GroqTextProvider struct {
-	Client            *http.Client `json:"-"`
-	APIKey            string       `json:"-"`
-	Model             string       `json:"model"`
-	MaxContextLength  int          `json:"maxContextLength"`
-	MaxResponseLength int          `json:"maxResponseLength"`
+	// Client is a HTTP client to be used for API calls. If not provided
+	// a rate-limited retryable HTTP client is initialized instead.
+	Client *http.Client `json:"-"`
 
-	Seed        int     `json:"seed"`
+	// APIKey is the API key to be used for API calls.
+	APIKey string `json:"-"`
+
+	// Model is the name of the model to be used.
+	Model string `json:"model"`
+
+	// MaxContextLength is the maximum total number of tokens allowed to be used
+	// with the underlying AI model (i.e., the maximum context window).
+	// If not provided, heuristics are used to determine it automatically.
+	MaxContextLength int `json:"maxContextLength"`
+
+	// MaxResponseLength is the maximum number of tokens allowed to be used in
+	// a response with the underlying AI model. If not provided, heuristics
+	// are used to determine it automatically.
+	MaxResponseLength int `json:"maxResponseLength"`
+
+	// Seed is used to control the randomness of the AI model. Default is 0.
+	Seed int `json:"seed"`
+
+	// Temperature is how creative should the AI model be.
+	// Default is 0 which means not at all.
 	Temperature float64 `json:"temperature"`
 
 	messages []groqMessage

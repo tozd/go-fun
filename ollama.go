@@ -74,14 +74,34 @@ type OllamaModelAccess struct {
 //
 // [Ollama]: https://ollama.com/
 type OllamaTextProvider struct {
-	Client            *http.Client      `json:"-"`
-	Base              string            `json:"-"`
-	Model             string            `json:"model"`
-	ModelAccess       OllamaModelAccess `json:"-"`
-	MaxContextLength  int               `json:"maxContextLength"`
-	MaxResponseLength int               `json:"maxResponseLength"`
+	// Client is a HTTP client to be used for API calls. If not provided
+	// a rate-limited retryable HTTP client is initialized instead.
+	Client *http.Client `json:"-"`
 
-	Seed        int     `json:"seed"`
+	// Base is a HTTP URL where Ollama instance is listening.
+	Base string `json:"-"`
+
+	// Model is the name of the model to be used.
+	Model string `json:"model"`
+
+	// ModelAccess allows Ollama to access private AI models.
+	ModelAccess OllamaModelAccess `json:"-"`
+
+	// MaxContextLength is the maximum total number of tokens allowed to be used
+	// with the underlying AI model (i.e., the maximum context window).
+	// If not provided, it is obtained from Ollama for the model.
+	MaxContextLength int `json:"maxContextLength"`
+
+	// MaxResponseLength is the maximum number of tokens allowed to be used in
+	// a response with the underlying AI model. If not provided, -2 is used
+	// which instructs Ollama to fill the context.
+	MaxResponseLength int `json:"maxResponseLength"`
+
+	// Seed is used to control the randomness of the AI model. Default is 0.
+	Seed int `json:"seed"`
+
+	// Temperature is how creative should the AI model be.
+	// Default is 0 which means not at all.
 	Temperature float64 `json:"temperature"`
 
 	client   *api.Client
@@ -181,7 +201,7 @@ func (o *OllamaTextProvider) Init(ctx context.Context, messages []ChatMessage) e
 	}
 
 	if o.MaxResponseLength == 0 {
-		// -2 = fill context.
+		// -2 = fill the context.
 		o.MaxResponseLength = -2 //nolint:gomnd
 	}
 	if o.MaxResponseLength > 0 && o.MaxResponseLength > o.MaxContextLength {

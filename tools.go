@@ -10,7 +10,7 @@ import (
 )
 
 // TextTooler extends [Callee] interface with additional methods needed to
-// define a tool which can be called by AI models through [TextProvider].
+// define a tool which can be called by AI models through [Text].
 type TextTooler interface {
 	Callee[json.RawMessage, string]
 
@@ -21,12 +21,20 @@ type TextTooler interface {
 	// GetInputJSONSchema return the JSON Schema for parameters passed by an AI model
 	// to the tool. Consider using meaningful property names and use "description"
 	// JSON Schema field to describe to the AI model what each property is.
+	//
 	// Depending on the provider and the model there are limitations on the JSON Schema
 	// (e.g., only "object" top-level type can be used, all properties must be required,
 	// "additionalProperties" must be set to false).
 	GetInputJSONSchema() []byte
 }
 
+// TextTool defines a tool which can be called by AI models through [Text].
+//
+// For non-string Input types, it marshals them to JSON before
+// providing them to the AI model, and for non-string Output types,
+// it unmarshals model outputs from JSON to Output type.
+// For this to work, Input and Output types should have a
+// JSON representation.
 type TextTool[Input, Output any] struct {
 	// Description is a natural language description of the tool which helps
 	// an AI model understand when to use this tool.
@@ -35,6 +43,7 @@ type TextTool[Input, Output any] struct {
 	// InputJSONSchema is the JSON Schema for parameters passed by an AI model
 	// to the tool. Consider using meaningful property names and use "description"
 	// JSON Schema field to describe to the AI model what each property is.
+	//
 	// Depending on the provider and the model there are limitations on the JSON Schema
 	// (e.g., only "object" top-level type can be used, all properties must be required,
 	// "additionalProperties" must be set to false).
@@ -48,7 +57,7 @@ type TextTool[Input, Output any] struct {
 	// the output from the tool before it is passed on to the AI model.
 	//
 	// It should correspond to the Output type parameter. If not provided, it is
-	// automatically determined from the Input type.
+	// automatically determined from the Output type.
 	OutputJSONSchema []byte
 
 	// Fun implements the logic of the tool.

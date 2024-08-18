@@ -19,12 +19,6 @@ import (
 
 var jsonSchemaString = []byte(`{"type": "string"}`)
 
-// It looks like they are quite some limitations for JSON Schema by AI models.
-// E.g., OpenAI currently supports only top-level object type and it does not support
-// top-level $ref in the schema. Also it requires that JSON Schema has all properties
-// required. A lot of restrictions which probably means we have to provide manual
-// JSON Schema and it cannot be self-generated.
-// See: https://github.com/invopop/jsonschema/issues/148
 var outputStructJSONSchema = []byte(`
 {
 	"$schema": "https://json-schema.org/draft/2020-12/schema",
