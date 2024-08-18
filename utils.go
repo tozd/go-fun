@@ -17,6 +17,7 @@ import (
 const (
 	retryWaitMin = 100 * time.Millisecond //nolint:revive
 	retryWaitMax = 5 * time.Second
+	httpTimeout  = 5 * time.Minute
 )
 
 const applicationJSONHeader = "application/json"
@@ -56,6 +57,7 @@ func newClient(
 	client.Logger = nil
 	client.RetryWaitMin = retryWaitMin
 	client.RetryWaitMax = retryWaitMax
+	client.HTTPClient.Timeout = httpTimeout
 	if prepareRetry != nil {
 		client.PrepareRetry = prepareRetry
 	}
