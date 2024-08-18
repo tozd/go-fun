@@ -627,9 +627,9 @@ func TestTextTools(t *testing.T) { //nolint:paralleltest,tparallel
 					}
 					if providerName == "groq" {
 						// For some reason groq calls the tool twice.
-						assert.Equal(t, 4, usedTool, recorder.Calls()[0].Messages) 
+						assert.Equal(t, 4, usedTool, recorder.Calls()[0].Messages)
 					} else {
-						assert.Equal(t, 2, usedTool, recorder.Calls()[0].Messages) 
+						assert.Equal(t, 2, usedTool, recorder.Calls()[0].Messages)
 					}
 
 					if providerName == "anthropic" {
