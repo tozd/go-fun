@@ -42,8 +42,8 @@ func ExampleTextRecorder() {
 			Seed:              42,
 		},
 		Prompt: `Sum numbers together. Output only the number.`,
-		Tools: map[string]fun.Tooler{
-			"sum_numbers": &fun.Tool[toolInput, float64]{
+		Tools: map[string]fun.TextTooler{
+			"sum_numbers": &fun.TextTool[toolInput, float64]{
 				Description:      "Sums numbers together.",
 				InputJSONSchema:  jsonSchemaNumbers,
 				OutputJSONSchema: jsonSchemaNumber,

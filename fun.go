@@ -57,5 +57,5 @@ type WithOutputJSONSchema interface {
 // WithTools is a [TextProvider] which supports tools.
 type WithTools interface {
 	// InitTools initializes the tool with available tools.
-	InitTools(ctx context.Context, tools map[string]Tooler) errors.E
+	InitTools(ctx context.Context, tools map[string]TextTooler) errors.E
 }

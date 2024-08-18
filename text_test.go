@@ -204,9 +204,9 @@ var toolInputJSONSchema = []byte(`
 }
 `)
 
-func tools() map[string]fun.Tooler {
-	return map[string]fun.Tooler{
-		"repeat_string": &fun.Tool[toolStringInput, string]{
+func tools() map[string]fun.TextTooler {
+	return map[string]fun.TextTooler{
+		"repeat_string": &fun.TextTool[toolStringInput, string]{
 			Description:      "Repeats the input twice, by concatenating the input string without any space.",
 			InputJSONSchema:  toolInputJSONSchema,
 			OutputJSONSchema: jsonSchemaString,
@@ -377,7 +377,7 @@ var tests = []struct {
 
 func runTextTests(
 	t *testing.T, providers []testProvider, tests []textTestCase,
-	tools func() map[string]fun.Tooler,
+	tools func() map[string]fun.TextTooler,
 	checkOutput func(t *testing.T, providerName string, tt fun.InputOutput[string, string], output string),
 ) {
 	t.Helper()
@@ -591,7 +591,7 @@ func TestText(t *testing.T) { //nolint:paralleltest,tparallel
 
 	runTextTests(
 		t, providers, tests,
-		func() map[string]fun.Tooler { return nil },
+		func() map[string]fun.TextTooler { return nil },
 		func(t *testing.T, _ string, tt fun.InputOutput[string, string], output string) {
 			t.Helper()
 

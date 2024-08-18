@@ -52,7 +52,7 @@ type groqTool struct {
 	Type     string       `json:"type"`
 	Function groqFunction `json:"function"`
 
-	tool Tooler
+	tool TextTooler
 }
 
 type groqRequest struct {
@@ -497,7 +497,7 @@ func (g *GroqTextProvider) maxResponseTokens(model groqModel) int {
 }
 
 // InitTools implements [WithTools] interface.
-func (g *GroqTextProvider) InitTools(ctx context.Context, tools map[string]Tooler) errors.E {
+func (g *GroqTextProvider) InitTools(ctx context.Context, tools map[string]TextTooler) errors.E {
 	if g.tools != nil {
 		return errors.WithStack(ErrAlreadyInitialized)
 	}
@@ -525,7 +525,7 @@ func (g *GroqTextProvider) InitTools(ctx context.Context, tools map[string]Toole
 }
 
 func (g *GroqTextProvider) callTool(ctx context.Context, toolCall groqToolCall) (string, []TextRecorderCall, errors.E) {
-	var tool Tooler
+	var tool TextTooler
 	for _, t := range g.tools {
 		if t.Function.Name == toolCall.Function.Name {
 			tool = t.tool

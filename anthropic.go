@@ -129,7 +129,7 @@ type anthropicTool struct {
 	Description     string          `json:"description,omitempty"`
 	InputJSONSchema json.RawMessage `json:"input_schema"`
 
-	tool Tooler
+	tool TextTooler
 }
 
 var _ TextProvider = (*AnthropicTextProvider)(nil)
@@ -507,7 +507,7 @@ func (a *AnthropicTextProvider) estimatedTokens(messages []anthropicMessage) int
 }
 
 // InitTools implements [WithTools] interface.
-func (a *AnthropicTextProvider) InitTools(ctx context.Context, tools map[string]Tooler) errors.E {
+func (a *AnthropicTextProvider) InitTools(ctx context.Context, tools map[string]TextTooler) errors.E {
 	if a.tools != nil {
 		return errors.WithStack(ErrAlreadyInitialized)
 	}
@@ -532,7 +532,7 @@ func (a *AnthropicTextProvider) InitTools(ctx context.Context, tools map[string]
 }
 
 func (a *AnthropicTextProvider) callTool(ctx context.Context, content anthropicContent) (string, []TextRecorderCall, errors.E) {
-	var tool Tooler
+	var tool TextTooler
 	for _, t := range a.tools {
 		if t.Name == content.Name {
 			tool = t.tool

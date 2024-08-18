@@ -72,7 +72,7 @@ type openAIFunction struct {
 type openAITool struct {
 	Type     string         `json:"type"`
 	Function openAIFunction `json:"function"`
-	tool     Tooler
+	tool     TextTooler
 }
 
 type openAIRequest struct {
@@ -482,7 +482,7 @@ func (o *OpenAITextProvider) InitOutputJSONSchema(_ context.Context, schema []by
 }
 
 // InitTools implements [WithTools] interface.
-func (o *OpenAITextProvider) InitTools(ctx context.Context, tools map[string]Tooler) errors.E {
+func (o *OpenAITextProvider) InitTools(ctx context.Context, tools map[string]TextTooler) errors.E {
 	if o.tools != nil {
 		return errors.WithStack(ErrAlreadyInitialized)
 	}
@@ -511,7 +511,7 @@ func (o *OpenAITextProvider) InitTools(ctx context.Context, tools map[string]Too
 }
 
 func (o *OpenAITextProvider) callTool(ctx context.Context, toolCall openAIToolCall) (string, []TextRecorderCall, errors.E) {
-	var tool Tooler
+	var tool TextTooler
 	for _, t := range o.tools {
 		if t.Function.Name == toolCall.Function.Name {
 			tool = t.tool

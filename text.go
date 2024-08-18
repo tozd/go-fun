@@ -170,7 +170,7 @@ type Text[Input, Output any] struct {
 	Data []InputOutput[Input, Output]
 
 	// Tools can be called by the AI model.
-	Tools map[string]Tooler
+	Tools map[string]TextTooler
 
 	inputValidator  *jsonschema.Schema
 	outputValidator *jsonschema.Schema

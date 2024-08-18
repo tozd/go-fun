@@ -9,9 +9,9 @@ import (
 	"gitlab.com/tozd/go/x"
 )
 
-// Tooler extends [Callee] interface with additional methods needed to
+// TextTooler extends [Callee] interface with additional methods needed to
 // define a tool which can be called by AI models through [TextProvider].
-type Tooler interface {
+type TextTooler interface {
 	Callee[json.RawMessage, string]
 
 	// GetDescription returns a natural language description of the tool which helps
@@ -27,7 +27,7 @@ type Tooler interface {
 	GetInputJSONSchema() []byte
 }
 
-type Tool[Input, Output any] struct {
+type TextTool[Input, Output any] struct {
 	// Description is a natural language description of the tool which helps
 	// an AI model understand when to use this tool.
 	Description string
@@ -58,10 +58,10 @@ type Tool[Input, Output any] struct {
 	outputValidator *jsonschema.Schema
 }
 
-var _ Tooler = (*Tool[any, any])(nil)
+var _ TextTooler = (*TextTool[any, any])(nil)
 
 // Init implements [Callee] interface.
-func (t *Tool[Input, Output]) Init(_ context.Context) errors.E {
+func (t *TextTool[Input, Output]) Init(_ context.Context) errors.E {
 	if t.inputValidator != nil {
 		return errors.WithStack(ErrAlreadyInitialized)
 	}
@@ -94,7 +94,7 @@ func (t *Tool[Input, Output]) Init(_ context.Context) errors.E {
 // Call also validates that inputs and outputs match respective JSON Schemas.
 //
 // Call implements [Callee] interface.
-func (t *Tool[Input, Output]) Call(ctx context.Context, input ...json.RawMessage) (string, errors.E) {
+func (t *TextTool[Input, Output]) Call(ctx context.Context, input ...json.RawMessage) (string, errors.E) {
 	if len(input) != 1 {
 		return "", errors.New("invalid number of inputs")
 	}
@@ -124,25 +124,25 @@ func (t *Tool[Input, Output]) Call(ctx context.Context, input ...json.RawMessage
 }
 
 // Variadic implements [Callee] interface.
-func (t *Tool[Input, Output]) Variadic() func(ctx context.Context, input ...json.RawMessage) (string, errors.E) {
+func (t *TextTool[Input, Output]) Variadic() func(ctx context.Context, input ...json.RawMessage) (string, errors.E) {
 	return func(ctx context.Context, input ...json.RawMessage) (string, errors.E) {
 		return t.Call(ctx, input...)
 	}
 }
 
 // Unary implements [Callee] interface.
-func (t *Tool[Input, Output]) Unary() func(ctx context.Context, input json.RawMessage) (string, errors.E) {
+func (t *TextTool[Input, Output]) Unary() func(ctx context.Context, input json.RawMessage) (string, errors.E) {
 	return func(ctx context.Context, input json.RawMessage) (string, errors.E) {
 		return t.Call(ctx, input)
 	}
 }
 
-// GetDescription implements [Tooler] interface.
-func (t *Tool[Input, Output]) GetDescription() string {
+// GetDescription implements [TextTooler] interface.
+func (t *TextTool[Input, Output]) GetDescription() string {
 	return t.Description
 }
 
-// GetInputJSONSchema implements [Tooler] interface.
-func (t *Tool[Input, Output]) GetInputJSONSchema() []byte {
+// GetInputJSONSchema implements [TextTooler] interface.
+func (t *TextTool[Input, Output]) GetInputJSONSchema() []byte {
 	return t.InputJSONSchema
 }

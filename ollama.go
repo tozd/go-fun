@@ -87,7 +87,7 @@ type OllamaTextProvider struct {
 	client   *api.Client
 	messages []api.Message
 	tools    api.Tools
-	toolers  map[string]Tooler
+	toolers  map[string]TextTooler
 }
 
 func (o OllamaTextProvider) MarshalJSON() ([]byte, error) {
@@ -360,12 +360,12 @@ func (o *OllamaTextProvider) Chat(ctx context.Context, message ChatMessage) (str
 }
 
 // InitTools implements [WithTools] interface.
-func (o *OllamaTextProvider) InitTools(ctx context.Context, tools map[string]Tooler) errors.E {
+func (o *OllamaTextProvider) InitTools(ctx context.Context, tools map[string]TextTooler) errors.E {
 	if o.tools != nil {
 		return errors.WithStack(ErrAlreadyInitialized)
 	}
 	o.tools = []api.Tool{}
-	o.toolers = map[string]Tooler{}
+	o.toolers = map[string]TextTooler{}
 
 	for name, tool := range tools {
 		errE := tool.Init(ctx)
