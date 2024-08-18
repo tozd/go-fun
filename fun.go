@@ -1,6 +1,7 @@
-// Package fun provides high-level abstraction to define functions with code (the usual way), data
-// (providing examples of inputs and expected outputs which are then used with an AI model),
+// Package fun provides high-level abstraction to define functions with code (the usual way),
+// data (providing examples of inputs and expected outputs which are then used with an AI model),
 // or natural language description.
+// It is the simplest but powerful way to use large language models (LLMs) in Go.
 package fun
 
 import (
