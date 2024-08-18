@@ -196,7 +196,7 @@ func (o *OllamaTextProvider) Init(ctx context.Context, messages []ChatMessage) e
 
 // Chat implements TextProvider interface.
 func (o *OllamaTextProvider) Chat(ctx context.Context, message ChatMessage) (string, errors.E) {
-	recorder := GetTextProviderRecorder(ctx)
+	recorder := GetTextRecorder(ctx)
 
 	messages := slices.Clone(o.messages)
 	messages = append(messages, api.Message{
@@ -411,7 +411,7 @@ func (o *OllamaTextProvider) callTool(ctx context.Context, toolCall api.ToolCall
 	return tool.Call(ctx, json.RawMessage(toolCall.Function.Arguments.String()))
 }
 
-func (o *OllamaTextProvider) recordMessage(recorder *TextProviderRecorder, message api.Message) {
+func (o *OllamaTextProvider) recordMessage(recorder *TextRecorder, message api.Message) {
 	if message.Role == roleTool {
 		// TODO: How to provide our tool call ID (the "i" parameter to callTool method).
 		recorder.addMessage(roleToolResult, message.Content)

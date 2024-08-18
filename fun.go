@@ -30,12 +30,12 @@ type TextProvider interface {
 	Chat(ctx context.Context, message ChatMessage) (string, errors.E)
 }
 
-// WithOutputJSONSchema is a provider which supports setting JSON Schema for its output.
+// WithOutputJSONSchema is a [TextProvider] which supports setting JSON Schema for its output.
 type WithOutputJSONSchema interface {
 	InitOutputJSONSchema(ctx context.Context, schema []byte) errors.E
 }
 
-// WithTools is a provider which supports tools.
+// WithTools is a [TextProvider] which supports tools.
 type WithTools interface {
 	InitTools(ctx context.Context, tools map[string]Tooler) errors.E
 }

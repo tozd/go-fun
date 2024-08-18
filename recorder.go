@@ -9,35 +9,57 @@ import (
 	"gitlab.com/tozd/go/errors"
 )
 
-var textProviderRecorderContextKey = &contextKey{"text-provider-recorder"} //nolint:gochecknoglobals
+var textRecorderContextKey = &contextKey{"text-provider-recorder"} //nolint:gochecknoglobals
 
-type TextProviderRecorderUsedTokens struct {
-	MaxTotal    int `json:"maxTotal"`
+// TextRecorderUsedTokens describes number of tokens used by a request
+// to an AI model.
+type TextRecorderUsedTokens struct {
+	// MaxTotal is the maximum total number of tokens allowed to be used
+	// with the underlying AI model (i.e., the maximum context window).
+	MaxTotal int `json:"maxTotal"`
+
+	// MaxResponse is the maximum number of tokens allowed to be used in
+	// a response with the underlying AI model.
 	MaxResponse int `json:"maxResponse"`
-	Prompt      int `json:"prompt"`
-	Response    int `json:"response"`
-	Total       int `json:"total"`
+
+	// Prompt is the number of tokens used by the prompt (including the system
+	// prompt and all example inputs with corresponding outputs).
+	Prompt int `json:"prompt"`
+
+	// Response is the number of tokens used by the response.
+	Response int `json:"response"`
+
+	// Total is the sum of Prompt and Response.
+	Total int `json:"total"`
 }
 
-type TextProviderRecorderUsedTime struct {
-	Prompt   time.Duration `json:"prompt"`
+// TextRecorderUsedTokens describes time taken by a request to an AI model.
+type TextRecorderUsedTime struct {
+	// Prompt is time taken by processing the prompt.
+	Prompt time.Duration `json:"prompt"`
+
+	// Response is time taken by formulating the response.
 	Response time.Duration `json:"response"`
-	Total    time.Duration `json:"total"`
+
+	// Total is the sum of Prompt and Response.
+	Total time.Duration `json:"total"`
 }
 
-type TextProviderRecorderCall struct {
-	ID         string                                    `json:"id"`
-	Type       string                                    `json:"type"`
-	Provider   TextProvider                              `json:"provider"`
-	Messages   []any                                     `json:"messages,omitempty"`
-	UsedTokens map[string]TextProviderRecorderUsedTokens `json:"usedTokens,omitempty"`
-	UsedTime   map[string]TextProviderRecorderUsedTime   `json:"usedTime,omitempty"`
+type TextRecorderCall struct {
+	ID       string       `json:"id"`
+	Type     string       `json:"type"`
+	Provider TextProvider `json:"provider"`
+	Messages []any        `json:"messages,omitempty"`
+
+	// UsedTokens
+	UsedTokens map[string]TextRecorderUsedTokens `json:"usedTokens,omitempty"`
+	UsedTime   map[string]TextRecorderUsedTime   `json:"usedTime,omitempty"`
 }
 
-type TextProviderRecorderMessage map[string]string
+type TextRecorderMessage map[string]string
 
-func (c *TextProviderRecorderCall) addMessage(role, message string, params ...string) {
-	m := TextProviderRecorderMessage{
+func (c *TextRecorderCall) addMessage(role, message string, params ...string) {
+	m := TextRecorderMessage{
 		"type":    "message",
 		"role":    role,
 		"message": message,
@@ -54,16 +76,16 @@ func (c *TextProviderRecorderCall) addMessage(role, message string, params ...st
 	c.Messages = append(c.Messages, m)
 }
 
-func (c *TextProviderRecorderCall) addCall(call TextProviderRecorderCall) {
+func (c *TextRecorderCall) addCall(call TextRecorderCall) {
 	c.Messages = append(c.Messages, call)
 }
 
-func (c *TextProviderRecorderCall) addUsedTokens(requestID string, maxTotal, maxResponse, prompt, response int) {
+func (c *TextRecorderCall) addUsedTokens(requestID string, maxTotal, maxResponse, prompt, response int) {
 	if c.UsedTokens == nil {
-		c.UsedTokens = map[string]TextProviderRecorderUsedTokens{}
+		c.UsedTokens = map[string]TextRecorderUsedTokens{}
 	}
 
-	c.UsedTokens[requestID] = TextProviderRecorderUsedTokens{
+	c.UsedTokens[requestID] = TextRecorderUsedTokens{
 		MaxTotal:    maxTotal,
 		MaxResponse: maxResponse,
 		Prompt:      prompt,
@@ -72,30 +94,38 @@ func (c *TextProviderRecorderCall) addUsedTokens(requestID string, maxTotal, max
 	}
 }
 
-func (c *TextProviderRecorderCall) addUsedTime(requestID string, prompt, response time.Duration) {
+func (c *TextRecorderCall) addUsedTime(requestID string, prompt, response time.Duration) {
 	if c.UsedTime == nil {
-		c.UsedTime = map[string]TextProviderRecorderUsedTime{}
+		c.UsedTime = map[string]TextRecorderUsedTime{}
 	}
 
-	c.UsedTime[requestID] = TextProviderRecorderUsedTime{
+	c.UsedTime[requestID] = TextRecorderUsedTime{
 		Prompt:   prompt,
 		Response: response,
 		Total:    prompt + response,
 	}
 }
 
-type TextProviderRecorder struct {
+// TextRecorderCall is a recorder which records all communication
+// with the AI model and track usage.
+//
+// It can be used to record multiple calls, but it is suggested that
+// create a new instance with [WithTextRecorder] for every top-level call.
+//
+// It supports recording recursive calls (e.g., a tool call which calls into
+// an AI model again).
+type TextRecorder struct {
 	mu sync.Mutex
 
-	stack         []*TextProviderRecorderCall
-	topLevelCalls []TextProviderRecorderCall
+	stack         []*TextRecorderCall
+	topLevelCalls []TextRecorderCall
 }
 
-func (t *TextProviderRecorder) pushCall(id string, provider TextProvider) {
+func (t *TextRecorder) pushCall(id string, provider TextProvider) {
 	t.mu.Lock()
 	defer t.mu.Unlock()
 
-	call := &TextProviderRecorderCall{
+	call := &TextRecorderCall{
 		ID:         id,
 		Type:       "call",
 		Provider:   provider,
@@ -107,7 +137,7 @@ func (t *TextProviderRecorder) pushCall(id string, provider TextProvider) {
 	t.stack = append(t.stack, call)
 }
 
-func (t *TextProviderRecorder) popCall() {
+func (t *TextRecorder) popCall() {
 	t.mu.Lock()
 	defer t.mu.Unlock()
 
@@ -120,40 +150,51 @@ func (t *TextProviderRecorder) popCall() {
 	}
 }
 
-func (t *TextProviderRecorder) Calls() []TextProviderRecorderCall {
+// TextRecorderCall returns top-level call records recorded by this recorder.
+//
+// In most cases this will be just one call record unless you are reusing
+// same context across multiple calls.
+func (t *TextRecorder) Calls() []TextRecorderCall {
 	t.mu.Lock()
 	defer t.mu.Unlock()
 
 	return t.topLevelCalls
 }
 
-func (t *TextProviderRecorder) addMessage(role, message string, params ...string) {
+func (t *TextRecorder) addMessage(role, message string, params ...string) {
 	t.mu.Lock()
 	defer t.mu.Unlock()
 
 	t.stack[len(t.stack)-1].addMessage(role, message, params...)
 }
 
-func (t *TextProviderRecorder) addUsedTokens(requestID string, maxTotal, maxResponse, prompt, response int) {
+func (t *TextRecorder) addUsedTokens(requestID string, maxTotal, maxResponse, prompt, response int) {
 	t.mu.Lock()
 	defer t.mu.Unlock()
 
 	t.stack[len(t.stack)-1].addUsedTokens(requestID, maxTotal, maxResponse, prompt, response)
 }
 
-func (t *TextProviderRecorder) addUsedTime(requestID string, prompt, response time.Duration) {
+func (t *TextRecorder) addUsedTime(requestID string, prompt, response time.Duration) {
 	t.mu.Lock()
 	defer t.mu.Unlock()
 
 	t.stack[len(t.stack)-1].addUsedTime(requestID, prompt, response)
 }
 
-func WithTextProviderRecorder(ctx context.Context) context.Context {
-	return context.WithValue(ctx, textProviderRecorderContextKey, new(TextProviderRecorder))
+// WithTextRecorder returns a copy of the context in which an instance
+// of [TextRecorder] is stored.
+//
+// Passing such context to [Text.Call] allows you to record all communication
+// with the AI model and track usage.
+func WithTextRecorder(ctx context.Context) context.Context {
+	return context.WithValue(ctx, textRecorderContextKey, new(TextRecorder))
 }
 
-func GetTextProviderRecorder(ctx context.Context) *TextProviderRecorder {
-	provider, ok := ctx.Value(textProviderRecorderContextKey).(*TextProviderRecorder)
+// GetTextRecorder returns the instance of [TextRecorder] stored in the context,
+// if any.
+func GetTextRecorder(ctx context.Context) *TextRecorder {
+	provider, ok := ctx.Value(textRecorderContextKey).(*TextRecorder)
 	if !ok {
 		return nil
 	}

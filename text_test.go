@@ -19,8 +19,8 @@ import (
 
 var jsonSchemaString = []byte(`{"type": "string"}`)
 
-// It looks like they are quite some limitations for OpenAI JSON Schema.
-// OpenAI currently supports only top-level object type and it does not support
+// It looks like they are quite some limitations for JSON Schema by AI models.
+// E.g., OpenAI currently supports only top-level object type and it does not support
 // top-level $ref in the schema. Also it requires that JSON Schema has all properties
 // required. A lot of restrictions which probably means we have to provide manual
 // JSON Schema and it cannot be self-generated.
@@ -299,7 +299,7 @@ var tests = []struct {
 	Prompt        string
 	Data          []fun.InputOutput[string, OutputStruct]
 	Cases         []fun.InputOutput[string, OutputStruct]
-	CheckRecorder func(t *testing.T, recorder *fun.TextProviderRecorder, providerName string)
+	CheckRecorder func(t *testing.T, recorder *fun.TextRecorder, providerName string)
 }{
 	{
 		"just_data",
@@ -313,7 +313,7 @@ var tests = []struct {
 		[]fun.InputOutput[string, OutputStruct]{
 			{[]string{"name=42 [first=2 second=1]"}, OutputStruct{Key: "name", Value: 42, Children: []OutputStruct{{Key: "first", Value: 2}, {Key: "second", Value: 1}}}},
 		},
-		func(t *testing.T, recorder *fun.TextProviderRecorder, providerName string) {
+		func(t *testing.T, recorder *fun.TextRecorder, providerName string) {
 			t.Helper()
 
 			if providerName == "groq" {
@@ -339,7 +339,7 @@ var tests = []struct {
 		[]fun.InputOutput[string, OutputStruct]{
 			{[]string{"name=42 [first=2 second=1]"}, OutputStruct{Key: "name", Value: 42, Children: []OutputStruct{{Key: "first", Value: 2}, {Key: "second", Value: 1}}}},
 		},
-		func(t *testing.T, recorder *fun.TextProviderRecorder, _ string) {
+		func(t *testing.T, recorder *fun.TextRecorder, _ string) {
 			t.Helper()
 
 			if assert.Len(t, recorder.Calls(), 1) {
@@ -359,7 +359,7 @@ var tests = []struct {
 		[]fun.InputOutput[string, OutputStruct]{
 			{[]string{"name=42 [first=2 second=1]"}, OutputStruct{Key: "name", Value: 42, Children: []OutputStruct{{Key: "first", Value: 2}, {Key: "second", Value: 1}}}},
 		},
-		func(t *testing.T, recorder *fun.TextProviderRecorder, providerName string) {
+		func(t *testing.T, recorder *fun.TextRecorder, providerName string) {
 			t.Helper()
 
 			if providerName == "groq" || providerName == "ollama" {
@@ -418,11 +418,11 @@ func runTextTests(
 								t.Parallel()
 							}
 
-							ct := fun.WithTextProviderRecorder(ctx)
+							ct := fun.WithTextRecorder(ctx)
 							output, errE := f.Call(ct, d.Input...)
 							assert.NoError(t, errE, "% -+#.1v", errE)
 							checkOutput(t, provider.Name, d, output)
-							tt.CheckRecorder(t, fun.GetTextProviderRecorder(ct), provider.Name)
+							tt.CheckRecorder(t, fun.GetTextRecorder(ct), provider.Name)
 						})
 					}
 
@@ -434,11 +434,11 @@ func runTextTests(
 								t.Parallel()
 							}
 
-							ct := fun.WithTextProviderRecorder(ctx)
+							ct := fun.WithTextRecorder(ctx)
 							output, errE := f.Call(ct, c.Input...)
 							assert.NoError(t, errE, "% -+#.1v", errE)
 							checkOutput(t, provider.Name, c, output)
-							tt.CheckRecorder(t, fun.GetTextProviderRecorder(ct), provider.Name)
+							tt.CheckRecorder(t, fun.GetTextRecorder(ct), provider.Name)
 						})
 					}
 				})
@@ -447,28 +447,28 @@ func runTextTests(
 	}
 }
 
-func cleanCall(call fun.TextProviderRecorderCall, d *int) fun.TextProviderRecorderCall {
+func cleanCall(call fun.TextRecorderCall, d *int) fun.TextRecorderCall {
 	*d++
 	callID := *d
 
 	calls := map[string]string{}
 	for i, message := range call.Messages {
 		switch m := message.(type) {
-		case fun.TextProviderRecorderMessage:
+		case fun.TextRecorderMessage:
 			if id, ok := m["id"]; ok {
 				if _, ok := calls[id]; !ok {
 					calls[id] = fmt.Sprintf("call_%d_%d", callID, i)
 				}
 				m["id"] = calls[id]
 			}
-		case fun.TextProviderRecorderCall:
+		case fun.TextRecorderCall:
 			call.Messages[i] = cleanCall(m, d)
 		}
 	}
 
 	call.ID = fmt.Sprintf("id_%d", callID)
 
-	usedTokens := map[string]fun.TextProviderRecorderUsedTokens{}
+	usedTokens := map[string]fun.TextRecorderUsedTokens{}
 	i := 0
 	for req, tokens := range call.UsedTokens {
 		i++
@@ -480,7 +480,7 @@ func cleanCall(call fun.TextProviderRecorderCall, d *int) fun.TextProviderRecord
 	return call
 }
 
-func cleanCalls(calls []fun.TextProviderRecorderCall) {
+func cleanCalls(calls []fun.TextRecorderCall) {
 	d := 0
 	for i, call := range calls {
 		calls[i] = cleanCall(call, &d)
@@ -492,7 +492,7 @@ type textTestCase struct {
 	Prompt        string
 	Data          []fun.InputOutput[string, string]
 	Cases         []fun.InputOutput[string, string]
-	CheckRecorder func(t *testing.T, recorder *fun.TextProviderRecorder, providerName string)
+	CheckRecorder func(t *testing.T, recorder *fun.TextRecorder, providerName string)
 }
 
 func TestText(t *testing.T) { //nolint:paralleltest,tparallel
@@ -509,7 +509,7 @@ func TestText(t *testing.T) { //nolint:paralleltest,tparallel
 				{[]string{"test"}, "testtest"},
 				{[]string{"zzz"}, "zzzzzz"},
 			},
-			func(t *testing.T, recorder *fun.TextProviderRecorder, _ string) {
+			func(t *testing.T, recorder *fun.TextRecorder, _ string) {
 				t.Helper()
 
 				if assert.Len(t, recorder.Calls(), 1) {
@@ -543,7 +543,7 @@ func TestText(t *testing.T) { //nolint:paralleltest,tparallel
 				{[]string{"test"}, "testtest"},
 				// {[]string{"zzz"}, "zzzzzz"}, // Returns "zzz..." with llama3.8b.
 			},
-			func(t *testing.T, recorder *fun.TextProviderRecorder, _ string) {
+			func(t *testing.T, recorder *fun.TextRecorder, _ string) {
 				t.Helper()
 
 				if assert.Len(t, recorder.Calls(), 1) {
@@ -580,7 +580,7 @@ func TestText(t *testing.T) { //nolint:paralleltest,tparallel
 				{[]string{"test"}, "testtest"},
 				// {[]string{"zzz"}, "zzzzzz"}, // Returns "zzzZZZ" with llama3.8b.
 			},
-			func(t *testing.T, recorder *fun.TextProviderRecorder, _ string) {
+			func(t *testing.T, recorder *fun.TextRecorder, _ string) {
 				t.Helper()
 
 				if assert.Len(t, recorder.Calls(), 1) {
@@ -616,14 +616,14 @@ func TestTextTools(t *testing.T) { //nolint:paralleltest,tparallel
 				{[]string{"test"}, "testtest"},
 				{[]string{"zzz"}, "zzzzzz"},
 			},
-			func(t *testing.T, recorder *fun.TextProviderRecorder, providerName string) {
+			func(t *testing.T, recorder *fun.TextRecorder, providerName string) {
 				t.Helper()
 
 				if assert.Len(t, recorder.Calls(), 1) {
 					usedTool := 0
 					for _, message := range recorder.Calls()[0].Messages {
-						if assert.IsType(t, fun.TextProviderRecorderMessage{}, message) {
-							m := message.(fun.TextProviderRecorderMessage) //nolint:errcheck,forcetypeassert
+						if assert.IsType(t, fun.TextRecorderMessage{}, message) {
+							m := message.(fun.TextRecorderMessage) //nolint:errcheck,forcetypeassert
 							if m["role"] == "tool_use" || m["role"] == "tool_result" {
 								usedTool++
 							}
@@ -712,11 +712,11 @@ func TestTextStruct(t *testing.T) { //nolint:paralleltest,tparallel
 								t.Parallel()
 							}
 
-							ct := fun.WithTextProviderRecorder(ctx)
+							ct := fun.WithTextRecorder(ctx)
 							output, errE := f.Call(ct, d.Input...)
 							assert.NoError(t, errE, "% -+#.1v", errE)
 							assert.Equal(t, d.Output, output)
-							tt.CheckRecorder(t, fun.GetTextProviderRecorder(ct), provider.Name)
+							tt.CheckRecorder(t, fun.GetTextRecorder(ct), provider.Name)
 						})
 					}
 
@@ -728,11 +728,11 @@ func TestTextStruct(t *testing.T) { //nolint:paralleltest,tparallel
 								t.Parallel()
 							}
 
-							ct := fun.WithTextProviderRecorder(ctx)
+							ct := fun.WithTextRecorder(ctx)
 							output, errE := f.Call(ct, c.Input...)
 							assert.NoError(t, errE, "% -+#.1v", errE)
 							assert.Equal(t, c.Output, output)
-							tt.CheckRecorder(t, fun.GetTextProviderRecorder(ct), provider.Name)
+							tt.CheckRecorder(t, fun.GetTextRecorder(ct), provider.Name)
 						})
 					}
 				})
@@ -790,11 +790,11 @@ func TestOpenAIJSONSchema(t *testing.T) {
 				t.Run(fmt.Sprintf("input=%s", d.Input), func(t *testing.T) {
 					t.Parallel()
 
-					ct := fun.WithTextProviderRecorder(ctx)
+					ct := fun.WithTextRecorder(ctx)
 					output, errE := f.Call(ct, d.Input...)
 					assert.NoError(t, errE, "% -+#.1v", errE)
 					assert.Equal(t, d.Output, output)
-					tt.CheckRecorder(t, fun.GetTextProviderRecorder(ct), "openai")
+					tt.CheckRecorder(t, fun.GetTextRecorder(ct), "openai")
 				})
 			}
 
@@ -804,11 +804,11 @@ func TestOpenAIJSONSchema(t *testing.T) {
 				t.Run(fmt.Sprintf("input=%s", c.Input), func(t *testing.T) {
 					t.Parallel()
 
-					ct := fun.WithTextProviderRecorder(ctx)
+					ct := fun.WithTextRecorder(ctx)
 					output, errE := f.Call(ct, c.Input...)
 					assert.NoError(t, errE, "% -+#.1v", errE)
 					assert.Equal(t, toOutputStructWithoutOmitEmpty(c.Output), output)
-					tt.CheckRecorder(t, fun.GetTextProviderRecorder(ct), "openai")
+					tt.CheckRecorder(t, fun.GetTextRecorder(ct), "openai")
 				})
 			}
 		})

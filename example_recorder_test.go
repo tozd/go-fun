@@ -10,7 +10,7 @@ import (
 	"gitlab.com/tozd/go/fun"
 )
 
-func ExampleTextProviderRecorder() {
+func ExampleTextRecorder() {
 	if os.Getenv("ANTHROPIC_API_KEY") == "" || os.Getenv("OPENAI_API_KEY") == "" {
 		fmt.Println("skipped")
 		return
@@ -58,7 +58,7 @@ func ExampleTextProviderRecorder() {
 	}
 
 	// We use the recorder to make sure the tool has really been called.
-	ctx = fun.WithTextProviderRecorder(ctx)
+	ctx = fun.WithTextRecorder(ctx)
 
 	output, errE := f.Call(ctx, 38, 4)
 	if errE != nil {
@@ -66,7 +66,7 @@ func ExampleTextProviderRecorder() {
 	}
 	fmt.Println(output)
 
-	calls := fun.GetTextProviderRecorder(ctx).Calls()
+	calls := fun.GetTextRecorder(ctx).Calls()
 	// We change calls a bit for the example to be deterministic.
 	cleanCalls(calls)
 

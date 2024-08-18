@@ -72,7 +72,7 @@ func ExampleTool() {
 	}
 
 	// We use the recorder to make sure the tool has really been called.
-	ctx = fun.WithTextProviderRecorder(ctx)
+	ctx = fun.WithTextRecorder(ctx)
 
 	output, errE := f.Call(ctx, 38, 4)
 	if errE != nil {
@@ -80,7 +80,7 @@ func ExampleTool() {
 	}
 	fmt.Println(output)
 
-	calls := fun.GetTextProviderRecorder(ctx).Calls()
+	calls := fun.GetTextRecorder(ctx).Calls()
 	// We change calls a bit for the example to be deterministic.
 	cleanCalls(calls)
 

@@ -184,7 +184,7 @@ func (t *Text[Input, Output]) Init(ctx context.Context) errors.E {
 	}
 
 	callID := identifier.New().String()
-	if recorder := GetTextProviderRecorder(ctx); recorder != nil {
+	if recorder := GetTextRecorder(ctx); recorder != nil {
 		recorder.pushCall(callID, t.Provider)
 		defer recorder.popCall()
 	}
@@ -281,7 +281,7 @@ func (t *Text[Input, Output]) Init(ctx context.Context) errors.E {
 // Call implements [Callee] interface.
 func (t *Text[Input, Output]) Call(ctx context.Context, input ...Input) (Output, errors.E) { //nolint:ireturn
 	callID := identifier.New().String()
-	if recorder := GetTextProviderRecorder(ctx); recorder != nil {
+	if recorder := GetTextRecorder(ctx); recorder != nil {
 		recorder.pushCall(callID, t.Provider)
 		defer recorder.popCall()
 	}

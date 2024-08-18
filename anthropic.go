@@ -237,7 +237,7 @@ func (a *AnthropicTextProvider) Init(_ context.Context, messages []ChatMessage) 
 
 // Chat implements TextProvider interface.
 func (a *AnthropicTextProvider) Chat(ctx context.Context, message ChatMessage) (string, errors.E) { //nolint:maintidx
-	recorder := GetTextProviderRecorder(ctx)
+	recorder := GetTextRecorder(ctx)
 
 	messages := slices.Clone(a.messages)
 	messages = append(messages, anthropicMessage{
@@ -524,7 +524,7 @@ func (a *AnthropicTextProvider) callTool(ctx context.Context, content anthropicC
 	return tool.Call(ctx, content.Input)
 }
 
-func (a *AnthropicTextProvider) recordMessage(recorder *TextProviderRecorder, message anthropicMessage) {
+func (a *AnthropicTextProvider) recordMessage(recorder *TextRecorder, message anthropicMessage) {
 	for _, content := range message.Content {
 		switch content.Type {
 		case typeText:

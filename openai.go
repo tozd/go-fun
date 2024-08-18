@@ -230,7 +230,7 @@ func (o *OpenAITextProvider) Init(_ context.Context, messages []ChatMessage) err
 
 // Chat implements TextProvider interface.
 func (o *OpenAITextProvider) Chat(ctx context.Context, message ChatMessage) (string, errors.E) {
-	recorder := GetTextProviderRecorder(ctx)
+	recorder := GetTextRecorder(ctx)
 
 	messages := slices.Clone(o.messages)
 	messages = append(messages, openAIMessage{
@@ -511,7 +511,7 @@ func (o *OpenAITextProvider) callTool(ctx context.Context, toolCall openAIToolCa
 	return tool.Call(ctx, json.RawMessage(toolCall.Function.Arguments))
 }
 
-func (o *OpenAITextProvider) recordMessage(recorder *TextProviderRecorder, message openAIMessage) {
+func (o *OpenAITextProvider) recordMessage(recorder *TextRecorder, message openAIMessage) {
 	if message.Role == roleTool {
 		if message.Content != nil {
 			recorder.addMessage(roleToolResult, *message.Content, "id", message.ToolCallID)

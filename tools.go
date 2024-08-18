@@ -9,18 +9,47 @@ import (
 	"gitlab.com/tozd/go/x"
 )
 
+// Tooler extends [Callee] interface with additional methods needed to
+// define a tool which can be called by AI models through [TextProvider].
 type Tooler interface {
 	Callee[json.RawMessage, string]
 
+	// GetDescription returns a natural language description of the tool which helps
+	// an AI model understand when to use this tool.
 	GetDescription() string
+
+	// GetInputJSONSchema return the JSON Schema for parameters passed by an AI model
+	// to the tool. Consider using meaningful property names and use "description"
+	// JSON Schema field to describe to the AI model what each property is.
+	// Depending on the provider and the model there are limitations on the JSON Schema
+	// (e.g., only "object" top-level type can be used, all properties must be required,
+	// "additionalProperties" must be set to false).
 	GetInputJSONSchema() []byte
 }
 
 type Tool[Input, Output any] struct {
-	Description      string
-	InputJSONSchema  []byte
+	// Description is a natural language description of the tool which helps
+	// an AI model understand when to use this tool.
+	Description string
+
+	// InputJSONSchema is the JSON Schema for parameters passed by an AI model
+	// to the tool. Consider using meaningful property names and use "description"
+	// JSON Schema field to describe to the AI model what each property is.
+	// Depending on the provider and the model there are limitations on the JSON Schema
+	// (e.g., only "object" top-level type can be used, all properties must be required,
+	// "additionalProperties" must be set to false).
+	//
+	// It should correspond to the Input type parameter.
+	InputJSONSchema []byte
+
+	// InputJSONSchema is the JSON Schema for tool's output. It is used to validate
+	// the output from the tool before it is passed on to the AI model.
+	//
+	// It should correspond to the Output type parameter.
 	OutputJSONSchema []byte
-	Fun              func(ctx context.Context, input Input) (Output, errors.E)
+
+	// Fun implements the logic of the tool.
+	Fun func(ctx context.Context, input Input) (Output, errors.E)
 
 	inputValidator  *jsonschema.Schema
 	outputValidator *jsonschema.Schema
@@ -28,6 +57,7 @@ type Tool[Input, Output any] struct {
 
 var _ Tooler = (*Tool[any, any])(nil)
 
+// Init implements [Callee] interface.
 func (t *Tool[Input, Output]) Init(_ context.Context) errors.E {
 	if t.inputValidator != nil {
 		return errors.WithStack(ErrAlreadyInitialized)
@@ -54,6 +84,13 @@ func (t *Tool[Input, Output]) Init(_ context.Context) errors.E {
 	return nil
 }
 
+// Call takes the raw JSON input from an AI model and converts it a value of
+// Input type, calls Fun, and converts the output to the string to be passed
+// back to the AI model as result of the tool call.
+//
+// Call also validates that inputs and outputs match respective JSON Schemas.
+//
+// Call implements [Callee] interface.
 func (t *Tool[Input, Output]) Call(ctx context.Context, input ...json.RawMessage) (string, errors.E) {
 	if len(input) != 1 {
 		return "", errors.New("invalid number of inputs")
@@ -97,10 +134,12 @@ func (t *Tool[Input, Output]) Unary() func(ctx context.Context, input json.RawMe
 	}
 }
 
+// GetDescription implements [Tooler] interface.
 func (t *Tool[Input, Output]) GetDescription() string {
 	return t.Description
 }
 
+// GetInputJSONSchema implements [Tooler] interface.
 func (t *Tool[Input, Output]) GetInputJSONSchema() []byte {
 	return t.InputJSONSchema
 }

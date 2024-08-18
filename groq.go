@@ -277,7 +277,7 @@ func (g *GroqTextProvider) Init(ctx context.Context, messages []ChatMessage) err
 
 // Chat implements TextProvider interface.
 func (g *GroqTextProvider) Chat(ctx context.Context, message ChatMessage) (string, errors.E) {
-	recorder := GetTextProviderRecorder(ctx)
+	recorder := GetTextRecorder(ctx)
 
 	messages := slices.Clone(g.messages)
 	messages = append(messages, groqMessage{
@@ -525,7 +525,7 @@ func (g *GroqTextProvider) callTool(ctx context.Context, toolCall groqToolCall) 
 	return tool.Call(ctx, json.RawMessage(toolCall.Function.Arguments))
 }
 
-func (g *GroqTextProvider) recordMessage(recorder *TextProviderRecorder, message groqMessage) {
+func (g *GroqTextProvider) recordMessage(recorder *TextRecorder, message groqMessage) {
 	if message.Role == roleTool {
 		if message.Content != nil {
 			recorder.addMessage(roleToolResult, *message.Content, "id", message.ToolCallID)

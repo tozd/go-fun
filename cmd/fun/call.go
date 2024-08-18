@@ -354,11 +354,11 @@ func (c *CallCommand) processFile(ctx context.Context, fn fun.Callee[string, str
 		return errors.WithStack(err)
 	}
 
-	ctx = fun.WithTextProviderRecorder(ctx)
+	ctx = fun.WithTextRecorder(ctx)
 	defer func() {
 		e := zerolog.Ctx(ctx).Debug()
 		if e.Enabled() {
-			recorder := fun.GetTextProviderRecorder(ctx)
+			recorder := fun.GetTextRecorder(ctx)
 			calls := recorder.Calls()
 			if len(calls) > 0 {
 				e.Interface("calls", recorder.Calls()).
