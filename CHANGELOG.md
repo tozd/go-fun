@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- Store recorded AI model calls into `.error` files as well.
+
 ## [0.4.0] - 2024-08-18
 
 ### Added
@@ -14,7 +18,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `combine` sub-command for the `fun` tool which combines multiple input
   directories into one output directory with only those files which are equal in
   all input directories.
-- Create files with `.error` suffix for outputs with errors skip them on followup
+- Create files with `.error` suffix for outputs with errors and skip them on followup
   runs of the `fun` tool.
 - Context-based recorder for information about internal calls made to a model.
 - Transparent tool calling into Go code.

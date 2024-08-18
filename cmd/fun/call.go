@@ -30,6 +30,11 @@ const (
 
 var errFileSkipped = errors.Base("file skipped")
 
+type errorAndCalls struct {
+	Err   errors.Formatter       `json:"error"`
+	Calls []fun.TextRecorderCall `json:"calls,omitempty"`
+}
+
 //nolint:lll
 type CallCommand struct {
 	InputDir         string               `                                                   help:"Path to input directory."                                                                    name:"input"         placeholder:"PATH" required:"" short:"i" type:"existingdir"`
@@ -366,11 +371,9 @@ func (c *CallCommand) processFile( //nolint:nonamedreturns
 	defer func() {
 		e := zerolog.Ctx(ctx).Debug()
 		if e.Enabled() {
-			recorder := fun.GetTextRecorder(ctx)
-			calls := recorder.Calls()
+			calls := fun.GetTextRecorder(ctx).Calls()
 			if len(calls) > 0 {
-				e.Interface("calls", recorder.Calls()).
-					Str("model", c.Model).Str("provider", c.Provider).Msg("call")
+				e.Interface("calls", calls).Msg("call")
 			}
 		}
 	}()
@@ -385,7 +388,10 @@ func (c *CallCommand) processFile( //nolint:nonamedreturns
 			errors.Details(errE)["output"] = output
 		}
 		errorErrE, errE = errE, nil
-		errJSON, errE := x.MarshalWithoutEscapeHTML(errors.Formatter{Error: errorErrE}) //nolint:exhaustruct
+		errJSON, errE := x.MarshalWithoutEscapeHTML(errorAndCalls{
+			Err:   errors.Formatter{Error: errorErrE}, //nolint:exhaustruct
+			Calls: fun.GetTextRecorder(ctx).Calls(),
+		})
 		if errE != nil {
 			return false, errE
 		}
