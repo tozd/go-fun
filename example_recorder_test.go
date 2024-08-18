@@ -93,21 +93,21 @@ func ExampleTextRecorder() {
 	//     "messages": [
 	//       {
 	//         "role": "system",
-	//         "message": "Sum numbers together. Output only the number."
+	//         "content": "Sum numbers together. Output only the number."
 	//       },
 	//       {
 	//         "role": "user",
-	//         "message": "[38,4]"
+	//         "content": "[38,4]"
 	//       },
 	//       {
 	//         "role": "tool_use",
-	//         "message": "{\"numbers\":[38,4]}",
+	//         "content": "{\"numbers\":[38,4]}",
 	//         "toolUseId": "call_1_2",
 	//         "toolUseName": "sum_numbers"
 	//       },
 	//       {
 	//         "role": "tool_result",
-	//         "message": "42",
+	//         "content": "42",
 	//         "toolUseId": "call_1_2",
 	//         "calls": [
 	//           {
@@ -120,15 +120,15 @@ func ExampleTextRecorder() {
 	//             "messages": [
 	//               {
 	//                 "role": "system",
-	//                 "message": "Sum numbers together. Output only the number."
+	//                 "content": "Sum numbers together. Output only the number."
 	//               },
 	//               {
 	//                 "role": "user",
-	//                 "message": "[{\"numbers\":[38,4]}]"
+	//                 "content": "[{\"numbers\":[38,4]}]"
 	//               },
 	//               {
 	//                 "role": "assistant",
-	//                 "message": "42"
+	//                 "content": "42"
 	//               }
 	//             ],
 	//             "usedTokens": {
@@ -145,7 +145,7 @@ func ExampleTextRecorder() {
 	//       },
 	//       {
 	//         "role": "assistant",
-	//         "message": "42"
+	//         "content": "42"
 	//       }
 	//     ],
 	//     "usedTokens": {

@@ -39,13 +39,16 @@ type Tool[Input, Output any] struct {
 	// (e.g., only "object" top-level type can be used, all properties must be required,
 	// "additionalProperties" must be set to false).
 	//
-	// It should correspond to the Input type parameter.
+	// It should correspond to the Input type parameter. If not provided, it is
+	// automatically determined from the Input type, but the resulting JSON Schema
+	// might not be supported by the provider or the model.
 	InputJSONSchema []byte
 
 	// InputJSONSchema is the JSON Schema for tool's output. It is used to validate
 	// the output from the tool before it is passed on to the AI model.
 	//
-	// It should correspond to the Output type parameter.
+	// It should correspond to the Output type parameter. If not provided, it is
+	// automatically determined from the Input type.
 	OutputJSONSchema []byte
 
 	// Fun implements the logic of the tool.

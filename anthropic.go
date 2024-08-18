@@ -139,10 +139,18 @@ var _ TextProvider = (*AnthropicTextProvider)(nil)
 //
 // [Anthropic]: https://www.anthropic.com/
 type AnthropicTextProvider struct {
+	// Client is a HTTP client to be used for API calls. If not provided
+	// a rate-limited retryable HTTP client is initialized instead.
 	Client *http.Client `json:"-"`
-	APIKey string       `json:"-"`
-	Model  string       `json:"model"`
 
+	// APIKey is the API key to be used for API calls.
+	APIKey string `json:"-"`
+
+	// Model is the name of the model to be used.
+	Model string `json:"model"`
+
+	// Temperature is how creative should the AI model be.
+	// Default is 0 which means not at all.
 	Temperature float64 `json:"temperature"`
 
 	system   string
@@ -163,7 +171,7 @@ func (a AnthropicTextProvider) MarshalJSON() ([]byte, error) {
 	return x.MarshalWithoutEscapeHTML(t)
 }
 
-// Init implements TextProvider interface.
+// Init implements [TextProvider] interface.
 func (a *AnthropicTextProvider) Init(_ context.Context, messages []ChatMessage) errors.E {
 	if a.messages != nil {
 		return errors.WithStack(ErrAlreadyInitialized)
@@ -171,7 +179,7 @@ func (a *AnthropicTextProvider) Init(_ context.Context, messages []ChatMessage) 
 	a.messages = []anthropicMessage{}
 
 	for _, message := range messages {
-		if message.Role == "system" {
+		if message.Role == roleSystem {
 			if a.system != "" {
 				return errors.WithStack(ErrMultipleSystemMessages)
 			}
@@ -236,7 +244,7 @@ func (a *AnthropicTextProvider) Init(_ context.Context, messages []ChatMessage) 
 	return nil
 }
 
-// Chat implements TextProvider interface.
+// Chat implements [TextProvider] interface.
 func (a *AnthropicTextProvider) Chat(ctx context.Context, message ChatMessage) (string, errors.E) { //nolint:maintidx
 	callID := identifier.New().String()
 	logger := zerolog.Ctx(ctx).With().Str("fun", callID).Logger()
@@ -267,7 +275,7 @@ func (a *AnthropicTextProvider) Chat(ctx context.Context, message ChatMessage) (
 
 	if callRecorder != nil {
 		if a.system != "" {
-			callRecorder.addMessage("system", a.system, "", "", false, false, nil)
+			callRecorder.addMessage(roleSystem, a.system, "", "", false, false, nil)
 		}
 
 		for _, message := range messages {
@@ -498,7 +506,7 @@ func (a *AnthropicTextProvider) estimatedTokens(messages []anthropicMessage) int
 	return tokens + 2*anthropicMaxResponseTokens
 }
 
-// InitTools implements WithTools interface.
+// InitTools implements [WithTools] interface.
 func (a *AnthropicTextProvider) InitTools(ctx context.Context, tools map[string]Tooler) errors.E {
 	if a.tools != nil {
 		return errors.WithStack(ErrAlreadyInitialized)

@@ -54,29 +54,49 @@ type TextRecorderCall struct {
 	// Provider for this call.
 	Provider TextProvider `json:"provider"`
 
+	// Messages sent to and received from the AI model. Note that
+	// these messages might have been sent and received multiple times
+	// in multiple requests made (e.g., when using tools).
 	Messages []TextRecorderMessage `json:"messages,omitempty"`
 
-	// UsedTokens for each request made to an AI model.
+	// UsedTokens for each request made to the AI model.
 	UsedTokens map[string]TextRecorderUsedTokens `json:"usedTokens,omitempty"`
 
-	// UsedTime for each request made to an AI model.
+	// UsedTime for each request made to the AI model.
 	UsedTime map[string]TextRecorderUsedTime `json:"usedTime,omitempty"`
 }
 
+// TextRecorderMessage describes one message sent to or received
+// from the AI model.
 type TextRecorderMessage struct {
-	Role        string             `json:"role"`
-	Message     string             `json:"message"`
-	ToolUseID   string             `json:"toolUseId,omitempty"`
-	ToolUseName string             `json:"toolUseName,omitempty"`
-	IsError     bool               `json:"isError,omitempty"`
-	IsRefusal   bool               `json:"isRefusal,omitempty"`
-	Calls       []TextRecorderCall `json:"calls,omitempty"`
+	// Role of the message. Possible values are "system",
+	// "assistant", "user", "tool_use", and "tool_result".
+	Role string `json:"role"`
+
+	// Content is textual content of the message.
+	Content string `json:"content"`
+
+	// ToolUseID is the ID of the tool use to correlate
+	// "tool_use" and "tool_result" messages.
+	ToolUseID string `json:"toolUseId,omitempty"`
+
+	// ToolUseName is the name of the tool used.
+	ToolUseName string `json:"toolUseName,omitempty"`
+
+	// IsError is true if there was an error during tool execution.
+	// In this case, Content is the error message returned to the AI model.
+	IsError bool `json:"isError,omitempty"`
+
+	// IsRefusal is true if the AI model refused to respond.
+	// In this case, Content is the explanation of the refusal.
+	IsRefusal bool               `json:"isRefusal,omitempty"`
+	Calls     []TextRecorderCall `json:"calls,omitempty"`
 }
 
-func (c *TextRecorderCall) addMessage(role, message, toolID, toolName string, isError, isRefusal bool, calls []TextRecorderCall) {
+func (c *TextRecorderCall) addMessage(role, content, toolID, toolName string, isError, isRefusal bool, calls []TextRecorderCall) {
 	c.Messages = append(c.Messages, TextRecorderMessage{
 		Role:        role,
-		Message:     message,
+		Content:     content,
 		ToolUseID:   toolID,
 		ToolUseName: toolName,
 		IsError:     isError,
@@ -114,8 +134,9 @@ func (c *TextRecorderCall) addUsedTime(requestID string, prompt, response time.D
 // TextRecorderCall is a recorder which records all communication
 // with the AI model and track usage.
 //
-// It can be used to record multiple calls, but it is suggested that
-// you create a new instance with [WithTextRecorder] for every call.
+// It can be used to record multiple calls and it can be used concurrently,
+// but it is suggested that you create a new instance with [WithTextRecorder]
+// for every call.
 type TextRecorder struct {
 	mu sync.Mutex
 

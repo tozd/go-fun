@@ -141,7 +141,7 @@ func (g GroqTextProvider) MarshalJSON() ([]byte, error) {
 	return x.MarshalWithoutEscapeHTML(t)
 }
 
-// Init implements TextProvider interface.
+// Init implements [TextProvider] interface.
 func (g *GroqTextProvider) Init(ctx context.Context, messages []ChatMessage) errors.E {
 	if g.messages != nil {
 		return errors.WithStack(ErrAlreadyInitialized)
@@ -276,7 +276,7 @@ func (g *GroqTextProvider) Init(ctx context.Context, messages []ChatMessage) err
 	return nil
 }
 
-// Chat implements TextProvider interface.
+// Chat implements [TextProvider] interface.
 func (g *GroqTextProvider) Chat(ctx context.Context, message ChatMessage) (string, errors.E) {
 	callID := identifier.New().String()
 	logger := zerolog.Ctx(ctx).With().Str("fun", callID).Logger()
@@ -304,7 +304,7 @@ func (g *GroqTextProvider) Chat(ctx context.Context, message ChatMessage) (strin
 
 	if callRecorder != nil {
 		for _, message := range messages {
-			g.recordMessage(callRecorder, message, nil)
+			g.recordMessage(callRecorder, message, nil, false)
 		}
 	}
 
@@ -392,7 +392,7 @@ func (g *GroqTextProvider) Chat(ctx context.Context, message ChatMessage) (strin
 				time.Duration(response.Usage.CompletionTime*float64(time.Second)),
 			)
 
-			g.recordMessage(callRecorder, response.Choices[0].Message, nil)
+			g.recordMessage(callRecorder, response.Choices[0].Message, nil, false)
 		}
 
 		if response.Usage.TotalTokens >= g.MaxContextLength {
@@ -429,6 +429,7 @@ func (g *GroqTextProvider) Chat(ctx context.Context, message ChatMessage) (strin
 			messages = append(messages, response.Choices[0].Message)
 
 			for _, toolCall := range response.Choices[0].Message.ToolCalls {
+				isError := false
 				output, calls, errE := g.callTool(ctx, toolCall)
 				if errE != nil {
 					zerolog.Ctx(ctx).Warn().Err(errE).Str("name", toolCall.Function.Name).Str("apiRequest", requestID).
@@ -440,6 +441,7 @@ func (g *GroqTextProvider) Chat(ctx context.Context, message ChatMessage) (strin
 						ToolCalls:  nil,
 						ToolCallID: toolCall.ID,
 					})
+					isError = true
 				} else {
 					messages = append(messages, groqMessage{
 						Role:       roleTool,
@@ -450,7 +452,7 @@ func (g *GroqTextProvider) Chat(ctx context.Context, message ChatMessage) (strin
 				}
 
 				if callRecorder != nil {
-					g.recordMessage(callRecorder, messages[len(messages)-1], calls)
+					g.recordMessage(callRecorder, messages[len(messages)-1], calls, isError)
 				}
 			}
 
@@ -494,7 +496,7 @@ func (g *GroqTextProvider) maxResponseTokens(model groqModel) int {
 	return g.maxContextLength(model)
 }
 
-// InitTools implements WithTools interface.
+// InitTools implements [WithTools] interface.
 func (g *GroqTextProvider) InitTools(ctx context.Context, tools map[string]Tooler) errors.E {
 	if g.tools != nil {
 		return errors.WithStack(ErrAlreadyInitialized)
@@ -549,10 +551,10 @@ func (g *GroqTextProvider) callTool(ctx context.Context, toolCall groqToolCall) 
 	return output, GetTextRecorder(ctx).Calls(), errE
 }
 
-func (g *GroqTextProvider) recordMessage(recorder *TextRecorderCall, message groqMessage, calls []TextRecorderCall) {
+func (g *GroqTextProvider) recordMessage(recorder *TextRecorderCall, message groqMessage, calls []TextRecorderCall, isError bool) {
 	if message.Role == roleTool {
 		if message.Content != nil {
-			recorder.addMessage(roleToolResult, *message.Content, message.ToolCallID, "", false, false, calls)
+			recorder.addMessage(roleToolResult, *message.Content, message.ToolCallID, "", isError, false, calls)
 		}
 	} else {
 		if message.Content != nil {

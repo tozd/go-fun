@@ -103,7 +103,7 @@ func (o OllamaTextProvider) MarshalJSON() ([]byte, error) {
 	return x.MarshalWithoutEscapeHTML(t)
 }
 
-// Init implements TextProvider interface.
+// Init implements [TextProvider] interface.
 func (o *OllamaTextProvider) Init(ctx context.Context, messages []ChatMessage) errors.E {
 	if o.client != nil {
 		return errors.WithStack(ErrAlreadyInitialized)
@@ -195,7 +195,7 @@ func (o *OllamaTextProvider) Init(ctx context.Context, messages []ChatMessage) e
 	return nil
 }
 
-// Chat implements TextProvider interface.
+// Chat implements [TextProvider] interface.
 func (o *OllamaTextProvider) Chat(ctx context.Context, message ChatMessage) (string, errors.E) {
 	callID := identifier.New().String()
 	logger := zerolog.Ctx(ctx).With().Str("fun", callID).Logger()
@@ -223,7 +223,7 @@ func (o *OllamaTextProvider) Chat(ctx context.Context, message ChatMessage) (str
 
 	if callRecorder != nil {
 		for _, message := range messages {
-			o.recordMessage(callRecorder, message, nil, "")
+			o.recordMessage(callRecorder, message, nil, "", false)
 		}
 	}
 
@@ -287,7 +287,7 @@ func (o *OllamaTextProvider) Chat(ctx context.Context, message ChatMessage) (str
 				responses[0].Metrics.EvalDuration,
 			)
 
-			o.recordMessage(callRecorder, responses[0].Message, nil, toolIDPrefix)
+			o.recordMessage(callRecorder, responses[0].Message, nil, toolIDPrefix, false)
 		}
 
 		if responses[0].Metrics.PromptEvalCount+responses[0].Metrics.EvalCount >= o.MaxContextLength {
@@ -325,7 +325,7 @@ func (o *OllamaTextProvider) Chat(ctx context.Context, message ChatMessage) (str
 
 			for i, toolCall := range responses[0].Message.ToolCalls {
 				toolID := fmt.Sprintf("%s_%d", toolIDPrefix, i)
-
+				isError := false
 				output, calls, errE := o.callTool(ctx, toolCall, toolID)
 				if errE != nil {
 					zerolog.Ctx(ctx).Warn().Err(errE).Str("name", toolCall.Function.Name).Str("apiRequest", apiRequest).
@@ -337,6 +337,7 @@ func (o *OllamaTextProvider) Chat(ctx context.Context, message ChatMessage) (str
 						Images:    nil,
 						ToolCalls: nil,
 					})
+					isError = true
 				} else {
 					messages = append(messages, api.Message{
 						Role:      roleTool,
@@ -347,7 +348,7 @@ func (o *OllamaTextProvider) Chat(ctx context.Context, message ChatMessage) (str
 				}
 
 				if callRecorder != nil {
-					o.recordMessage(callRecorder, messages[len(messages)-1], calls, toolID)
+					o.recordMessage(callRecorder, messages[len(messages)-1], calls, toolID, isError)
 				}
 			}
 
@@ -358,7 +359,7 @@ func (o *OllamaTextProvider) Chat(ctx context.Context, message ChatMessage) (str
 	}
 }
 
-// InitTools implements WithTools interface.
+// InitTools implements [WithTools] interface.
 func (o *OllamaTextProvider) InitTools(ctx context.Context, tools map[string]Tooler) errors.E {
 	if o.tools != nil {
 		return errors.WithStack(ErrAlreadyInitialized)
@@ -439,10 +440,10 @@ func (o *OllamaTextProvider) callTool(ctx context.Context, toolCall api.ToolCall
 	return output, GetTextRecorder(ctx).Calls(), errE
 }
 
-func (o *OllamaTextProvider) recordMessage(recorder *TextRecorderCall, message api.Message, calls []TextRecorderCall, toolID string) {
+func (o *OllamaTextProvider) recordMessage(recorder *TextRecorderCall, message api.Message, calls []TextRecorderCall, toolID string, isError bool) {
 	if message.Role == roleTool {
 		// In roleToolResult messages, toolID is toolID itself.
-		recorder.addMessage(roleToolResult, message.Content, toolID, "", false, false, calls)
+		recorder.addMessage(roleToolResult, message.Content, toolID, "", isError, false, calls)
 	} else if message.Content != "" || len(message.ToolCalls) == 0 {
 		// Often with ToolCalls present, the content is empty and we do not record the content in that case.
 		// But we do want to record empty content when there are no ToolCalls.

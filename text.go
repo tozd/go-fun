@@ -23,6 +23,7 @@ const (
 )
 
 const (
+	roleSystem     = "system"
 	roleAssistant  = "assistant"
 	roleUser       = "user"
 	roleTool       = "tool"
@@ -202,7 +203,7 @@ func (t *Text[Input, Output]) Init(ctx context.Context) errors.E {
 	messages := []ChatMessage{}
 	if t.Prompt != "" {
 		messages = append(messages, ChatMessage{
-			Role:    "system",
+			Role:    roleSystem,
 			Content: t.Prompt,
 		})
 	}

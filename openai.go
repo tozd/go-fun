@@ -165,7 +165,7 @@ func (o OpenAITextProvider) MarshalJSON() ([]byte, error) {
 	return x.MarshalWithoutEscapeHTML(t)
 }
 
-// Init implements TextProvider interface.
+// Init implements [TextProvider] interface.
 func (o *OpenAITextProvider) Init(_ context.Context, messages []ChatMessage) errors.E {
 	if o.messages != nil {
 		return errors.WithStack(ErrAlreadyInitialized)
@@ -229,7 +229,7 @@ func (o *OpenAITextProvider) Init(_ context.Context, messages []ChatMessage) err
 	return nil
 }
 
-// Chat implements TextProvider interface.
+// Chat implements [TextProvider] interface.
 func (o *OpenAITextProvider) Chat(ctx context.Context, message ChatMessage) (string, errors.E) { //nolint:maintidx
 	callID := identifier.New().String()
 	logger := zerolog.Ctx(ctx).With().Str("fun", callID).Logger()
@@ -258,7 +258,7 @@ func (o *OpenAITextProvider) Chat(ctx context.Context, message ChatMessage) (str
 
 	if callRecorder != nil {
 		for _, message := range messages {
-			o.recordMessage(callRecorder, message, nil)
+			o.recordMessage(callRecorder, message, nil, false)
 		}
 	}
 
@@ -355,7 +355,7 @@ func (o *OpenAITextProvider) Chat(ctx context.Context, message ChatMessage) (str
 				response.Usage.CompletionTokens,
 			)
 
-			o.recordMessage(callRecorder, response.Choices[0].Message, nil)
+			o.recordMessage(callRecorder, response.Choices[0].Message, nil, false)
 		}
 
 		if response.Usage.TotalTokens >= o.MaxContextLength {
@@ -392,6 +392,7 @@ func (o *OpenAITextProvider) Chat(ctx context.Context, message ChatMessage) (str
 			messages = append(messages, response.Choices[0].Message)
 
 			for _, toolCall := range response.Choices[0].Message.ToolCalls {
+				isError := false
 				output, calls, errE := o.callTool(ctx, toolCall)
 				if errE != nil {
 					zerolog.Ctx(ctx).Warn().Err(errE).Str("name", toolCall.Function.Name).Str("apiRequest", apiRequest).
@@ -404,6 +405,7 @@ func (o *OpenAITextProvider) Chat(ctx context.Context, message ChatMessage) (str
 						ToolCalls:  nil,
 						ToolCallID: toolCall.ID,
 					})
+					isError = true
 				} else {
 					messages = append(messages, openAIMessage{
 						Role:       roleTool,
@@ -415,7 +417,7 @@ func (o *OpenAITextProvider) Chat(ctx context.Context, message ChatMessage) (str
 				}
 
 				if callRecorder != nil {
-					o.recordMessage(callRecorder, messages[len(messages)-1], calls)
+					o.recordMessage(callRecorder, messages[len(messages)-1], calls, isError)
 				}
 			}
 
@@ -449,7 +451,7 @@ func (o *OpenAITextProvider) Chat(ctx context.Context, message ChatMessage) (str
 	}
 }
 
-// InitOutputJSONSchema implements WithOutputJSONSchema interface.
+// InitOutputJSONSchema implements [WithOutputJSONSchema] interface.
 func (o *OpenAITextProvider) InitOutputJSONSchema(_ context.Context, schema []byte) errors.E {
 	if !o.ForceOutputJSONSchema {
 		return nil
@@ -479,7 +481,7 @@ func (o *OpenAITextProvider) InitOutputJSONSchema(_ context.Context, schema []by
 	return nil
 }
 
-// InitTools implements WithTools interface.
+// InitTools implements [WithTools] interface.
 func (o *OpenAITextProvider) InitTools(ctx context.Context, tools map[string]Tooler) errors.E {
 	if o.tools != nil {
 		return errors.WithStack(ErrAlreadyInitialized)
@@ -535,10 +537,10 @@ func (o *OpenAITextProvider) callTool(ctx context.Context, toolCall openAIToolCa
 	return output, GetTextRecorder(ctx).Calls(), errE
 }
 
-func (o *OpenAITextProvider) recordMessage(recorder *TextRecorderCall, message openAIMessage, calls []TextRecorderCall) {
+func (o *OpenAITextProvider) recordMessage(recorder *TextRecorderCall, message openAIMessage, calls []TextRecorderCall, isError bool) {
 	if message.Role == roleTool {
 		if message.Content != nil {
-			recorder.addMessage(roleToolResult, *message.Content, message.ToolCallID, "", false, false, calls)
+			recorder.addMessage(roleToolResult, *message.Content, message.ToolCallID, "", isError, false, calls)
 		}
 	} else {
 		if message.Content != nil {
