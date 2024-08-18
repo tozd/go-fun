@@ -223,7 +223,7 @@ func (o *OllamaTextProvider) Chat(ctx context.Context, message ChatMessage) (str
 
 	if callRecorder != nil {
 		for _, message := range messages {
-			o.recordMessage(callRecorder, message, nil)
+			o.recordMessage(callRecorder, message, nil, "")
 		}
 	}
 
@@ -271,6 +271,8 @@ func (o *OllamaTextProvider) Chat(ctx context.Context, message ChatMessage) (str
 			)
 		}
 
+		toolIDPrefix := fmt.Sprintf("call_%d", len(messages))
+
 		if callRecorder != nil {
 			callRecorder.addUsedTokens(
 				apiRequest,
@@ -285,7 +287,7 @@ func (o *OllamaTextProvider) Chat(ctx context.Context, message ChatMessage) (str
 				responses[0].Metrics.EvalDuration,
 			)
 
-			o.recordMessage(callRecorder, responses[0].Message, nil)
+			o.recordMessage(callRecorder, responses[0].Message, nil, toolIDPrefix)
 		}
 
 		if responses[0].Metrics.PromptEvalCount+responses[0].Metrics.EvalCount >= o.MaxContextLength {
@@ -322,7 +324,9 @@ func (o *OllamaTextProvider) Chat(ctx context.Context, message ChatMessage) (str
 			messages = append(messages, responses[0].Message)
 
 			for i, toolCall := range responses[0].Message.ToolCalls {
-				output, calls, errE := o.callTool(ctx, toolCall, i)
+				toolID := fmt.Sprintf("%s_%d", toolIDPrefix, i)
+
+				output, calls, errE := o.callTool(ctx, toolCall, toolID)
 				if errE != nil {
 					zerolog.Ctx(ctx).Warn().Err(errE).Str("name", toolCall.Function.Name).Str("apiRequest", apiRequest).
 						Str("tool", strconv.Itoa(i)).RawJSON("input", json.RawMessage(toolCall.Function.Arguments.String())).Msg("tool error")
@@ -343,7 +347,7 @@ func (o *OllamaTextProvider) Chat(ctx context.Context, message ChatMessage) (str
 				}
 
 				if callRecorder != nil {
-					o.recordMessage(callRecorder, messages[len(messages)-1], calls)
+					o.recordMessage(callRecorder, messages[len(messages)-1], calls, toolID)
 				}
 			}
 
@@ -414,13 +418,13 @@ func (o *OllamaTextProvider) InitTools(ctx context.Context, tools map[string]Too
 	return nil
 }
 
-func (o *OllamaTextProvider) callTool(ctx context.Context, toolCall api.ToolCall, i int) (string, []TextRecorderCall, errors.E) {
+func (o *OllamaTextProvider) callTool(ctx context.Context, toolCall api.ToolCall, toolID string) (string, []TextRecorderCall, errors.E) {
 	tool, ok := o.toolers[toolCall.Function.Name]
 	if !ok {
 		return "", nil, errors.Errorf("%w: %s", ErrToolNotFound, toolCall.Function.Name)
 	}
 
-	logger := zerolog.Ctx(ctx).With().Str("tool", strconv.Itoa(i)).Logger()
+	logger := zerolog.Ctx(ctx).With().Str("tool", toolID).Logger()
 	ctx = logger.WithContext(ctx)
 
 	if recorder := GetTextRecorder(ctx); recorder != nil {
@@ -435,16 +439,17 @@ func (o *OllamaTextProvider) callTool(ctx context.Context, toolCall api.ToolCall
 	return output, GetTextRecorder(ctx).Calls(), errE
 }
 
-func (o *OllamaTextProvider) recordMessage(recorder *TextRecorderCall, message api.Message, calls []TextRecorderCall) {
+func (o *OllamaTextProvider) recordMessage(recorder *TextRecorderCall, message api.Message, calls []TextRecorderCall, toolID string) {
 	if message.Role == roleTool {
-		// TODO: How to provide our tool call ID (the "i" parameter to callTool method).
-		recorder.addMessage(roleToolResult, message.Content, "", "", false, false, calls)
+		// In roleToolResult messages, toolID is toolID itself.
+		recorder.addMessage(roleToolResult, message.Content, toolID, "", false, false, calls)
 	} else if message.Content != "" || len(message.ToolCalls) == 0 {
 		// Often with ToolCalls present, the content is empty and we do not record the content in that case.
 		// But we do want to record empty content when there are no ToolCalls.
 		recorder.addMessage(message.Role, message.Content, "", "", false, false, calls)
 	}
 	for i, tool := range message.ToolCalls {
-		recorder.addMessage(roleToolUse, tool.Function.Arguments.String(), strconv.Itoa(i), tool.Function.Name, false, false, calls)
+		// In roleToolUse messages, toolID is the prefix to use.
+		recorder.addMessage(roleToolUse, tool.Function.Arguments.String(), fmt.Sprintf("%s_%d", toolID, i), tool.Function.Name, false, false, calls)
 	}
 }
