@@ -2,6 +2,7 @@ package fun_test
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"os"
 	"slices"
@@ -618,6 +619,15 @@ func TestTextTools(t *testing.T) { //nolint:paralleltest,tparallel
 			func(t *testing.T, recorder *fun.TextRecorder, providerName string) {
 				t.Helper()
 
+				// Debug.
+				calls := recorder.Calls()
+				callsJSON, err := json.MarshalIndent(calls, "", "  ")
+				if err != nil {
+					require.NoError(t, err)
+				}
+				fmt.Println(string(callsJSON))
+				assert.False(t, true)
+
 				if assert.Len(t, recorder.Calls(), 1) {
 					usedTool := 0
 					for _, message := range recorder.Calls()[0].Messages {
@@ -627,9 +637,9 @@ func TestTextTools(t *testing.T) { //nolint:paralleltest,tparallel
 					}
 					if providerName == "groq" {
 						// For some reason groq calls the tool twice.
-						assert.Equal(t, 4, usedTool, recorder.Calls()[0].Messages) 
+						assert.Equal(t, 4, usedTool, recorder.Calls()[0].Messages)
 					} else {
-						assert.Equal(t, 2, usedTool, recorder.Calls()[0].Messages) 
+						assert.Equal(t, 2, usedTool, recorder.Calls()[0].Messages)
 					}
 
 					if providerName == "anthropic" {
