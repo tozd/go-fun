@@ -80,11 +80,13 @@ func ExampleTool() {
 	}
 	fmt.Println(output)
 
-	messages := fun.GetTextProviderRecorder(ctx).Messages()
+	messages := fun.GetTextProviderRecorder(ctx).Calls()[0].Messages
 	// We change call IDs to some deterministic for the example to be deterministic.
 	for _, message := range messages {
-		if _, ok := message["id"]; ok {
-			message["id"] = "call_123"
+		if m, ok := message.(fun.TextProviderRecorderMessage); ok {
+			if _, ok := m["id"]; ok {
+				m["id"] = "call_123"
+			}
 		}
 	}
 
@@ -99,26 +101,31 @@ func ExampleTool() {
 	// [
 	//   {
 	//     "message": "Sum numbers together. Output only the number.",
-	//     "role": "system"
+	//     "role": "system",
+	//     "type": "message"
 	//   },
 	//   {
 	//     "message": "[38,4]",
-	//     "role": "user"
+	//     "role": "user",
+	//     "type": "message"
 	//   },
 	//   {
 	//     "id": "call_123",
 	//     "message": "{\"numbers\":[38,4]}",
 	//     "name": "sum_numbers",
-	//     "role": "tool_use"
+	//     "role": "tool_use",
+	//     "type": "message"
 	//   },
 	//   {
 	//     "id": "call_123",
 	//     "message": "42",
-	//     "role": "tool_result"
+	//     "role": "tool_result",
+	//     "type": "message"
 	//   },
 	//   {
 	//     "message": "42",
-	//     "role": "assistant"
+	//     "role": "assistant",
+	//     "type": "message"
 	//   }
 	// ]
 }

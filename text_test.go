@@ -327,9 +327,13 @@ var tests = []struct {
 			t.Helper()
 
 			if providerName == "groq" {
-				assert.Len(t, recorder.Messages(), 12)
+				if assert.Len(t, recorder.Calls(), 1) {
+					assert.Len(t, recorder.Calls()[0].Messages, 12)
+				}
 			} else {
-				assert.Len(t, recorder.Messages(), 10)
+				if assert.Len(t, recorder.Calls(), 1) {
+					assert.Len(t, recorder.Calls()[0].Messages, 10)
+				}
 			}
 		},
 	},
@@ -348,7 +352,9 @@ var tests = []struct {
 		func(t *testing.T, recorder *fun.TextProviderRecorder, _ string) {
 			t.Helper()
 
-			assert.Len(t, recorder.Messages(), 11)
+			if assert.Len(t, recorder.Calls(), 1) {
+				assert.Len(t, recorder.Calls()[0].Messages, 11)
+			}
 		},
 	},
 	{
@@ -367,9 +373,13 @@ var tests = []struct {
 			t.Helper()
 
 			if providerName == "groq" || providerName == "ollama" {
-				assert.Len(t, recorder.Messages(), 15)
+				if assert.Len(t, recorder.Calls(), 1) {
+					assert.Len(t, recorder.Calls()[0].Messages, 15)
+				}
 			} else {
-				assert.Len(t, recorder.Messages(), 11)
+				if assert.Len(t, recorder.Calls(), 1) {
+					assert.Len(t, recorder.Calls()[0].Messages, 11)
+				}
 			}
 		},
 	},
@@ -472,7 +482,9 @@ func TestText(t *testing.T) { //nolint:paralleltest,tparallel
 			func(t *testing.T, recorder *fun.TextProviderRecorder, _ string) {
 				t.Helper()
 
-				assert.Len(t, recorder.Messages(), 3)
+				if assert.Len(t, recorder.Calls(), 1) {
+					assert.Len(t, recorder.Calls()[0].Messages, 3)
+				}
 			},
 		},
 		{
@@ -504,7 +516,9 @@ func TestText(t *testing.T) { //nolint:paralleltest,tparallel
 			func(t *testing.T, recorder *fun.TextProviderRecorder, _ string) {
 				t.Helper()
 
-				assert.Len(t, recorder.Messages(), 28)
+				if assert.Len(t, recorder.Calls(), 1) {
+					assert.Len(t, recorder.Calls()[0].Messages, 28)
+				}
 			},
 		},
 		{
@@ -539,7 +553,9 @@ func TestText(t *testing.T) { //nolint:paralleltest,tparallel
 			func(t *testing.T, recorder *fun.TextProviderRecorder, _ string) {
 				t.Helper()
 
-				assert.Len(t, recorder.Messages(), 35)
+				if assert.Len(t, recorder.Calls(), 1) {
+					assert.Len(t, recorder.Calls()[0].Messages, 35)
+				}
 			},
 		},
 	}
@@ -573,23 +589,28 @@ func TestTextTools(t *testing.T) { //nolint:paralleltest,tparallel
 			func(t *testing.T, recorder *fun.TextProviderRecorder, providerName string) {
 				t.Helper()
 
-				usedTool := 0
-				for _, message := range recorder.Messages() {
-					if message["role"] == "tool_use" || message["role"] == "tool_result" {
-						usedTool++
+				if assert.Len(t, recorder.Calls(), 1) {
+					usedTool := 0
+					for _, message := range recorder.Calls()[0].Messages {
+						if assert.IsType(t, fun.TextProviderRecorderMessage{}, message) {
+							m := message.(fun.TextProviderRecorderMessage) //nolint:errcheck,forcetypeassert
+							if m["role"] == "tool_use" || m["role"] == "tool_result" {
+								usedTool++
+							}
+						}
 					}
-				}
-				if providerName == "groq" {
-					// For some reason groq calls the tool twice.
-					assert.Equal(t, 4, usedTool, recorder.Messages())
-				} else {
-					assert.Equal(t, 2, usedTool, recorder.Messages())
-				}
+					if providerName == "groq" {
+						// For some reason groq calls the tool twice.
+						assert.Equal(t, 4, usedTool, recorder.Calls()[0].Messages) //nolint:asasalint
+					} else {
+						assert.Equal(t, 2, usedTool, recorder.Calls()[0].Messages) //nolint:asasalint
+					}
 
-				if providerName == "anthropic" {
-					assert.Len(t, recorder.Messages(), 4+usedTool)
-				} else {
-					assert.Len(t, recorder.Messages(), 3+usedTool)
+					if providerName == "anthropic" {
+						assert.Len(t, recorder.Calls()[0].Messages, 4+usedTool)
+					} else {
+						assert.Len(t, recorder.Calls()[0].Messages, 3+usedTool)
+					}
 				}
 			},
 		},

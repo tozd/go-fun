@@ -25,31 +25,19 @@ type TextProviderRecorderUsedTime struct {
 	Total    time.Duration `json:"total"`
 }
 
-type TextProviderRecorder struct {
-	mu sync.Mutex
-
-	id         string
-	messages   []map[string]string
-	usedTokens map[string]TextProviderRecorderUsedTokens
-	usedTime   map[string]TextProviderRecorderUsedTime
+type TextProviderRecorderCall struct {
+	ID         string                                    `json:"id"`
+	Type       string                                    `json:"type"`
+	Messages   []any                                     `json:"messages,omitempty"`
+	UsedTokens map[string]TextProviderRecorderUsedTokens `json:"usedTokens,omitempty"` //nolint:tagliatelle
+	UsedTime   map[string]TextProviderRecorderUsedTime   `json:"usedTime,omitempty"`   //nolint:tagliatelle
 }
 
-func (t *TextProviderRecorder) setID(id string) {
-	t.mu.Lock()
-	defer t.mu.Unlock()
+type TextProviderRecorderMessage map[string]string
 
-	t.id = id
-}
-
-func (t *TextProviderRecorder) ID() string {
-	t.mu.Lock()
-	defer t.mu.Unlock()
-
-	return t.id
-}
-
-func (t *TextProviderRecorder) addMessage(role, message string, params ...string) {
-	m := map[string]string{
+func (c *TextProviderRecorderCall) addMessage(role, message string, params ...string) {
+	m := TextProviderRecorderMessage{
+		"type":    "message",
 		"role":    role,
 		"message": message,
 	}
@@ -62,28 +50,19 @@ func (t *TextProviderRecorder) addMessage(role, message string, params ...string
 		m[params[i]] = params[i+1]
 	}
 
-	t.mu.Lock()
-	defer t.mu.Unlock()
-
-	t.messages = append(t.messages, m)
+	c.Messages = append(c.Messages, m)
 }
 
-func (t *TextProviderRecorder) Messages() []map[string]string {
-	t.mu.Lock()
-	defer t.mu.Unlock()
-
-	return t.messages
+func (c *TextProviderRecorderCall) addCall(call TextProviderRecorderCall) {
+	c.Messages = append(c.Messages, call)
 }
 
-func (t *TextProviderRecorder) addUsedTokens(requestID string, maxTotal, maxResponse, prompt, response int) {
-	t.mu.Lock()
-	defer t.mu.Unlock()
-
-	if t.usedTokens == nil {
-		t.usedTokens = map[string]TextProviderRecorderUsedTokens{}
+func (c *TextProviderRecorderCall) addUsedTokens(requestID string, maxTotal, maxResponse, prompt, response int) {
+	if c.UsedTokens == nil {
+		c.UsedTokens = map[string]TextProviderRecorderUsedTokens{}
 	}
 
-	t.usedTokens[requestID] = TextProviderRecorderUsedTokens{
+	c.UsedTokens[requestID] = TextProviderRecorderUsedTokens{
 		MaxTotal:    maxTotal,
 		MaxResponse: maxResponse,
 		Prompt:      prompt,
@@ -92,33 +71,79 @@ func (t *TextProviderRecorder) addUsedTokens(requestID string, maxTotal, maxResp
 	}
 }
 
-func (t *TextProviderRecorder) UsedTokens() map[string]TextProviderRecorderUsedTokens {
-	t.mu.Lock()
-	defer t.mu.Unlock()
-
-	return t.usedTokens
-}
-
-func (t *TextProviderRecorder) addUsedTime(requestID string, prompt, response time.Duration) {
-	t.mu.Lock()
-	defer t.mu.Unlock()
-
-	if t.usedTime == nil {
-		t.usedTime = map[string]TextProviderRecorderUsedTime{}
+func (c *TextProviderRecorderCall) addUsedTime(requestID string, prompt, response time.Duration) {
+	if c.UsedTime == nil {
+		c.UsedTime = map[string]TextProviderRecorderUsedTime{}
 	}
 
-	t.usedTime[requestID] = TextProviderRecorderUsedTime{
+	c.UsedTime[requestID] = TextProviderRecorderUsedTime{
 		Prompt:   prompt,
 		Response: response,
 		Total:    prompt + response,
 	}
 }
 
-func (t *TextProviderRecorder) UsedTime() map[string]TextProviderRecorderUsedTime {
+type TextProviderRecorder struct {
+	mu sync.Mutex
+
+	stack         []*TextProviderRecorderCall
+	topLevelCalls []TextProviderRecorderCall
+}
+
+func (t *TextProviderRecorder) pushCall(id string) {
 	t.mu.Lock()
 	defer t.mu.Unlock()
 
-	return t.usedTime
+	call := &TextProviderRecorderCall{
+		ID:         id,
+		Type:       "call",
+		Messages:   nil,
+		UsedTokens: nil,
+		UsedTime:   nil,
+	}
+
+	t.stack = append(t.stack, call)
+}
+
+func (t *TextProviderRecorder) popCall() {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+
+	call := t.stack[len(t.stack)-1]
+	t.stack = t.stack[:len(t.stack)-1]
+	if len(t.stack) == 0 {
+		t.topLevelCalls = append(t.topLevelCalls, *call)
+	} else {
+		t.stack[len(t.stack)-1].addCall(*call)
+	}
+}
+
+func (t *TextProviderRecorder) Calls() []TextProviderRecorderCall {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+
+	return t.topLevelCalls
+}
+
+func (t *TextProviderRecorder) addMessage(role, message string, params ...string) {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+
+	t.stack[len(t.stack)-1].addMessage(role, message, params...)
+}
+
+func (t *TextProviderRecorder) addUsedTokens(requestID string, maxTotal, maxResponse, prompt, response int) {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+
+	t.stack[len(t.stack)-1].addUsedTokens(requestID, maxTotal, maxResponse, prompt, response)
+}
+
+func (t *TextProviderRecorder) addUsedTime(requestID string, prompt, response time.Duration) {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+
+	t.stack[len(t.stack)-1].addUsedTime(requestID, prompt, response)
 }
 
 func WithTextProviderRecorder(ctx context.Context) context.Context {

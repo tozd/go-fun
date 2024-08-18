@@ -17,7 +17,7 @@ Features:
 - Provides [OpenAI](https://openai.com/), [Groq](https://groq.com/), [Anthropic](https://www.anthropic.com/) and
   [Ollama](https://ollama.com/) integrations for AI (LLM) models.
 - Support for tool calling which transparently calls into Go functions with Go structs and values
-  as inputs and outputs.
+  as inputs and outputs. Recursion possible.
 - Uses adaptive rate limiting to maximize throughput of API calls made to integrated AI models.
 - Provides a CLI tool `fun` which makes it easy to run data-defined and description-defined functions on files.
 

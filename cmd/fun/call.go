@@ -356,27 +356,13 @@ func (c *CallCommand) processFile(ctx context.Context, fn fun.Callee[string, str
 
 	ctx = fun.WithTextProviderRecorder(ctx)
 	defer func() {
-		e := zerolog.Ctx(ctx).Debug() //nolint:zerologlint
+		e := zerolog.Ctx(ctx).Debug()
 		if e.Enabled() {
 			recorder := fun.GetTextProviderRecorder(ctx)
-			hasData := false
-			messages := recorder.Messages()
-			if len(messages) > 0 {
-				e = e.Interface("messages", messages)
-				hasData = true
-			}
-			usedTime := recorder.UsedTime()
-			if len(usedTime) > 0 {
-				e = e.Interface("usedTime", usedTime)
-				hasData = true
-			}
-			usedTokens := recorder.UsedTokens()
-			if len(usedTokens) > 0 {
-				e = e.Interface("usedTokens", usedTokens)
-				hasData = true
-			}
-			if hasData {
-				e.Str("model", c.Model).Str("provider", c.Provider).Msg("call")
+			calls := recorder.Calls()
+			if len(calls) > 0 {
+				e.Interface("calls", recorder.Calls()).
+					Str("model", c.Model).Str("provider", c.Provider).Msg("call")
 			}
 		}
 	}()
