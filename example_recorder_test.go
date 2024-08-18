@@ -7,40 +7,31 @@ import (
 	"log"
 	"os"
 
-	"gitlab.com/tozd/go/errors"
-
 	"gitlab.com/tozd/go/fun"
 )
 
-var (
-	// It has to be an object and not just an array of numbers.
-	// This is current limitation of AI providers.
-	jsonSchemaNumbers = []byte(`
-		{
-			"type": "object",
-			"properties": {
-				"numbers": {"type": "array", "items": {"type": "number"}}
-			},
-			"additionalProperties": false,
-			"required": [
-				"numbers"
-			]
-		}
-	`)
-	jsonSchemaNumber = []byte(`{"type": "integer"}`)
-)
-
-type toolInput struct {
-	Numbers []float64 `json:"numbers"`
-}
-
-func ExampleTool() {
-	if os.Getenv("OPENAI_API_KEY") == "" {
+func ExampleTextProviderRecorder() {
+	if os.Getenv("ANTHROPIC_API_KEY") == "" || os.Getenv("OPENAI_API_KEY") == "" {
 		fmt.Println("skipped")
 		return
 	}
 
 	ctx := context.Background()
+
+	// We can define a tool implementation with another model.
+	tool := fun.Text[toolInput, float64]{
+		Provider: &fun.AnthropicTextProvider{
+			APIKey: os.Getenv("ANTHROPIC_API_KEY"),
+			Model:  "claude-3-haiku-20240307",
+		},
+		InputJSONSchema:  jsonSchemaNumbers,
+		OutputJSONSchema: jsonSchemaNumber,
+		Prompt:           `Sum numbers together. Output only the number.`,
+	}
+	errE := tool.Init(ctx)
+	if errE != nil {
+		log.Fatalf("% -+#.1v\n", errE)
+	}
 
 	f := fun.Text[int, int]{
 		Provider: &fun.OpenAITextProvider{
@@ -56,17 +47,12 @@ func ExampleTool() {
 				Description:      "Sums numbers together.",
 				InputJSONSchema:  jsonSchemaNumbers,
 				OutputJSONSchema: jsonSchemaNumber,
-				Fun: func(_ context.Context, input toolInput) (float64, errors.E) {
-					res := 0.0
-					for _, n := range input.Numbers {
-						res += n
-					}
-					return res, nil
-				},
+				// Here we provide the tool implemented with another model.
+				Fun: tool.Unary(),
 			},
 		},
 	}
-	errE := f.Init(ctx)
+	errE = f.Init(ctx)
 	if errE != nil {
 		log.Fatalf("% -+#.1v\n", errE)
 	}
@@ -82,11 +68,16 @@ func ExampleTool() {
 
 	messages := fun.GetTextProviderRecorder(ctx).Calls()[0].Messages
 	// We change messages a bit for the example to be deterministic.
-	for _, message := range messages {
-		if m, ok := message.(fun.TextProviderRecorderMessage); ok {
+	for i, message := range messages {
+		switch m := message.(type) {
+		case fun.TextProviderRecorderMessage:
 			if _, ok := m["id"]; ok {
 				m["id"] = "call_123"
 			}
+		case fun.TextProviderRecorderCall:
+			m.ID = "456"
+			m.UsedTokens = nil
+			messages[i] = m
 		}
 	}
 
@@ -115,6 +106,27 @@ func ExampleTool() {
 	//     "name": "sum_numbers",
 	//     "role": "tool_use",
 	//     "type": "message"
+	//   },
+	//   {
+	//     "id": "456",
+	//     "type": "call",
+	//     "messages": [
+	//       {
+	//         "message": "Sum numbers together. Output only the number.",
+	//         "role": "system",
+	//         "type": "message"
+	//       },
+	//       {
+	//         "message": "[{\"numbers\":[38,4]}]",
+	//         "role": "user",
+	//         "type": "message"
+	//       },
+	//       {
+	//         "message": "42",
+	//         "role": "assistant",
+	//         "type": "message"
+	//       }
+	//     ]
 	//   },
 	//   {
 	//     "id": "call_123",
