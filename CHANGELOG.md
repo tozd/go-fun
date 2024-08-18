@@ -11,6 +11,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Store recorded AI model calls into `.error` files as well.
 
+### Fixed
+
+- Support empty messages in `AnthropicTextProvider`.
+
 ## [0.4.0] - 2024-08-18
 
 ### Added

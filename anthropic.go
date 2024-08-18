@@ -42,13 +42,13 @@ type anthropicRequest struct {
 
 type anthropicContent struct {
 	Type      string          `json:"type"`
-	Text      string          `json:"text,omitempty"`
+	Text      *string         `json:"text,omitempty"`
 	ID        string          `json:"id,omitempty"`
 	Name      string          `json:"name,omitempty"`
 	Input     json.RawMessage `json:"input,omitempty"`
 	ToolUseID string          `json:"tool_use_id,omitempty"`
 	IsError   bool            `json:"is_error,omitempty"`
-	Content   string          `json:"content,omitempty"`
+	Content   *string         `json:"content,omitempty"`
 }
 
 type anthropicResponse struct {
@@ -190,7 +190,7 @@ func (a *AnthropicTextProvider) Init(_ context.Context, messages []ChatMessage) 
 				Content: []anthropicContent{
 					{ //nolint:exhaustruct
 						Type: typeText,
-						Text: message.Content,
+						Text: &message.Content,
 					},
 				},
 			})
@@ -268,7 +268,7 @@ func (a *AnthropicTextProvider) Chat(ctx context.Context, message ChatMessage) (
 		Content: []anthropicContent{
 			{ //nolint:exhaustruct
 				Type: typeText,
-				Text: message.Content,
+				Text: &message.Content,
 			},
 		},
 	})
@@ -418,17 +418,18 @@ func (a *AnthropicTextProvider) Chat(ctx context.Context, message ChatMessage) (
 							e = e.RawJSON("input", content.Input)
 						}
 						e.Msg("tool error")
+						c := errE.Error()
 						outputContent = append(outputContent, anthropicContent{ //nolint:exhaustruct
 							Type:      roleToolResult,
 							ToolUseID: content.ID,
 							IsError:   true,
-							Content:   errE.Error(),
+							Content:   &c,
 						})
 					} else {
 						outputContent = append(outputContent, anthropicContent{ //nolint:exhaustruct
 							Type:      roleToolResult,
 							ToolUseID: content.ID,
-							Content:   output,
+							Content:   &output,
 						})
 					}
 					outputCalls = append(outputCalls, calls)
@@ -483,7 +484,14 @@ func (a *AnthropicTextProvider) Chat(ctx context.Context, message ChatMessage) (
 			)
 		}
 
-		return response.Content[0].Text, nil
+		if response.Content[0].Text == nil {
+			return "", errors.WithDetails(
+				ErrUnexpectedMessageType,
+				"apiRequest", apiRequest,
+			)
+		}
+
+		return *response.Content[0].Text, nil
 	}
 }
 
@@ -493,9 +501,13 @@ func (a *AnthropicTextProvider) estimatedTokens(messages []anthropicMessage) int
 	tokens := 0
 	for _, message := range messages {
 		for _, content := range message.Content {
-			tokens += len(content.Text) / 4    //nolint:gomnd
-			tokens += len(content.Input) / 4   //nolint:gomnd
-			tokens += len(content.Content) / 4 //nolint:gomnd
+			if content.Text != nil {
+				tokens += len(*content.Text) / 4 //nolint:gomnd
+			}
+			tokens += len(content.Input) / 4 //nolint:gomnd
+			if content.Content != nil {
+				tokens += len(*content.Content) / 4 //nolint:gomnd
+			}
 		}
 	}
 	if a.system != "" {
@@ -566,11 +578,15 @@ func (a *AnthropicTextProvider) recordMessage(recorder *TextRecorderCall, messag
 		}
 		switch content.Type {
 		case typeText:
-			recorder.addMessage(message.Role, content.Text, "", "", false, false, nil)
+			if content.Text != nil {
+				recorder.addMessage(message.Role, *content.Text, "", "", false, false, nil)
+			}
 		case roleToolUse:
 			recorder.addMessage(roleToolUse, string(content.Input), content.ID, content.Name, false, false, nil)
 		case roleToolResult:
-			recorder.addMessage(roleToolResult, content.Content, content.ToolUseID, "", content.IsError, false, calls)
+			if content.Content != nil {
+				recorder.addMessage(roleToolResult, *content.Content, content.ToolUseID, "", content.IsError, false, calls)
+			}
 		}
 	}
 }
