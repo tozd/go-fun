@@ -272,7 +272,9 @@ func (c *CallCommand) Run(logger zerolog.Logger) errors.E { //nolint:maintidx
 	return errE
 }
 
-func (c *CallCommand) processFile(ctx context.Context, fn fun.Callee[string, string], inputPath, outputPath string) (errored bool, errE errors.E) { //nolint:nonamedreturns
+func (c *CallCommand) processFile( //nolint:nonamedreturns
+	ctx context.Context, fn fun.Callee[string, string], inputPath, outputPath string,
+) (errored bool, errE errors.E) {
 	// Was there an output error?
 	var errorErrE errors.E
 	// Is output invalid?
