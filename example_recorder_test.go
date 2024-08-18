@@ -132,7 +132,7 @@ func ExampleTextRecorder() {
 	//               }
 	//             ],
 	//             "usedTokens": {
-	//               "req_2_1": {
+	//               "req_2_0": {
 	//                 "maxTotal": 8208,
 	//                 "maxResponse": 4096,
 	//                 "prompt": 26,
@@ -149,14 +149,14 @@ func ExampleTextRecorder() {
 	//       }
 	//     ],
 	//     "usedTokens": {
-	//       "req_1_1": {
+	//       "req_1_0": {
 	//         "maxTotal": 128000,
 	//         "maxResponse": 16384,
 	//         "prompt": 57,
 	//         "response": 16,
 	//         "total": 73
 	//       },
-	//       "req_1_2": {
+	//       "req_1_1": {
 	//         "maxTotal": 128000,
 	//         "maxResponse": 16384,
 	//         "prompt": 82,

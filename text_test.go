@@ -461,11 +461,15 @@ func cleanCall(call fun.TextRecorderCall, d *int) fun.TextRecorderCall {
 
 	call.ID = fmt.Sprintf("id_%d", callID)
 
+	usedTokensSlice := []fun.TextRecorderUsedTokens{}
+	for _, tokens := range call.UsedTokens {
+		usedTokensSlice = append(usedTokensSlice, tokens)
+	}
+	slices.SortStableFunc(usedTokensSlice, func(a, b fun.TextRecorderUsedTokens) int {
+		return a.Total - b.Total
+	})
 	usedTokens := map[string]fun.TextRecorderUsedTokens{}
-	i := 0
-	for req, tokens := range call.UsedTokens {
-		i++
-		delete(call.UsedTokens, req)
+	for i, tokens := range usedTokensSlice {
 		usedTokens[fmt.Sprintf("req_%d_%d", callID, i)] = tokens
 	}
 	call.UsedTokens = usedTokens
