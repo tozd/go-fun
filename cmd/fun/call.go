@@ -379,7 +379,9 @@ func (c *CallCommand) processFile( //nolint:nonamedreturns
 	}()
 
 	output, errE := fn.Call(ctx, string(inputData))
-	if errors.Is(errE, fun.ErrJSONSchemaValidation) {
+	if errors.Is(errE, context.Canceled) || errors.Is(errE, context.DeadlineExceeded) {
+		return false, errE
+	} else if errors.Is(errE, fun.ErrJSONSchemaValidation) {
 		invalidErrE, errE = errE, nil
 		_, err = fInvalid.WriteString(output)
 		return false, errors.WithStack(err)
