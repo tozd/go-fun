@@ -542,12 +542,12 @@ func (o *OpenAITextProvider) recordMessage(recorder *TextRecorderCall, message o
 		}
 	} else {
 		if message.Content != nil {
-			recorder.addMessage(message.Role, *message.Content, "", "", false, false, calls)
+			recorder.addMessage(message.Role, *message.Content, "", "", false, false, nil)
 		} else if message.Refusal != nil {
-			recorder.addMessage(message.Role, *message.Refusal, "", "", false, true, calls)
+			recorder.addMessage(message.Role, *message.Refusal, "", "", false, true, nil)
 		}
 	}
 	for _, tool := range message.ToolCalls {
-		recorder.addMessage(roleToolUse, tool.Function.Arguments, tool.ID, tool.Function.Name, false, false, calls)
+		recorder.addMessage(roleToolUse, tool.Function.Arguments, tool.ID, tool.Function.Name, false, false, nil)
 	}
 }

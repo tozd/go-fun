@@ -558,9 +558,9 @@ func (a *AnthropicTextProvider) recordMessage(recorder *TextRecorderCall, messag
 		}
 		switch content.Type {
 		case typeText:
-			recorder.addMessage(message.Role, content.Text, "", "", false, false, calls)
+			recorder.addMessage(message.Role, content.Text, "", "", false, false, nil)
 		case roleToolUse:
-			recorder.addMessage(roleToolUse, string(content.Input), content.ID, content.Name, false, false, calls)
+			recorder.addMessage(roleToolUse, string(content.Input), content.ID, content.Name, false, false, nil)
 		case roleToolResult:
 			recorder.addMessage(roleToolResult, content.Content, content.ToolUseID, "", content.IsError, false, calls)
 		}

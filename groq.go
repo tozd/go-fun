@@ -556,10 +556,10 @@ func (g *GroqTextProvider) recordMessage(recorder *TextRecorderCall, message gro
 		}
 	} else {
 		if message.Content != nil {
-			recorder.addMessage(message.Role, *message.Content, "", "", false, false, calls)
+			recorder.addMessage(message.Role, *message.Content, "", "", false, false, nil)
 		}
 	}
 	for _, tool := range message.ToolCalls {
-		recorder.addMessage(roleToolUse, tool.Function.Arguments, tool.ID, tool.Function.Name, false, false, calls)
+		recorder.addMessage(roleToolUse, tool.Function.Arguments, tool.ID, tool.Function.Name, false, false, nil)
 	}
 }

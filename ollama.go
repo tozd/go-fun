@@ -446,10 +446,10 @@ func (o *OllamaTextProvider) recordMessage(recorder *TextRecorderCall, message a
 	} else if message.Content != "" || len(message.ToolCalls) == 0 {
 		// Often with ToolCalls present, the content is empty and we do not record the content in that case.
 		// But we do want to record empty content when there are no ToolCalls.
-		recorder.addMessage(message.Role, message.Content, "", "", false, false, calls)
+		recorder.addMessage(message.Role, message.Content, "", "", false, false, nil)
 	}
 	for i, tool := range message.ToolCalls {
 		// In roleToolUse messages, toolID is the prefix to use.
-		recorder.addMessage(roleToolUse, tool.Function.Arguments.String(), fmt.Sprintf("%s_%d", toolID, i), tool.Function.Name, false, false, calls)
+		recorder.addMessage(roleToolUse, tool.Function.Arguments.String(), fmt.Sprintf("%s_%d", toolID, i), tool.Function.Name, false, false, nil)
 	}
 }
