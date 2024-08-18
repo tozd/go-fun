@@ -66,50 +66,31 @@ func ExampleTextProviderRecorder() {
 	}
 	fmt.Println(output)
 
-	messages := fun.GetTextProviderRecorder(ctx).Calls()[0].Messages
-	// We change messages a bit for the example to be deterministic.
-	for i, message := range messages {
-		switch m := message.(type) {
-		case fun.TextProviderRecorderMessage:
-			if _, ok := m["id"]; ok {
-				m["id"] = "call_123"
-			}
-		case fun.TextProviderRecorderCall:
-			m.ID = "456"
-			m.UsedTokens = nil
-			messages[i] = m
-		}
-	}
+	calls := fun.GetTextProviderRecorder(ctx).Calls()
+	// We change calls a bit for the example to be deterministic.
+	cleanCalls(calls)
 
-	messagesJSON, err := json.MarshalIndent(messages, "", "  ")
-	if errE != nil {
+	callsJSON, err := json.MarshalIndent(calls, "", "  ")
+	if err != nil {
 		log.Fatalf("%v\n", err)
 	}
-	fmt.Println(string(messagesJSON))
+	fmt.Println(string(callsJSON))
 
 	// Output:
 	// 42
 	// [
 	//   {
-	//     "message": "Sum numbers together. Output only the number.",
-	//     "role": "system",
-	//     "type": "message"
-	//   },
-	//   {
-	//     "message": "[38,4]",
-	//     "role": "user",
-	//     "type": "message"
-	//   },
-	//   {
-	//     "id": "call_123",
-	//     "message": "{\"numbers\":[38,4]}",
-	//     "name": "sum_numbers",
-	//     "role": "tool_use",
-	//     "type": "message"
-	//   },
-	//   {
-	//     "id": "456",
+	//     "id": "id_1",
 	//     "type": "call",
+	//     "provider": {
+	//       "type": "openai",
+	//       "model": "gpt-4o-mini-2024-07-18",
+	//       "maxContextLength": 128000,
+	//       "maxResponseLength": 16384,
+	//       "forceOutputJsonSchema": false,
+	//       "seed": 42,
+	//       "temperature": 0
+	//     },
 	//     "messages": [
 	//       {
 	//         "message": "Sum numbers together. Output only the number.",
@@ -117,8 +98,56 @@ func ExampleTextProviderRecorder() {
 	//         "type": "message"
 	//       },
 	//       {
-	//         "message": "[{\"numbers\":[38,4]}]",
+	//         "message": "[38,4]",
 	//         "role": "user",
+	//         "type": "message"
+	//       },
+	//       {
+	//         "id": "call_1_2",
+	//         "message": "{\"numbers\":[38,4]}",
+	//         "name": "sum_numbers",
+	//         "role": "tool_use",
+	//         "type": "message"
+	//       },
+	//       {
+	//         "id": "id_2",
+	//         "type": "call",
+	//         "provider": {
+	//           "type": "anthropic",
+	//           "model": "claude-3-haiku-20240307",
+	//           "temperature": 0
+	//         },
+	//         "messages": [
+	//           {
+	//             "message": "Sum numbers together. Output only the number.",
+	//             "role": "system",
+	//             "type": "message"
+	//           },
+	//           {
+	//             "message": "[{\"numbers\":[38,4]}]",
+	//             "role": "user",
+	//             "type": "message"
+	//           },
+	//           {
+	//             "message": "42",
+	//             "role": "assistant",
+	//             "type": "message"
+	//           }
+	//         ],
+	//         "usedTokens": {
+	//           "req_2_1": {
+	//             "maxTotal": 8208,
+	//             "maxResponse": 4096,
+	//             "prompt": 26,
+	//             "response": 5,
+	//             "total": 31
+	//           }
+	//         }
+	//       },
+	//       {
+	//         "id": "call_1_2",
+	//         "message": "42",
+	//         "role": "tool_result",
 	//         "type": "message"
 	//       },
 	//       {
@@ -126,18 +155,23 @@ func ExampleTextProviderRecorder() {
 	//         "role": "assistant",
 	//         "type": "message"
 	//       }
-	//     ]
-	//   },
-	//   {
-	//     "id": "call_123",
-	//     "message": "42",
-	//     "role": "tool_result",
-	//     "type": "message"
-	//   },
-	//   {
-	//     "message": "42",
-	//     "role": "assistant",
-	//     "type": "message"
+	//     ],
+	//     "usedTokens": {
+	//       "req_1_1": {
+	//         "maxTotal": 128000,
+	//         "maxResponse": 16384,
+	//         "prompt": 57,
+	//         "response": 16,
+	//         "total": 73
+	//       },
+	//       "req_1_2": {
+	//         "maxTotal": 128000,
+	//         "maxResponse": 16384,
+	//         "prompt": 82,
+	//         "response": 2,
+	//         "total": 84
+	//       }
+	//     }
 	//   }
 	// ]
 }

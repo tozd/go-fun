@@ -118,14 +118,9 @@ var providers = []testProvider{
 				t.Skip("OLLAMA_HOST is not available")
 			}
 			return &fun.OllamaTextProvider{
-				Client: nil,
-				Base:   os.Getenv("OLLAMA_HOST"),
-				Model: fun.OllamaModel{
-					Model:    "llama3:8b",
-					Insecure: false,
-					Username: "",
-					Password: "",
-				},
+				Client:            nil,
+				Base:              os.Getenv("OLLAMA_HOST"),
+				Model:             "llama3:8b",
 				MaxContextLength:  0,
 				MaxResponseLength: 0,
 				Seed:              42,
@@ -232,14 +227,9 @@ var providersForTools = []testProvider{
 				t.Skip("OLLAMA_HOST is not available")
 			}
 			return &fun.OllamaTextProvider{
-				Client: nil,
-				Base:   os.Getenv("OLLAMA_HOST"),
-				Model: fun.OllamaModel{
-					Model:    "llama3-groq-tool-use:70b",
-					Insecure: false,
-					Username: "",
-					Password: "",
-				},
+				Client:            nil,
+				Base:              os.Getenv("OLLAMA_HOST"),
+				Model:             "llama3-groq-tool-use:70b",
 				MaxContextLength:  0,
 				MaxResponseLength: 0,
 				Seed:              42,
@@ -454,6 +444,46 @@ func runTextTests(
 				})
 			}
 		})
+	}
+}
+
+func cleanCall(call fun.TextProviderRecorderCall, d *int) fun.TextProviderRecorderCall {
+	*d++
+	callID := *d
+
+	calls := map[string]string{}
+	for i, message := range call.Messages {
+		switch m := message.(type) {
+		case fun.TextProviderRecorderMessage:
+			if id, ok := m["id"]; ok {
+				if _, ok := calls[id]; !ok {
+					calls[id] = fmt.Sprintf("call_%d_%d", callID, i)
+				}
+				m["id"] = calls[id]
+			}
+		case fun.TextProviderRecorderCall:
+			call.Messages[i] = cleanCall(m, d)
+		}
+	}
+
+	call.ID = fmt.Sprintf("id_%d", callID)
+
+	usedTokens := map[string]fun.TextProviderRecorderUsedTokens{}
+	i := 0
+	for req, tokens := range call.UsedTokens {
+		i++
+		delete(call.UsedTokens, req)
+		usedTokens[fmt.Sprintf("req_%d_%d", callID, i)] = tokens
+	}
+	call.UsedTokens = usedTokens
+
+	return call
+}
+
+func cleanCalls(calls []fun.TextProviderRecorderCall) {
+	d := 0
+	for i, call := range calls {
+		calls[i] = cleanCall(call, &d)
 	}
 }
 

@@ -61,9 +61,8 @@ type ollamaToolFunctionParameters struct {
 
 var _ TextProvider = (*OllamaTextProvider)(nil)
 
-// OllamaModel describes a model for [OllamaTextProvider].
-type OllamaModel struct {
-	Model    string
+// OllamaModelAccess describes access to a model for [OllamaTextProvider].
+type OllamaModelAccess struct {
 	Insecure bool
 	Username string
 	Password string
@@ -74,19 +73,33 @@ type OllamaModel struct {
 //
 // [Ollama]: https://ollama.com/
 type OllamaTextProvider struct {
-	Client            *http.Client
-	Base              string
-	Model             OllamaModel
-	MaxContextLength  int
-	MaxResponseLength int
+	Client            *http.Client      `json:"-"`
+	Base              string            `json:"-"`
+	Model             string            `json:"model"`
+	ModelAccess       OllamaModelAccess `json:"-"`
+	MaxContextLength  int               `json:"maxContextLength"`
+	MaxResponseLength int               `json:"maxResponseLength"`
 
-	Seed        int
-	Temperature float64
+	Seed        int     `json:"seed"`
+	Temperature float64 `json:"temperature"`
 
 	client   *api.Client
 	messages []api.Message
 	tools    api.Tools
 	toolers  map[string]Tooler
+}
+
+func (o OllamaTextProvider) MarshalJSON() ([]byte, error) {
+	// We define a new type to not recurse into this same MarshalJSON.
+	type P OllamaTextProvider
+	t := struct {
+		Type string `json:"type"`
+		P
+	}{
+		Type: "ollama",
+		P:    P(o),
+	}
+	return x.MarshalWithoutEscapeHTML(t)
 }
 
 // Init implements TextProvider interface.
@@ -124,10 +137,10 @@ func (o *OllamaTextProvider) Init(ctx context.Context, messages []ChatMessage) e
 
 	stream := false
 	err = o.client.Pull(ctx, &api.PullRequest{ //nolint:exhaustruct
-		Model:    o.Model.Model,
-		Insecure: o.Model.Insecure,
-		Username: o.Model.Username,
-		Password: o.Model.Password,
+		Model:    o.Model,
+		Insecure: o.ModelAccess.Insecure,
+		Username: o.ModelAccess.Username,
+		Password: o.ModelAccess.Password,
 		Stream:   &stream,
 	}, func(_ api.ProgressResponse) error { return nil })
 	if err != nil {
@@ -135,7 +148,7 @@ func (o *OllamaTextProvider) Init(ctx context.Context, messages []ChatMessage) e
 	}
 
 	resp, err := o.client.Show(ctx, &api.ShowRequest{ //nolint:exhaustruct
-		Model: o.Model.Model,
+		Model: o.Model,
 	})
 	if err != nil {
 		return getStatusError(err)
@@ -215,7 +228,7 @@ func (o *OllamaTextProvider) Chat(ctx context.Context, message ChatMessage) (str
 
 		stream := false
 		err := o.client.Chat(ctx, &api.ChatRequest{ //nolint:exhaustruct
-			Model:    o.Model.Model,
+			Model:    o.Model,
 			Messages: messages,
 			Stream:   &stream,
 			Tools:    o.tools,

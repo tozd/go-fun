@@ -1,3 +1,4 @@
+//nolint:tagliatelle
 package fun
 
 import (
@@ -113,17 +114,30 @@ var _ TextProvider = (*GroqTextProvider)(nil)
 //
 // [Groq]: https://groq.com/
 type GroqTextProvider struct {
-	Client            *http.Client
-	APIKey            string
-	Model             string
-	MaxContextLength  int
-	MaxResponseLength int
+	Client            *http.Client `json:"-"`
+	APIKey            string       `json:"-"`
+	Model             string       `json:"model"`
+	MaxContextLength  int          `json:"maxContextLength"`
+	MaxResponseLength int          `json:"maxResponseLength"`
 
-	Seed        int
-	Temperature float64
+	Seed        int     `json:"seed"`
+	Temperature float64 `json:"temperature"`
 
 	messages []groqMessage
 	tools    []groqTool
+}
+
+func (g GroqTextProvider) MarshalJSON() ([]byte, error) {
+	// We define a new type to not recurse into this same MarshalJSON.
+	type P GroqTextProvider
+	t := struct {
+		Type string `json:"type"`
+		P
+	}{
+		Type: "groq",
+		P:    P(g),
+	}
+	return x.MarshalWithoutEscapeHTML(t)
 }
 
 // Init implements TextProvider interface.

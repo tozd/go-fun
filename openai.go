@@ -1,3 +1,4 @@
+//nolint:tagliatelle
 package fun
 
 import (
@@ -132,22 +133,35 @@ var _ TextProvider = (*OpenAITextProvider)(nil)
 //
 // [OpenAI]: https://openai.com/
 type OpenAITextProvider struct {
-	Client            *http.Client
-	APIKey            string
-	Model             string
-	MaxContextLength  int
-	MaxResponseLength int
+	Client            *http.Client `json:"-"`
+	APIKey            string       `json:"-"`
+	Model             string       `json:"model"`
+	MaxContextLength  int          `json:"maxContextLength"`
+	MaxResponseLength int          `json:"maxResponseLength"`
 
-	ForceOutputJSONSchema bool
+	ForceOutputJSONSchema bool `json:"forceOutputJsonSchema"`
 
-	Seed        int
-	Temperature float64
+	Seed        int     `json:"seed"`
+	Temperature float64 `json:"temperature"`
 
 	messages                    []openAIMessage
 	tools                       []openAITool
 	outputJSONSchema            json.RawMessage
 	outputJSONSchemaName        string
 	outputJSONSchemaDescription string
+}
+
+func (o OpenAITextProvider) MarshalJSON() ([]byte, error) {
+	// We define a new type to not recurse into this same MarshalJSON.
+	type P OpenAITextProvider
+	t := struct {
+		Type string `json:"type"`
+		P
+	}{
+		Type: "openai",
+		P:    P(o),
+	}
+	return x.MarshalWithoutEscapeHTML(t)
 }
 
 // Init implements TextProvider interface.

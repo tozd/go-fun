@@ -1,3 +1,4 @@
+//nolint:tagliatelle
 package fun
 
 import (
@@ -137,15 +138,28 @@ var _ TextProvider = (*AnthropicTextProvider)(nil)
 //
 // [Anthropic]: https://www.anthropic.com/
 type AnthropicTextProvider struct {
-	Client *http.Client
-	APIKey string
-	Model  string
+	Client *http.Client `json:"-"`
+	APIKey string       `json:"-"`
+	Model  string       `json:"model"`
 
-	Temperature float64
+	Temperature float64 `json:"temperature"`
 
 	system   string
 	messages []anthropicMessage
 	tools    []anthropicTool
+}
+
+func (a AnthropicTextProvider) MarshalJSON() ([]byte, error) {
+	// We define a new type to not recurse into this same MarshalJSON.
+	type P AnthropicTextProvider
+	t := struct {
+		Type string `json:"type"`
+		P
+	}{
+		Type: "anthropic",
+		P:    P(a),
+	}
+	return x.MarshalWithoutEscapeHTML(t)
 }
 
 // Init implements TextProvider interface.

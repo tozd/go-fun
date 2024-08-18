@@ -80,21 +80,15 @@ func ExampleTool() {
 	}
 	fmt.Println(output)
 
-	messages := fun.GetTextProviderRecorder(ctx).Calls()[0].Messages
-	// We change messages a bit for the example to be deterministic.
-	for _, message := range messages {
-		if m, ok := message.(fun.TextProviderRecorderMessage); ok {
-			if _, ok := m["id"]; ok {
-				m["id"] = "call_123"
-			}
-		}
-	}
+	calls := fun.GetTextProviderRecorder(ctx).Calls()
+	// We change calls a bit for the example to be deterministic.
+	cleanCalls(calls)
 
-	messagesJSON, err := json.MarshalIndent(messages, "", "  ")
-	if errE != nil {
+	messages, err := json.MarshalIndent(calls[0].Messages, "", "  ")
+	if err != nil {
 		log.Fatalf("%v\n", err)
 	}
-	fmt.Println(string(messagesJSON))
+	fmt.Println(string(messages))
 
 	// Output:
 	// 42
@@ -110,14 +104,14 @@ func ExampleTool() {
 	//     "type": "message"
 	//   },
 	//   {
-	//     "id": "call_123",
+	//     "id": "call_1_2",
 	//     "message": "{\"numbers\":[38,4]}",
 	//     "name": "sum_numbers",
 	//     "role": "tool_use",
 	//     "type": "message"
 	//   },
 	//   {
-	//     "id": "call_123",
+	//     "id": "call_1_2",
 	//     "message": "42",
 	//     "role": "tool_result",
 	//     "type": "message"

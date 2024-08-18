@@ -61,8 +61,8 @@ func (c *CallCommand) Run(logger zerolog.Logger) errors.E { //nolint:maintidx
 		provider = &fun.OllamaTextProvider{
 			Client: nil,
 			Base:   os.Getenv("OLLAMA_HOST"),
-			Model: fun.OllamaModel{
-				Model:    c.Model,
+			Model:  c.Model,
+			ModelAccess: fun.OllamaModelAccess{ // TODO: How to make it configurable?
 				Insecure: false,
 				Username: "",
 				Password: "",

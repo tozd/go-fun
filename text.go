@@ -185,7 +185,7 @@ func (t *Text[Input, Output]) Init(ctx context.Context) errors.E {
 
 	callID := identifier.New().String()
 	if recorder := GetTextProviderRecorder(ctx); recorder != nil {
-		recorder.pushCall(callID)
+		recorder.pushCall(callID, t.Provider)
 		defer recorder.popCall()
 	}
 	logger := zerolog.Ctx(ctx).With().Str("fun", callID).Logger()
@@ -282,7 +282,7 @@ func (t *Text[Input, Output]) Init(ctx context.Context) errors.E {
 func (t *Text[Input, Output]) Call(ctx context.Context, input ...Input) (Output, errors.E) { //nolint:ireturn
 	callID := identifier.New().String()
 	if recorder := GetTextProviderRecorder(ctx); recorder != nil {
-		recorder.pushCall(callID)
+		recorder.pushCall(callID, t.Provider)
 		defer recorder.popCall()
 	}
 	logger := zerolog.Ctx(ctx).With().Str("fun", callID).Logger()

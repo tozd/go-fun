@@ -12,8 +12,8 @@ import (
 var textProviderRecorderContextKey = &contextKey{"text-provider-recorder"} //nolint:gochecknoglobals
 
 type TextProviderRecorderUsedTokens struct {
-	MaxTotal    int `json:"maxTotal"`    //nolint:tagliatelle
-	MaxResponse int `json:"maxResponse"` //nolint:tagliatelle
+	MaxTotal    int `json:"maxTotal"`
+	MaxResponse int `json:"maxResponse"`
 	Prompt      int `json:"prompt"`
 	Response    int `json:"response"`
 	Total       int `json:"total"`
@@ -28,9 +28,10 @@ type TextProviderRecorderUsedTime struct {
 type TextProviderRecorderCall struct {
 	ID         string                                    `json:"id"`
 	Type       string                                    `json:"type"`
+	Provider   TextProvider                              `json:"provider"`
 	Messages   []any                                     `json:"messages,omitempty"`
-	UsedTokens map[string]TextProviderRecorderUsedTokens `json:"usedTokens,omitempty"` //nolint:tagliatelle
-	UsedTime   map[string]TextProviderRecorderUsedTime   `json:"usedTime,omitempty"`   //nolint:tagliatelle
+	UsedTokens map[string]TextProviderRecorderUsedTokens `json:"usedTokens,omitempty"`
+	UsedTime   map[string]TextProviderRecorderUsedTime   `json:"usedTime,omitempty"`
 }
 
 type TextProviderRecorderMessage map[string]string
@@ -90,13 +91,14 @@ type TextProviderRecorder struct {
 	topLevelCalls []TextProviderRecorderCall
 }
 
-func (t *TextProviderRecorder) pushCall(id string) {
+func (t *TextProviderRecorder) pushCall(id string, provider TextProvider) {
 	t.mu.Lock()
 	defer t.mu.Unlock()
 
 	call := &TextProviderRecorderCall{
 		ID:         id,
 		Type:       "call",
+		Provider:   provider,
 		Messages:   nil,
 		UsedTokens: nil,
 		UsedTime:   nil,
