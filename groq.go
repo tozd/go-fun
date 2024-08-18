@@ -528,14 +528,14 @@ func (g *GroqTextProvider) callTool(ctx context.Context, toolCall groqToolCall) 
 func (g *GroqTextProvider) recordMessage(recorder *TextRecorder, message groqMessage) {
 	if message.Role == roleTool {
 		if message.Content != nil {
-			recorder.addMessage(roleToolResult, *message.Content, "id", message.ToolCallID)
+			recorder.addMessage(roleToolResult, *message.Content, message.ToolCallID, "", false, false)
 		}
 	} else {
 		if message.Content != nil {
-			recorder.addMessage(message.Role, *message.Content)
+			recorder.addMessage(message.Role, *message.Content, "", "", false, false)
 		}
 	}
 	for _, tool := range message.ToolCalls {
-		recorder.addMessage(roleToolUse, tool.Function.Arguments, "id", tool.ID, "name", tool.Function.Name)
+		recorder.addMessage(roleToolUse, tool.Function.Arguments, tool.ID, tool.Function.Name, false, false)
 	}
 }

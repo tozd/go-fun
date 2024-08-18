@@ -252,7 +252,7 @@ func (a *AnthropicTextProvider) Chat(ctx context.Context, message ChatMessage) (
 
 	if recorder != nil {
 		if a.system != "" {
-			recorder.addMessage("system", a.system)
+			recorder.addMessage("system", a.system, "", "", false, false)
 		}
 
 		for _, message := range messages {
@@ -528,15 +528,11 @@ func (a *AnthropicTextProvider) recordMessage(recorder *TextRecorder, message an
 	for _, content := range message.Content {
 		switch content.Type {
 		case typeText:
-			recorder.addMessage(message.Role, content.Text)
+			recorder.addMessage(message.Role, content.Text, "", "", false, false)
 		case roleToolUse:
-			recorder.addMessage(roleToolUse, string(content.Input), "id", content.ID, "name", content.Name)
+			recorder.addMessage(roleToolUse, string(content.Input), content.ID, content.Name, false, false)
 		case roleToolResult:
-			params := []string{"id", content.ToolUseID}
-			if content.IsError {
-				params = append(params, "isError", "true")
-			}
-			recorder.addMessage(roleToolResult, content.Content, params...)
+			recorder.addMessage(roleToolResult, content.Content, content.ToolUseID, "", content.IsError, false)
 		}
 	}
 }

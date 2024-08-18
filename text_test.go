@@ -451,15 +451,16 @@ func cleanCall(call fun.TextRecorderCall, d *int) fun.TextRecorderCall {
 	*d++
 	callID := *d
 
-	calls := map[string]string{}
+	toolUses := map[string]string{}
 	for i, message := range call.Messages {
 		switch m := message.(type) {
 		case fun.TextRecorderMessage:
-			if id, ok := m["id"]; ok {
-				if _, ok := calls[id]; !ok {
-					calls[id] = fmt.Sprintf("call_%d_%d", callID, i)
+			if m.ToolUseID != "" {
+				if _, ok := toolUses[m.ToolUseID]; !ok {
+					toolUses[m.ToolUseID] = fmt.Sprintf("call_%d_%d", callID, i)
 				}
-				m["id"] = calls[id]
+				m.ToolUseID = toolUses[m.ToolUseID]
+				call.Messages[i] = m
 			}
 		case fun.TextRecorderCall:
 			call.Messages[i] = cleanCall(m, d)
@@ -624,7 +625,7 @@ func TestTextTools(t *testing.T) { //nolint:paralleltest,tparallel
 					for _, message := range recorder.Calls()[0].Messages {
 						if assert.IsType(t, fun.TextRecorderMessage{}, message) {
 							m := message.(fun.TextRecorderMessage) //nolint:errcheck,forcetypeassert
-							if m["role"] == "tool_use" || m["role"] == "tool_result" {
+							if m.Role == "tool_use" || m.Role == "tool_result" {
 								usedTool++
 							}
 						}

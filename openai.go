@@ -514,16 +514,16 @@ func (o *OpenAITextProvider) callTool(ctx context.Context, toolCall openAIToolCa
 func (o *OpenAITextProvider) recordMessage(recorder *TextRecorder, message openAIMessage) {
 	if message.Role == roleTool {
 		if message.Content != nil {
-			recorder.addMessage(roleToolResult, *message.Content, "id", message.ToolCallID)
+			recorder.addMessage(roleToolResult, *message.Content, message.ToolCallID, "", false, false)
 		}
 	} else {
 		if message.Content != nil {
-			recorder.addMessage(message.Role, *message.Content)
+			recorder.addMessage(message.Role, *message.Content, "", "", false, false)
 		} else if message.Refusal != nil {
-			recorder.addMessage(message.Role, *message.Refusal, "isRefusal", "true")
+			recorder.addMessage(message.Role, *message.Refusal, "", "", false, true)
 		}
 	}
 	for _, tool := range message.ToolCalls {
-		recorder.addMessage(roleToolUse, tool.Function.Arguments, "id", tool.ID, "name", tool.Function.Name)
+		recorder.addMessage(roleToolUse, tool.Function.Arguments, tool.ID, tool.Function.Name, false, false)
 	}
 }

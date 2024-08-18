@@ -414,13 +414,13 @@ func (o *OllamaTextProvider) callTool(ctx context.Context, toolCall api.ToolCall
 func (o *OllamaTextProvider) recordMessage(recorder *TextRecorder, message api.Message) {
 	if message.Role == roleTool {
 		// TODO: How to provide our tool call ID (the "i" parameter to callTool method).
-		recorder.addMessage(roleToolResult, message.Content)
+		recorder.addMessage(roleToolResult, message.Content, "", "", false, false)
 	} else if message.Content != "" || len(message.ToolCalls) == 0 {
 		// Often with ToolCalls present, the content is empty and we do not record the content in that case.
 		// But we do want to record empty content when there are no ToolCalls.
-		recorder.addMessage(message.Role, message.Content)
+		recorder.addMessage(message.Role, message.Content, "", "", false, false)
 	}
 	for i, tool := range message.ToolCalls {
-		recorder.addMessage(roleToolUse, tool.Function.Arguments.String(), "id", strconv.Itoa(i), "name", tool.Function.Name)
+		recorder.addMessage(roleToolUse, tool.Function.Arguments.String(), strconv.Itoa(i), tool.Function.Name, false, false)
 	}
 }

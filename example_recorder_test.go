@@ -93,21 +93,21 @@ func ExampleTextRecorder() {
 	//     },
 	//     "messages": [
 	//       {
-	//         "message": "Sum numbers together. Output only the number.",
+	//         "type": "message",
 	//         "role": "system",
-	//         "type": "message"
+	//         "message": "Sum numbers together. Output only the number."
 	//       },
 	//       {
-	//         "message": "[38,4]",
+	//         "type": "message",
 	//         "role": "user",
-	//         "type": "message"
+	//         "message": "[38,4]"
 	//       },
 	//       {
-	//         "id": "call_1_2",
-	//         "message": "{\"numbers\":[38,4]}",
-	//         "name": "sum_numbers",
+	//         "type": "message",
 	//         "role": "tool_use",
-	//         "type": "message"
+	//         "message": "{\"numbers\":[38,4]}",
+	//         "toolUseId": "call_1_2",
+	//         "toolUseName": "sum_numbers"
 	//       },
 	//       {
 	//         "id": "id_2",
@@ -119,19 +119,19 @@ func ExampleTextRecorder() {
 	//         },
 	//         "messages": [
 	//           {
-	//             "message": "Sum numbers together. Output only the number.",
+	//             "type": "message",
 	//             "role": "system",
-	//             "type": "message"
+	//             "message": "Sum numbers together. Output only the number."
 	//           },
 	//           {
-	//             "message": "[{\"numbers\":[38,4]}]",
+	//             "type": "message",
 	//             "role": "user",
-	//             "type": "message"
+	//             "message": "[{\"numbers\":[38,4]}]"
 	//           },
 	//           {
-	//             "message": "42",
+	//             "type": "message",
 	//             "role": "assistant",
-	//             "type": "message"
+	//             "message": "42"
 	//           }
 	//         ],
 	//         "usedTokens": {
@@ -145,15 +145,15 @@ func ExampleTextRecorder() {
 	//         }
 	//       },
 	//       {
-	//         "id": "call_1_2",
-	//         "message": "42",
+	//         "type": "message",
 	//         "role": "tool_result",
-	//         "type": "message"
+	//         "message": "42",
+	//         "toolUseId": "call_1_2"
 	//       },
 	//       {
-	//         "message": "42",
+	//         "type": "message",
 	//         "role": "assistant",
-	//         "type": "message"
+	//         "message": "42"
 	//       }
 	//     ],
 	//     "usedTokens": {

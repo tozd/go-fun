@@ -2,11 +2,8 @@ package fun
 
 import (
 	"context"
-	"strings"
 	"sync"
 	"time"
-
-	"gitlab.com/tozd/go/errors"
 )
 
 var textRecorderContextKey = &contextKey{"text-provider-recorder"} //nolint:gochecknoglobals
@@ -56,24 +53,26 @@ type TextRecorderCall struct {
 	UsedTime   map[string]TextRecorderUsedTime   `json:"usedTime,omitempty"`
 }
 
-type TextRecorderMessage map[string]string
+type TextRecorderMessage struct {
+	Type        string `json:"type"`
+	Role        string `json:"role"`
+	Message     string `json:"message"`
+	ToolUseID   string `json:"toolUseId,omitempty"`
+	ToolUseName string `json:"toolUseName,omitempty"`
+	IsError     bool   `json:"isError,omitempty"`
+	IsRefusal   bool   `json:"isRefusal,omitempty"`
+}
 
-func (c *TextRecorderCall) addMessage(role, message string, params ...string) {
-	m := TextRecorderMessage{
-		"type":    "message",
-		"role":    role,
-		"message": message,
-	}
-
-	if len(params)%2 != 0 {
-		panic(errors.Errorf("odd number of elements in params: %s", strings.Join(params, ", ")))
-	}
-
-	for i := 0; i < len(params); i += 2 {
-		m[params[i]] = params[i+1]
-	}
-
-	c.Messages = append(c.Messages, m)
+func (c *TextRecorderCall) addMessage(role, message, toolID, toolName string, isError, isRefusal bool) {
+	c.Messages = append(c.Messages, TextRecorderMessage{
+		Type:        "message",
+		Role:        role,
+		Message:     message,
+		ToolUseID:   toolID,
+		ToolUseName: toolName,
+		IsError:     isError,
+		IsRefusal:   isRefusal,
+	})
 }
 
 func (c *TextRecorderCall) addCall(call TextRecorderCall) {
@@ -161,11 +160,11 @@ func (t *TextRecorder) Calls() []TextRecorderCall {
 	return t.topLevelCalls
 }
 
-func (t *TextRecorder) addMessage(role, message string, params ...string) {
+func (t *TextRecorder) addMessage(role, message, toolID, toolName string, isError, isRefusal bool) {
 	t.mu.Lock()
 	defer t.mu.Unlock()
 
-	t.stack[len(t.stack)-1].addMessage(role, message, params...)
+	t.stack[len(t.stack)-1].addMessage(role, message, toolID, toolName, isError, isRefusal)
 }
 
 func (t *TextRecorder) addUsedTokens(requestID string, maxTotal, maxResponse, prompt, response int) {
