@@ -237,7 +237,7 @@ func (o *OllamaTextProvider) Chat(ctx context.Context, message ChatMessage) (str
 	apiRequestNumber := 0
 	for {
 		apiRequestNumber++
-		apiRequest := strconv.Itoa(apiRequestNumber)
+		apiRequest := fmt.Sprintf("req_%d", apiRequestNumber)
 
 		responses := []api.ChatResponse{}
 
