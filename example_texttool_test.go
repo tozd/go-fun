@@ -34,7 +34,7 @@ type toolInput struct {
 	Numbers []float64 `json:"numbers"`
 }
 
-func ExampleTool() {
+func ExampleTextTool() {
 	if os.Getenv("OPENAI_API_KEY") == "" {
 		fmt.Println("skipped")
 		return
