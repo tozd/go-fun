@@ -290,28 +290,28 @@ func (o *OpenAITextProvider) Chat(ctx context.Context, message ChatMessage) (str
 			return "", errE
 		}
 		resp, err := o.Client.Do(req)
-		var requestID string
+		var apiRequest string
 		if resp != nil {
-			requestID = resp.Header.Get("X-Request-Id")
+			apiRequest = resp.Header.Get("X-Request-Id")
 		}
 		if err != nil {
 			errE = errors.Prefix(err, ErrAPIRequestFailed)
-			if requestID != "" {
-				errors.Details(errE)["apiRequest"] = requestID
+			if apiRequest != "" {
+				errors.Details(errE)["apiRequest"] = apiRequest
 			}
 			return "", errE
 		}
 		defer resp.Body.Close()
 		defer io.Copy(io.Discard, resp.Body) //nolint:errcheck
 
-		if requestID == "" {
+		if apiRequest == "" {
 			return "", errors.WithStack(ErrMissingRequestID)
 		}
 
 		var response openAIResponse
 		errE = x.DecodeJSON(resp.Body, &response)
 		if errE != nil {
-			errors.Details(errE)["apiRequest"] = requestID
+			errors.Details(errE)["apiRequest"] = apiRequest
 			return "", errE
 		}
 
@@ -319,7 +319,7 @@ func (o *OpenAITextProvider) Chat(ctx context.Context, message ChatMessage) (str
 			return "", errors.WithDetails(
 				ErrAPIResponseError,
 				"body", response.Error,
-				"apiRequest", requestID,
+				"apiRequest", apiRequest,
 			)
 		}
 
@@ -327,13 +327,13 @@ func (o *OpenAITextProvider) Chat(ctx context.Context, message ChatMessage) (str
 			return "", errors.WithDetails(
 				ErrUnexpectedNumberOfMessages,
 				"number", len(response.Choices),
-				"apiRequest", requestID,
+				"apiRequest", apiRequest,
 			)
 		}
 
 		if recorder != nil {
 			recorder.addUsedTokens(
-				requestID,
+				apiRequest,
 				o.MaxContextLength,
 				o.MaxResponseLength,
 				response.Usage.PromptTokens,
@@ -352,7 +352,7 @@ func (o *OpenAITextProvider) Chat(ctx context.Context, message ChatMessage) (str
 				"total", response.Usage.TotalTokens,
 				"maxTotal", o.MaxContextLength,
 				"maxResponse", o.MaxResponseLength,
-				"apiRequest", requestID,
+				"apiRequest", apiRequest,
 			)
 		}
 
@@ -360,7 +360,7 @@ func (o *OpenAITextProvider) Chat(ctx context.Context, message ChatMessage) (str
 			return "", errors.WithDetails(
 				ErrUnexpectedRole,
 				"role", response.Choices[0].Message.Role,
-				"apiRequest", requestID,
+				"apiRequest", apiRequest,
 			)
 		}
 
@@ -369,7 +369,7 @@ func (o *OpenAITextProvider) Chat(ctx context.Context, message ChatMessage) (str
 				return "", errors.WithDetails(
 					ErrUnexpectedNumberOfMessages,
 					"number", len(response.Choices[0].Message.ToolCalls),
-					"apiRequest", requestID,
+					"apiRequest", apiRequest,
 				)
 			}
 
@@ -379,7 +379,7 @@ func (o *OpenAITextProvider) Chat(ctx context.Context, message ChatMessage) (str
 			for _, toolCall := range response.Choices[0].Message.ToolCalls {
 				output, errE := o.callTool(ctx, toolCall)
 				if errE != nil {
-					zerolog.Ctx(ctx).Warn().Err(errE).Str("name", toolCall.Function.Name).Str("apiRequest", requestID).
+					zerolog.Ctx(ctx).Warn().Err(errE).Str("name", toolCall.Function.Name).Str("apiRequest", apiRequest).
 						Str("tool", toolCall.ID).RawJSON("input", json.RawMessage(toolCall.Function.Arguments)).Msg("tool error")
 					content := fmt.Sprintf("Error: %s", errE.Error())
 					messages = append(messages, openAIMessage{
@@ -411,7 +411,7 @@ func (o *OpenAITextProvider) Chat(ctx context.Context, message ChatMessage) (str
 			return "", errors.WithDetails(
 				ErrUnexpectedStop,
 				"reason", response.Choices[0].FinishReason,
-				"apiRequest", requestID,
+				"apiRequest", apiRequest,
 			)
 		}
 
@@ -419,14 +419,14 @@ func (o *OpenAITextProvider) Chat(ctx context.Context, message ChatMessage) (str
 			return "", errors.WithDetails(
 				ErrRefused,
 				"refusal", *response.Choices[0].Message.Refusal,
-				"apiRequest", requestID,
+				"apiRequest", apiRequest,
 			)
 		}
 
 		if response.Choices[0].Message.Content == nil {
 			return "", errors.WithDetails(
 				ErrUnexpectedMessageType,
-				"apiRequest", requestID,
+				"apiRequest", apiRequest,
 			)
 		}
 

@@ -219,10 +219,10 @@ func (o *OllamaTextProvider) Chat(ctx context.Context, message ChatMessage) (str
 	defer mu.Unlock()
 
 	// Ollama does not provide request ID, so we make one ourselves.
-	requestIDNumber := 0
+	apiRequestNumber := 0
 	for {
-		requestIDNumber++
-		requestID := strconv.Itoa(requestIDNumber)
+		apiRequestNumber++
+		apiRequest := strconv.Itoa(apiRequestNumber)
 
 		responses := []api.ChatResponse{}
 
@@ -244,7 +244,7 @@ func (o *OllamaTextProvider) Chat(ctx context.Context, message ChatMessage) (str
 		})
 		if err != nil {
 			errE := getStatusError(err)
-			errors.Details(errE)["apiRequest"] = requestID
+			errors.Details(errE)["apiRequest"] = apiRequest
 			return "", errE
 		}
 
@@ -252,20 +252,20 @@ func (o *OllamaTextProvider) Chat(ctx context.Context, message ChatMessage) (str
 			return "", errors.WithDetails(
 				ErrUnexpectedNumberOfMessages,
 				"number", len(responses),
-				"apiRequest", requestID,
+				"apiRequest", apiRequest,
 			)
 		}
 
 		if recorder != nil {
 			recorder.addUsedTokens(
-				requestID,
+				apiRequest,
 				o.MaxContextLength,
 				o.MaxResponseLength,
 				responses[0].Metrics.PromptEvalCount,
 				responses[0].Metrics.EvalCount,
 			)
 			recorder.addUsedTime(
-				requestID,
+				apiRequest,
 				responses[0].Metrics.PromptEvalDuration,
 				responses[0].Metrics.EvalDuration,
 			)
@@ -282,7 +282,7 @@ func (o *OllamaTextProvider) Chat(ctx context.Context, message ChatMessage) (str
 				"total", responses[0].Metrics.PromptEvalCount+responses[0].Metrics.EvalCount,
 				"maxTotal", o.MaxContextLength,
 				"maxResponse", o.MaxResponseLength,
-				"apiRequest", requestID,
+				"apiRequest", apiRequest,
 			)
 		}
 
@@ -290,7 +290,7 @@ func (o *OllamaTextProvider) Chat(ctx context.Context, message ChatMessage) (str
 			return "", errors.WithDetails(
 				ErrUnexpectedRole,
 				"role", responses[0].Message.Role,
-				"apiRequest", requestID,
+				"apiRequest", apiRequest,
 			)
 		}
 
@@ -298,7 +298,7 @@ func (o *OllamaTextProvider) Chat(ctx context.Context, message ChatMessage) (str
 			return "", errors.WithDetails(
 				ErrUnexpectedStop,
 				"reason", responses[0].DoneReason,
-				"apiRequest", requestID,
+				"apiRequest", apiRequest,
 			)
 		}
 
@@ -309,7 +309,7 @@ func (o *OllamaTextProvider) Chat(ctx context.Context, message ChatMessage) (str
 			for i, toolCall := range responses[0].Message.ToolCalls {
 				output, errE := o.callTool(ctx, toolCall, i)
 				if errE != nil {
-					zerolog.Ctx(ctx).Warn().Err(errE).Str("name", toolCall.Function.Name).Str("apiRequest", requestID).
+					zerolog.Ctx(ctx).Warn().Err(errE).Str("name", toolCall.Function.Name).Str("apiRequest", apiRequest).
 						Str("tool", strconv.Itoa(i)).RawJSON("input", json.RawMessage(toolCall.Function.Arguments.String())).Msg("tool error")
 					content := fmt.Sprintf("Error: %s", errE.Error())
 					messages = append(messages, api.Message{

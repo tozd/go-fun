@@ -297,28 +297,28 @@ func (a *AnthropicTextProvider) Chat(ctx context.Context, message ChatMessage) (
 			return "", errE
 		}
 		resp, err := a.Client.Do(req)
-		var requestID string
+		var apiRequest string
 		if resp != nil {
-			requestID = resp.Header.Get("Request-Id")
+			apiRequest = resp.Header.Get("Request-Id")
 		}
 		if err != nil {
 			errE = errors.Prefix(err, ErrAPIRequestFailed)
-			if requestID != "" {
-				errors.Details(errE)["apiRequest"] = requestID
+			if apiRequest != "" {
+				errors.Details(errE)["apiRequest"] = apiRequest
 			}
 			return "", errE
 		}
 		defer resp.Body.Close()
 		defer io.Copy(io.Discard, resp.Body) //nolint:errcheck
 
-		if requestID == "" {
+		if apiRequest == "" {
 			return "", errors.WithStack(ErrMissingRequestID)
 		}
 
 		var response anthropicResponse
 		errE = x.DecodeJSON(resp.Body, &response)
 		if errE != nil {
-			errors.Details(errE)["apiRequest"] = requestID
+			errors.Details(errE)["apiRequest"] = apiRequest
 			return "", errE
 		}
 
@@ -326,13 +326,13 @@ func (a *AnthropicTextProvider) Chat(ctx context.Context, message ChatMessage) (
 			return "", errors.WithDetails(
 				ErrAPIResponseError,
 				"body", response.Error,
-				"apiRequest", requestID,
+				"apiRequest", apiRequest,
 			)
 		}
 
 		if recorder != nil {
 			recorder.addUsedTokens(
-				requestID,
+				apiRequest,
 				estimatedTokens,
 				anthropicMaxResponseTokens,
 				response.Usage.InputTokens,
@@ -353,7 +353,7 @@ func (a *AnthropicTextProvider) Chat(ctx context.Context, message ChatMessage) (
 				"total", response.Usage.InputTokens+response.Usage.OutputTokens,
 				"maxTotal", estimatedTokens,
 				"maxResponse", anthropicMaxResponseTokens,
-				"apiRequest", requestID,
+				"apiRequest", apiRequest,
 			)
 		}
 
@@ -361,7 +361,7 @@ func (a *AnthropicTextProvider) Chat(ctx context.Context, message ChatMessage) (
 			return "", errors.WithDetails(
 				ErrUnexpectedRole,
 				"role", response.Role,
-				"apiRequest", requestID,
+				"apiRequest", apiRequest,
 			)
 		}
 
@@ -370,7 +370,7 @@ func (a *AnthropicTextProvider) Chat(ctx context.Context, message ChatMessage) (
 				return "", errors.WithDetails(
 					ErrUnexpectedNumberOfMessages,
 					"number", len(response.Content),
-					"apiRequest", requestID,
+					"apiRequest", apiRequest,
 				)
 			}
 
@@ -389,7 +389,7 @@ func (a *AnthropicTextProvider) Chat(ctx context.Context, message ChatMessage) (
 				case roleToolUse:
 					output, errE := a.callTool(ctx, content)
 					if errE != nil {
-						e := zerolog.Ctx(ctx).Warn().Err(errE).Str("name", content.Name).Str("apiRequest", requestID).Str("tool", content.ID)
+						e := zerolog.Ctx(ctx).Warn().Err(errE).Str("name", content.Name).Str("apiRequest", apiRequest).Str("tool", content.ID)
 						if content.Input != nil {
 							e = e.RawJSON("input", content.Input)
 						}
@@ -411,7 +411,7 @@ func (a *AnthropicTextProvider) Chat(ctx context.Context, message ChatMessage) (
 					return "", errors.WithDetails(
 						ErrUnexpectedMessageType,
 						"type", content.Type,
-						"apiRequest", requestID,
+						"apiRequest", apiRequest,
 					)
 				}
 			}
@@ -419,7 +419,7 @@ func (a *AnthropicTextProvider) Chat(ctx context.Context, message ChatMessage) (
 			if len(outputContent) == 0 {
 				return "", errors.WithDetails(
 					ErrToolCallsWithoutCalls,
-					"apiRequest", requestID,
+					"apiRequest", apiRequest,
 				)
 			}
 
@@ -439,7 +439,7 @@ func (a *AnthropicTextProvider) Chat(ctx context.Context, message ChatMessage) (
 			return "", errors.WithDetails(
 				ErrUnexpectedStop,
 				"reason", response.StopReason,
-				"apiRequest", requestID,
+				"apiRequest", apiRequest,
 			)
 		}
 
@@ -447,14 +447,14 @@ func (a *AnthropicTextProvider) Chat(ctx context.Context, message ChatMessage) (
 			return "", errors.WithDetails(
 				ErrUnexpectedNumberOfMessages,
 				"number", len(response.Content),
-				"apiRequest", requestID,
+				"apiRequest", apiRequest,
 			)
 		}
 		if response.Content[0].Type != typeText {
 			return "", errors.WithDetails(
 				ErrUnexpectedMessageType,
 				"type", response.Content[0].Type,
-				"apiRequest", requestID,
+				"apiRequest", apiRequest,
 			)
 		}
 

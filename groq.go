@@ -208,28 +208,28 @@ func (g *GroqTextProvider) Init(ctx context.Context, messages []ChatMessage) err
 	req.Header.Add("Content-Type", "application/json")
 	// This endpoint does not have rate limiting.
 	resp, err := g.Client.Do(req)
-	var requestID string
+	var apiRequest string
 	if resp != nil {
-		requestID = resp.Header.Get("X-Request-Id")
+		apiRequest = resp.Header.Get("X-Request-Id")
 	}
 	if err != nil {
 		errE := errors.Prefix(err, ErrAPIRequestFailed)
-		if requestID != "" {
-			errors.Details(errE)["apiRequest"] = requestID
+		if apiRequest != "" {
+			errors.Details(errE)["apiRequest"] = apiRequest
 		}
 		return errE
 	}
 	defer resp.Body.Close()
 	defer io.Copy(io.Discard, resp.Body) //nolint:errcheck
 
-	if requestID == "" {
+	if apiRequest == "" {
 		return errors.WithStack(ErrMissingRequestID)
 	}
 
 	var model groqModel
 	errE := x.DecodeJSON(resp.Body, &model)
 	if errE != nil {
-		errors.Details(errE)["apiRequest"] = requestID
+		errors.Details(errE)["apiRequest"] = apiRequest
 		return errE
 	}
 
@@ -237,14 +237,14 @@ func (g *GroqTextProvider) Init(ctx context.Context, messages []ChatMessage) err
 		return errors.WithDetails(
 			ErrAPIResponseError,
 			"body", model.Error,
-			"apiRequest", requestID,
+			"apiRequest", apiRequest,
 		)
 	}
 
 	if !model.Active {
 		return errors.WithDetails(
 			ErrModelNotActive,
-			"apiRequest", requestID,
+			"apiRequest", apiRequest,
 		)
 	}
 
@@ -256,7 +256,7 @@ func (g *GroqTextProvider) Init(ctx context.Context, messages []ChatMessage) err
 			ErrMaxContextLengthOverModel,
 			"maxTotal", g.MaxContextLength,
 			"model", g.maxContextLength(model),
-			"apiRequest", requestID,
+			"apiRequest", apiRequest,
 		)
 	}
 
@@ -268,7 +268,7 @@ func (g *GroqTextProvider) Init(ctx context.Context, messages []ChatMessage) err
 			ErrMaxResponseLengthOverContext,
 			"maxTotal", g.MaxContextLength,
 			"maxResponse", g.MaxResponseLength,
-			"apiRequest", requestID,
+			"apiRequest", apiRequest,
 		)
 	}
 
