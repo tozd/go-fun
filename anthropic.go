@@ -179,6 +179,7 @@ func (a *AnthropicTextProvider) Init(_ context.Context, messages []ChatMessage) 
 	a.messages = []anthropicMessage{}
 
 	for _, message := range messages {
+		message := message
 		if message.Role == roleSystem {
 			if a.system != "" {
 				return errors.WithStack(ErrMultipleSystemMessages)
