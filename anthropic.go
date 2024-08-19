@@ -220,9 +220,18 @@ func (a *AnthropicTextProvider) Init(_ context.Context, messages []ChatMessage) 
 						Resets:    resetRequests,
 					},
 				}
-				// Token rate limit headers can be returned for both minute or day, whichever is smaller. Except for
-				// the free tier, tokens per day are equal or larger than 1,000,000, so we compare to determine which one it is.
-				if limitTokens >= 1_000_000 { //nolint:gomnd
+				// Token rate limit headers can be returned for both minute or day, whichever is smaller,
+				// so we use heuristics to determine which one it is.
+				if limitTokens <= 100_000 { //nolint:gomnd
+					// Even the free plan has tpd larger than 100,000, so if the limit is less, we know that it is tpm.
+					rateLimits["tpm"] = resettingRateLimit{
+						Limit:     limitTokens,
+						Remaining: remainingTokens,
+						Window:    time.Minute,
+						Resets:    resetTokens,
+					}
+				} else if limitTokens/limitRequests >= 2000 { //nolint:gomnd
+					// If the ratio between token limit and rpm is larger than 2000, we know it is tpd.
 					rateLimits["tpd"] = resettingRateLimit{
 						Limit:     limitTokens,
 						Remaining: remainingTokens,
@@ -230,6 +239,7 @@ func (a *AnthropicTextProvider) Init(_ context.Context, messages []ChatMessage) 
 						Resets:    resetTokens,
 					}
 				} else {
+					// Otherwise it is tpm.
 					rateLimits["tpm"] = resettingRateLimit{
 						Limit:     limitTokens,
 						Remaining: remainingTokens,
