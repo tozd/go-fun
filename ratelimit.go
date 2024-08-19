@@ -23,6 +23,7 @@ type resettingRateLimiter struct {
 	remaining int
 	window    time.Duration
 	resets    time.Time
+	setC      chan struct{}
 }
 
 func (r *resettingRateLimiter) Take(ctx context.Context, n int) (time.Duration, errors.E) {
@@ -39,12 +40,12 @@ func (r *resettingRateLimiter) Take(ctx context.Context, n int) (time.Duration, 
 	}
 }
 
-func (r *resettingRateLimiter) reserve(n int, now time.Time) (bool, time.Time, errors.E) {
+func (r *resettingRateLimiter) reserve(n int, now time.Time) (bool, time.Time, <-chan struct{}, errors.E) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
 	if r.limit < n {
-		return false, time.Time{}, errors.WithDetails(
+		return false, time.Time{}, nil, errors.WithDetails(
 			errTooLargeRequest,
 			"limit", r.limit,
 			"n", n,
@@ -58,10 +59,10 @@ func (r *resettingRateLimiter) reserve(n int, now time.Time) (bool, time.Time, e
 
 	if r.remaining >= n {
 		r.remaining -= n
-		return true, time.Time{}, nil
+		return true, time.Time{}, nil, nil
 	}
 
-	return false, r.resets, nil
+	return false, r.resets, r.setC, nil
 }
 
 func (r *resettingRateLimiter) wait(ctx context.Context, n int) (bool, time.Duration, errors.E) {
@@ -74,20 +75,24 @@ func (r *resettingRateLimiter) wait(ctx context.Context, n int) (bool, time.Dura
 	default:
 	}
 
-	ok, resets, errE := r.reserve(n, now)
+	ok, resets, setC, errE := r.reserve(n, now)
 	if ok || errE != nil {
 		return ok, 0, errE
 	}
 
 	delay := resets.Sub(now)
 	if delay <= 0 {
-		// We do not have to wait at all.
+		// We do not have to wait at all, let's retry. This should never happen
+		// because reserve should handle it already, but just in case.
 		return false, 0, nil
 	}
 	timer := time.NewTimer(delay)
 	defer timer.Stop()
 
 	select {
+	case <-setC:
+		// Rate limit was set, let's see if we can reserve now.
+		return false, time.Since(now), nil
 	case <-timer.C:
 		// We have waited enough.
 		return false, delay, nil
@@ -105,6 +110,10 @@ func (r *resettingRateLimiter) Set(limit, remaining int, window time.Duration, r
 	r.remaining = remaining
 	r.window = window
 	r.resets = resets
+
+	// We signal that rate limit was set and create a new channel for the next time.
+	close(r.setC)
+	r.setC = make(chan struct{})
 }
 
 func newResettingRateLimiter(limit, remaining int, window time.Duration, resets time.Time) *resettingRateLimiter {
@@ -114,6 +123,7 @@ func newResettingRateLimiter(limit, remaining int, window time.Duration, resets 
 		remaining: remaining,
 		window:    window,
 		resets:    resets,
+		setC:      make(chan struct{}),
 	}
 }
 
