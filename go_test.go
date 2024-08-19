@@ -28,4 +28,12 @@ func TestGo(t *testing.T) {
 	output, errE := f.Call(ctx, "foo")
 	assert.NoError(t, errE, "% -+#.1v", errE)
 	assert.Equal(t, "foofoo", output)
+
+	output, errE = f.Variadic()(ctx, "foo")
+	assert.NoError(t, errE, "% -+#.1v", errE)
+	assert.Equal(t, "foofoo", output)
+
+	output, errE = f.Unary()(ctx, "foo")
+	assert.NoError(t, errE, "% -+#.1v", errE)
+	assert.Equal(t, "foofoo", output)
 }
