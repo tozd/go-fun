@@ -14,6 +14,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 - Correctly send empty text content in `AnthropicTextProvider`.
+- Rate limit handling in `AnthropicTextProvider`.
 
 ## [0.4.0] - 2024-08-18
 
