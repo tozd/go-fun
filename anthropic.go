@@ -480,6 +480,12 @@ func (a *AnthropicTextProvider) Chat(ctx context.Context, message ChatMessage) (
 			)
 		}
 
+		// Model sometimes returns no content when the last message to the agent
+		// was the tool result and that concluded the conversation.
+		if len(response.Content) == 0 {
+			return "", nil
+		}
+
 		if len(response.Content) != 1 {
 			return "", errors.WithDetails(
 				ErrUnexpectedNumberOfMessages,
