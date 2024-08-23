@@ -530,6 +530,11 @@ func (a *AnthropicTextProvider) estimatedTokens(messages []anthropicMessage) int
 	if a.system != "" {
 		tokens += len(a.system) / 4 //nolint:gomnd
 	}
+	for _, tool := range a.tools {
+		tokens += len(tool.Name) / 4
+		tokens += len(tool.Description) / 4
+		tokens += len(tool.InputJSONSchema) / 4
+	}
 	// Each output can be up to anthropicMaxResponseTokens so we assume final output
 	// is at most that, with input the same.
 	return tokens + 2*anthropicMaxResponseTokens
