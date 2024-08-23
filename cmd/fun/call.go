@@ -95,10 +95,11 @@ func (c *CallCommand) Run(logger zerolog.Logger) errors.E { //nolint:maintidx
 			return errors.New("ANTHROPIC_API_KEY environment variable is missing")
 		}
 		provider = &fun.AnthropicTextProvider{
-			Client:      nil,
-			APIKey:      os.Getenv("ANTHROPIC_API_KEY"),
-			Model:       c.Model,
-			Temperature: 0,
+			Client:        nil,
+			APIKey:        os.Getenv("ANTHROPIC_API_KEY"),
+			Model:         c.Model,
+			PromptCaching: true, // TODO: How to make it configurable?
+			Temperature:   0,
 		}
 	case "openai":
 		if os.Getenv("OPENAI_API_KEY") == "" {

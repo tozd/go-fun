@@ -31,24 +31,35 @@ type anthropicMessage struct {
 	Content []anthropicContent `json:"content"`
 }
 
+type anthropicSystem struct {
+	Type         string                 `json:"type"`
+	Text         string                 `json:"text"`
+	CacheControl *anthropicCacheControl `json:"cache_control,omitempty"`
+}
+
 type anthropicRequest struct {
 	Model       string             `json:"model"`
 	Messages    []anthropicMessage `json:"messages"`
 	MaxTokens   int                `json:"max_tokens"`
-	System      string             `json:"system,omitempty"`
+	System      []anthropicSystem  `json:"system,omitempty"`
 	Temperature float64            `json:"temperature"`
 	Tools       []anthropicTool    `json:"tools,omitempty"`
 }
 
+type anthropicCacheControl struct {
+	Type string `json:"type"`
+}
+
 type anthropicContent struct {
-	Type      string          `json:"type"`
-	Text      *string         `json:"text,omitempty"`
-	ID        string          `json:"id,omitempty"`
-	Name      string          `json:"name,omitempty"`
-	Input     json.RawMessage `json:"input,omitempty"`
-	ToolUseID string          `json:"tool_use_id,omitempty"`
-	IsError   bool            `json:"is_error,omitempty"`
-	Content   *string         `json:"content,omitempty"`
+	Type         string                 `json:"type"`
+	Text         *string                `json:"text,omitempty"`
+	ID           string                 `json:"id,omitempty"`
+	Name         string                 `json:"name,omitempty"`
+	Input        json.RawMessage        `json:"input,omitempty"`
+	ToolUseID    string                 `json:"tool_use_id,omitempty"`
+	IsError      bool                   `json:"is_error,omitempty"`
+	Content      *string                `json:"content,omitempty"`
+	CacheControl *anthropicCacheControl `json:"cache_control,omitempty"`
 }
 
 type anthropicResponse struct {
@@ -125,9 +136,10 @@ func parseAnthropicRateLimitHeaders(resp *http.Response) ( //nolint:nonamedretur
 }
 
 type anthropicTool struct {
-	Name            string          `json:"name"`
-	Description     string          `json:"description,omitempty"`
-	InputJSONSchema json.RawMessage `json:"input_schema"`
+	Name            string                 `json:"name"`
+	Description     string                 `json:"description,omitempty"`
+	InputJSONSchema json.RawMessage        `json:"input_schema"`
+	CacheControl    *anthropicCacheControl `json:"cache_control,omitempty"`
 
 	tool TextTooler
 }
@@ -149,11 +161,14 @@ type AnthropicTextProvider struct {
 	// Model is the name of the model to be used.
 	Model string `json:"model"`
 
+	// PromptCaching set to true enables prompt caching.
+	PromptCaching bool `json:"promptCaching"`
+
 	// Temperature is how creative should the AI model be.
 	// Default is 0 which means not at all.
 	Temperature float64 `json:"temperature"`
 
-	system   string
+	system   []anthropicSystem
 	messages []anthropicMessage
 	tools    []anthropicTool
 }
@@ -181,20 +196,40 @@ func (a *AnthropicTextProvider) Init(_ context.Context, messages []ChatMessage) 
 	for _, message := range messages {
 		message := message
 		if message.Role == roleSystem {
-			if a.system != "" {
+			if a.system != nil {
 				return errors.WithStack(ErrMultipleSystemMessages)
 			}
-			a.system = message.Content
+			a.system = []anthropicSystem{
+				{
+					Type:         "text",
+					Text:         message.Content,
+					CacheControl: nil,
+				},
+			}
 		} else {
 			a.messages = append(a.messages, anthropicMessage{
 				Role: message.Role,
 				Content: []anthropicContent{
 					{ //nolint:exhaustruct
-						Type: typeText,
-						Text: &message.Content,
+						Type:         typeText,
+						Text:         &message.Content,
+						CacheControl: nil,
 					},
 				},
 			})
+		}
+	}
+
+	if a.PromptCaching {
+		// We want to set a cache breakpoint as late as possible. And the order is tools, system, then messages.
+		if len(a.messages) > 0 {
+			a.messages[len(a.messages)-1].Content[len(a.messages[len(a.messages)-1].Content)-1].CacheControl = &anthropicCacheControl{
+				Type: "ephemeral",
+			}
+		} else if len(a.system) > 0 {
+			a.system[len(a.system)-1].CacheControl = &anthropicCacheControl{
+				Type: "ephemeral",
+			}
 		}
 	}
 
@@ -285,8 +320,8 @@ func (a *AnthropicTextProvider) Chat(ctx context.Context, message ChatMessage) (
 	})
 
 	if callRecorder != nil {
-		if a.system != "" {
-			callRecorder.addMessage(roleSystem, a.system, "", "", false, false, nil)
+		for _, system := range a.system {
+			callRecorder.addMessage(roleSystem, system.Text, "", "", false, false, nil)
 		}
 
 		for _, message := range messages {
@@ -321,6 +356,9 @@ func (a *AnthropicTextProvider) Chat(ctx context.Context, message ChatMessage) (
 		req.Header.Add("x-api-key", a.APIKey)
 		req.Header.Add("anthropic-version", "2023-06-01")
 		req.Header.Add("Content-Type", "application/json")
+		if a.PromptCaching {
+			req.Header.Add("anthropic-beta", "prompt-caching-2024-07-31")
+		}
 		// Rate limit the initial request.
 		errE = anthropicRateLimiter.Take(ctx, a.APIKey, map[string]int{
 			"rpm": 1,
@@ -527,13 +565,13 @@ func (a *AnthropicTextProvider) estimatedTokens(messages []anthropicMessage) int
 			}
 		}
 	}
-	if a.system != "" {
-		tokens += len(a.system) / 4 //nolint:gomnd
+	for _, system := range a.system {
+		tokens += len(system.Text) / 4 //nolint:gomnd
 	}
 	for _, tool := range a.tools {
-		tokens += len(tool.Name) / 4
-		tokens += len(tool.Description) / 4
-		tokens += len(tool.InputJSONSchema) / 4
+		tokens += len(tool.Name) / 4            //nolint:gomnd
+		tokens += len(tool.Description) / 4     //nolint:gomnd
+		tokens += len(tool.InputJSONSchema) / 4 //nolint:gomnd
 	}
 	// Each output can be up to anthropicMaxResponseTokens so we assume final output
 	// is at most that, with input the same.
@@ -558,8 +596,16 @@ func (a *AnthropicTextProvider) InitTools(ctx context.Context, tools map[string]
 			Name:            name,
 			Description:     tool.GetDescription(),
 			InputJSONSchema: tool.GetInputJSONSchema(),
+			CacheControl:    nil,
 			tool:            tool,
 		})
+	}
+
+	// We want to set a cache breakpoint as late as possible. And the order is tools, system, then messages.
+	if a.PromptCaching && len(a.messages) == 0 && len(a.system) == 0 {
+		a.tools[len(a.tools)-1].CacheControl = &anthropicCacheControl{
+			Type: "ephemeral",
+		}
 	}
 
 	return nil
