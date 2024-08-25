@@ -442,7 +442,7 @@ func runTextTests(
 	}
 }
 
-func cleanCall(call fun.TextRecorderCall, d *int) fun.TextRecorderCall {
+func cleanCall(call fun.TextRecorderCall, d *int64) fun.TextRecorderCall {
 	*d++
 	callID := *d
 
@@ -458,7 +458,7 @@ func cleanCall(call fun.TextRecorderCall, d *int) fun.TextRecorderCall {
 			message.ToolCalls[j] = cleanCall(call, d)
 		}
 		if message.ToolDuration != 0 {
-			message.ToolDuration = time.Duration(callID*100000 + i + 1)
+			message.ToolDuration = fun.Duration((callID*100000 + int64(i) + 1) * int64(time.Second))
 		}
 		call.Messages[i] = message
 	}
@@ -481,19 +481,19 @@ func cleanCall(call fun.TextRecorderCall, d *int) fun.TextRecorderCall {
 	usedTime := map[string]fun.TextRecorderUsedTime{}
 	i := 0
 	for _, t := range call.UsedTime {
-		t.APICall = time.Duration(1 + i)
+		t.APICall = fun.Duration((1 + int64(i)) * int64(time.Second))
 		usedTime[fmt.Sprintf("req_%d_%d", callID, i)] = t
 		i++
 	}
 	call.UsedTime = usedTime
 
-	call.Duration = time.Duration(callID)
+	call.Duration = fun.Duration(callID * int64(time.Second))
 
 	return call
 }
 
 func cleanCalls(calls []fun.TextRecorderCall) {
-	d := 0
+	var d int64
 	for i, call := range calls {
 		calls[i] = cleanCall(call, &d)
 	}

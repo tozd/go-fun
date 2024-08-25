@@ -2,11 +2,20 @@ package fun
 
 import (
 	"context"
+	"strconv"
 	"sync"
 	"time"
 )
 
 var textRecorderContextKey = &contextKey{"text-provider-recorder"} //nolint:gochecknoglobals
+
+// Duration is [time.Duration] but which formats duration as
+// seconds with millisecond precision in JSON.
+type Duration time.Duration
+
+func (d Duration) MarshalJSON() ([]byte, error) {
+	return []byte(strconv.FormatFloat(time.Duration(d).Seconds(), byte('f'), 3, 64)), nil
+}
 
 // TextRecorderUsedTokens describes number of tokens used by a request
 // to an AI model.
@@ -41,16 +50,16 @@ type TextRecorderUsedTokens struct {
 // TextRecorderUsedTime describes time taken by a request to an AI model.
 type TextRecorderUsedTime struct {
 	// Prompt is time taken by processing the prompt.
-	Prompt time.Duration `json:"prompt,omitempty"`
+	Prompt Duration `json:"prompt,omitempty"`
 
 	// Response is time taken by formulating the response.
-	Response time.Duration `json:"response,omitempty"`
+	Response Duration `json:"response,omitempty"`
 
 	// Total is the sum of Prompt and Response.
-	Total time.Duration `json:"total,omitempty"`
+	Total Duration `json:"total,omitempty"`
 
 	// APICall is end-to-end duration of the API call request.
-	APICall time.Duration `json:"apiCall"`
+	APICall Duration `json:"apiCall"`
 }
 
 // TextRecorderCall describes a call to an AI model.
@@ -77,7 +86,7 @@ type TextRecorderCall struct {
 	UsedTime map[string]TextRecorderUsedTime `json:"usedTime,omitempty"`
 
 	// Duration is end-to-end duration of this call.
-	Duration time.Duration `json:"duration"`
+	Duration Duration `json:"duration"`
 }
 
 // TextRecorderMessage describes one message sent to or received
@@ -98,7 +107,7 @@ type TextRecorderMessage struct {
 	ToolUseName string `json:"toolUseName,omitempty"`
 
 	// ToolDuration is duration of the tool call.
-	ToolDuration time.Duration `json:"toolDuration,omitempty"`
+	ToolDuration Duration `json:"toolDuration,omitempty"`
 
 	// ToolCalls contains any recursive calls recorded while running the tool.
 	ToolCalls []TextRecorderCall `json:"toolCalls,omitempty"`
@@ -118,7 +127,7 @@ func (c *TextRecorderCall) addMessage(role, content, toolID, toolName string, to
 		Content:      content,
 		ToolUseID:    toolID,
 		ToolUseName:  toolName,
-		ToolDuration: toolDuration,
+		ToolDuration: Duration(toolDuration),
 		ToolCalls:    toolCalls,
 		IsError:      isError,
 		IsRefusal:    isRefusal,
@@ -147,10 +156,10 @@ func (c *TextRecorderCall) addUsedTime(requestID string, prompt, response, apiCa
 	}
 
 	c.UsedTime[requestID] = TextRecorderUsedTime{
-		Prompt:   prompt,
-		Response: response,
-		Total:    prompt + response,
-		APICall:  apiCall,
+		Prompt:   Duration(prompt),
+		Response: Duration(response),
+		Total:    Duration(prompt + response),
+		APICall:  Duration(apiCall),
 	}
 }
 
@@ -171,7 +180,7 @@ func (t *TextRecorder) recordCall(call *TextRecorderCall, now time.Time) {
 	defer t.mu.Unlock()
 
 	c := *call
-	c.Duration = time.Since(now)
+	c.Duration = Duration(time.Since(now))
 
 	t.calls = append(t.calls, c)
 }

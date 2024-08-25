@@ -109,7 +109,7 @@ func ExampleTextRecorder() {
 	//         "role": "tool_result",
 	//         "content": "42",
 	//         "toolUseId": "call_1_2",
-	//         "toolDuration": 100004,
+	//         "toolDuration": 100004.000,
 	//         "toolCalls": [
 	//           {
 	//             "id": "id_2",
@@ -144,10 +144,10 @@ func ExampleTextRecorder() {
 	//             },
 	//             "usedTime": {
 	//               "req_2_0": {
-	//                 "apiCall": 1
+	//                 "apiCall": 1.000
 	//               }
 	//             },
-	//             "duration": 2
+	//             "duration": 2.000
 	//           }
 	//         ]
 	//       },
@@ -174,13 +174,13 @@ func ExampleTextRecorder() {
 	//     },
 	//     "usedTime": {
 	//       "req_1_0": {
-	//         "apiCall": 1
+	//         "apiCall": 1.000
 	//       },
 	//       "req_1_1": {
-	//         "apiCall": 2
+	//         "apiCall": 2.000
 	//       }
 	//     },
-	//     "duration": 1
+	//     "duration": 1.000
 	//   }
 	// ]
 }

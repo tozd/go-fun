@@ -111,7 +111,7 @@ func ExampleTextTool() {
 	//     "role": "tool_result",
 	//     "content": "42",
 	//     "toolUseId": "call_1_2",
-	//     "toolDuration": 100004
+	//     "toolDuration": 100004.000
 	//   },
 	//   {
 	//     "role": "assistant",
