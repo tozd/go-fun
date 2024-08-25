@@ -110,12 +110,13 @@ func ExampleTextRecorder() {
 	//         "content": "42",
 	//         "toolUseId": "call_1_2",
 	//         "toolDuration": 100004,
-	//         "calls": [
+	//         "toolCalls": [
 	//           {
 	//             "id": "id_2",
 	//             "provider": {
 	//               "type": "anthropic",
 	//               "model": "claude-3-haiku-20240307",
+	//               "promptCaching": false,
 	//               "temperature": 0
 	//             },
 	//             "messages": [
@@ -142,9 +143,9 @@ func ExampleTextRecorder() {
 	//               }
 	//             },
 	//             "usedTime": {
-	//             	"req_2_0": {
-	//             		"apiCall": 1
-	//             	}
+	//               "req_2_0": {
+	//                 "apiCall": 1
+	//               }
 	//             },
 	//             "duration": 2
 	//           }
