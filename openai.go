@@ -386,6 +386,8 @@ func (o *OpenAITextProvider) Chat(ctx context.Context, message ChatMessage) (str
 				o.MaxResponseLength,
 				response.Usage.PromptTokens,
 				response.Usage.CompletionTokens,
+				nil,
+				nil,
 			)
 
 			o.recordMessage(callRecorder, response.Choices[0].Message, nil, false)

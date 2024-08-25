@@ -300,6 +300,8 @@ func (o *OllamaTextProvider) Chat(ctx context.Context, message ChatMessage) (str
 				o.MaxResponseLength,
 				responses[0].Metrics.PromptEvalCount,
 				responses[0].Metrics.EvalCount,
+				nil,
+				nil,
 			)
 			callRecorder.addUsedTime(
 				apiRequest,

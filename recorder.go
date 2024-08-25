@@ -28,9 +28,17 @@ type TextRecorderUsedTokens struct {
 
 	// Total is the sum of Prompt and Response.
 	Total int `json:"total"`
+
+	// CacheCreationInputTokens is the number of tokens written
+	// to the cache when creating a new entry.
+	CacheCreationInputTokens *int `json:"cacheCreationInputTokens,omitempty"`
+
+	// CacheReadInputTokens is the number of tokens retrieved
+	// from the cache for this request.
+	CacheReadInputTokens *int `json:"cacheReadInputTokens,omitempty"`
 }
 
-// TextRecorderUsedTokens describes time taken by a request to an AI model.
+// TextRecorderUsedTime describes time taken by a request to an AI model.
 type TextRecorderUsedTime struct {
 	// Prompt is time taken by processing the prompt.
 	Prompt time.Duration `json:"prompt"`
@@ -89,8 +97,10 @@ type TextRecorderMessage struct {
 
 	// IsRefusal is true if the AI model refused to respond.
 	// In this case, Content is the explanation of the refusal.
-	IsRefusal bool               `json:"isRefusal,omitempty"`
-	Calls     []TextRecorderCall `json:"calls,omitempty"`
+	IsRefusal bool `json:"isRefusal,omitempty"`
+
+	// Calls contains any recursive calls recorded while running the tool.
+	Calls []TextRecorderCall `json:"calls,omitempty"`
 }
 
 func (c *TextRecorderCall) addMessage(role, content, toolID, toolName string, isError, isRefusal bool, calls []TextRecorderCall) {
@@ -105,17 +115,19 @@ func (c *TextRecorderCall) addMessage(role, content, toolID, toolName string, is
 	})
 }
 
-func (c *TextRecorderCall) addUsedTokens(requestID string, maxTotal, maxResponse, prompt, response int) {
+func (c *TextRecorderCall) addUsedTokens(requestID string, maxTotal, maxResponse, prompt, response int, cacheCreationInputTokens, cacheReadInputTokens *int) {
 	if c.UsedTokens == nil {
 		c.UsedTokens = map[string]TextRecorderUsedTokens{}
 	}
 
 	c.UsedTokens[requestID] = TextRecorderUsedTokens{
-		MaxTotal:    maxTotal,
-		MaxResponse: maxResponse,
-		Prompt:      prompt,
-		Response:    response,
-		Total:       prompt + response,
+		MaxTotal:                 maxTotal,
+		MaxResponse:              maxResponse,
+		Prompt:                   prompt,
+		Response:                 response,
+		Total:                    prompt + response,
+		CacheCreationInputTokens: cacheCreationInputTokens,
+		CacheReadInputTokens:     cacheReadInputTokens,
 	}
 }
 

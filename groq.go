@@ -403,6 +403,8 @@ func (g *GroqTextProvider) Chat(ctx context.Context, message ChatMessage) (strin
 				g.MaxResponseLength,
 				response.Usage.PromptTokens,
 				response.Usage.CompletionTokens,
+				nil,
+				nil,
 			)
 			callRecorder.addUsedTime(
 				requestID,
