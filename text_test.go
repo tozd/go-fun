@@ -7,6 +7,7 @@ import (
 	"slices"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/rs/zerolog"
 	"github.com/stretchr/testify/assert"
@@ -453,8 +454,11 @@ func cleanCall(call fun.TextRecorderCall, d *int) fun.TextRecorderCall {
 			}
 			message.ToolUseID = toolUses[message.ToolUseID]
 		}
-		for j, call := range message.Calls {
-			message.Calls[j] = cleanCall(call, d)
+		for j, call := range message.ToolCalls {
+			message.ToolCalls[j] = cleanCall(call, d)
+		}
+		if message.ToolDuration != 0 {
+			message.ToolDuration = time.Duration(callID*100000 + i + 1)
 		}
 		call.Messages[i] = message
 	}
@@ -473,6 +477,17 @@ func cleanCall(call fun.TextRecorderCall, d *int) fun.TextRecorderCall {
 		usedTokens[fmt.Sprintf("req_%d_%d", callID, i)] = tokens
 	}
 	call.UsedTokens = usedTokens
+
+	usedTime := map[string]fun.TextRecorderUsedTime{}
+	i := 0
+	for _, t := range call.UsedTime {
+		t.APICall = time.Duration(1 + i)
+		usedTime[fmt.Sprintf("req_%d_%d", callID, i)] = t
+		i++
+	}
+	call.UsedTime = usedTime
+
+	call.Duration = time.Duration(callID)
 
 	return call
 }

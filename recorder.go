@@ -41,13 +41,16 @@ type TextRecorderUsedTokens struct {
 // TextRecorderUsedTime describes time taken by a request to an AI model.
 type TextRecorderUsedTime struct {
 	// Prompt is time taken by processing the prompt.
-	Prompt time.Duration `json:"prompt"`
+	Prompt time.Duration `json:"prompt,omitempty"`
 
 	// Response is time taken by formulating the response.
-	Response time.Duration `json:"response"`
+	Response time.Duration `json:"response,omitempty"`
 
 	// Total is the sum of Prompt and Response.
-	Total time.Duration `json:"total"`
+	Total time.Duration `json:"total,omitempty"`
+
+	// APICall is end-to-end duration of the API call request.
+	APICall time.Duration `json:"apiCall"`
 }
 
 // TextRecorderCall describes a call to an AI model.
@@ -72,6 +75,9 @@ type TextRecorderCall struct {
 
 	// UsedTime for each request made to the AI model.
 	UsedTime map[string]TextRecorderUsedTime `json:"usedTime,omitempty"`
+
+	// Duration is end-to-end duration of this call.
+	Duration time.Duration `json:"duration"`
 }
 
 // TextRecorderMessage describes one message sent to or received
@@ -91,6 +97,12 @@ type TextRecorderMessage struct {
 	// ToolUseName is the name of the tool used.
 	ToolUseName string `json:"toolUseName,omitempty"`
 
+	// ToolDuration is duration of the tool call.
+	ToolDuration time.Duration `json:"toolDuration,omitempty"`
+
+	// ToolCalls contains any recursive calls recorded while running the tool.
+	ToolCalls []TextRecorderCall `json:"toolCalls,omitempty"`
+
 	// IsError is true if there was an error during tool execution.
 	// In this case, Content is the error message returned to the AI model.
 	IsError bool `json:"isError,omitempty"`
@@ -98,20 +110,18 @@ type TextRecorderMessage struct {
 	// IsRefusal is true if the AI model refused to respond.
 	// In this case, Content is the explanation of the refusal.
 	IsRefusal bool `json:"isRefusal,omitempty"`
-
-	// Calls contains any recursive calls recorded while running the tool.
-	Calls []TextRecorderCall `json:"calls,omitempty"`
 }
 
-func (c *TextRecorderCall) addMessage(role, content, toolID, toolName string, isError, isRefusal bool, calls []TextRecorderCall) {
+func (c *TextRecorderCall) addMessage(role, content, toolID, toolName string, toolDuration time.Duration, toolCalls []TextRecorderCall, isError, isRefusal bool) {
 	c.Messages = append(c.Messages, TextRecorderMessage{
-		Role:        role,
-		Content:     content,
-		ToolUseID:   toolID,
-		ToolUseName: toolName,
-		IsError:     isError,
-		IsRefusal:   isRefusal,
-		Calls:       calls,
+		Role:         role,
+		Content:      content,
+		ToolUseID:    toolID,
+		ToolUseName:  toolName,
+		ToolDuration: toolDuration,
+		ToolCalls:    toolCalls,
+		IsError:      isError,
+		IsRefusal:    isRefusal,
 	})
 }
 
@@ -131,7 +141,7 @@ func (c *TextRecorderCall) addUsedTokens(requestID string, maxTotal, maxResponse
 	}
 }
 
-func (c *TextRecorderCall) addUsedTime(requestID string, prompt, response time.Duration) {
+func (c *TextRecorderCall) addUsedTime(requestID string, prompt, response, apiCall time.Duration) {
 	if c.UsedTime == nil {
 		c.UsedTime = map[string]TextRecorderUsedTime{}
 	}
@@ -140,6 +150,7 @@ func (c *TextRecorderCall) addUsedTime(requestID string, prompt, response time.D
 		Prompt:   prompt,
 		Response: response,
 		Total:    prompt + response,
+		APICall:  apiCall,
 	}
 }
 
@@ -155,11 +166,14 @@ type TextRecorder struct {
 	calls []TextRecorderCall
 }
 
-func (t *TextRecorder) recordCall(call *TextRecorderCall) {
+func (t *TextRecorder) recordCall(call *TextRecorderCall, now time.Time) {
 	t.mu.Lock()
 	defer t.mu.Unlock()
 
-	t.calls = append(t.calls, *call)
+	c := *call
+	c.Duration = time.Since(now)
+
+	t.calls = append(t.calls, c)
 }
 
 // TextRecorderCall returns calls records recorded by this recorder.

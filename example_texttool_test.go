@@ -110,7 +110,8 @@ func ExampleTextTool() {
 	//   {
 	//     "role": "tool_result",
 	//     "content": "42",
-	//     "toolUseId": "call_1_2"
+	//     "toolUseId": "call_1_2",
+	//     "toolDuration": 100004
 	//   },
 	//   {
 	//     "role": "assistant",
