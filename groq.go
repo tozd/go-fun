@@ -317,7 +317,7 @@ func (g *GroqTextProvider) Chat(ctx context.Context, message ChatMessage) (strin
 
 	if callRecorder != nil {
 		for _, message := range messages {
-			g.recordMessage(callRecorder, message, 0, nil, false)
+			g.recordMessage(callRecorder, message)
 		}
 
 		callRecorder.notify()
@@ -353,28 +353,28 @@ func (g *GroqTextProvider) Chat(ctx context.Context, message ChatMessage) (strin
 		}
 		start := time.Now()
 		resp, err := g.Client.Do(req)
-		var requestID string
+		var apiRequest string
 		if resp != nil {
-			requestID = resp.Header.Get("X-Request-Id")
+			apiRequest = resp.Header.Get("X-Request-Id")
 		}
 		if err != nil {
 			errE = errors.Prefix(err, ErrAPIRequestFailed)
-			if requestID != "" {
-				errors.Details(errE)["apiRequest"] = requestID
+			if apiRequest != "" {
+				errors.Details(errE)["apiRequest"] = apiRequest
 			}
 			return "", errE
 		}
 		defer resp.Body.Close()
 		defer io.Copy(io.Discard, resp.Body) //nolint:errcheck
 
-		if requestID == "" {
+		if apiRequest == "" {
 			return "", errors.WithStack(ErrMissingRequestID)
 		}
 
 		var response groqResponse
 		errE = x.DecodeJSON(resp.Body, &response)
 		if errE != nil {
-			errors.Details(errE)["apiRequest"] = requestID
+			errors.Details(errE)["apiRequest"] = apiRequest
 			return "", errE
 		}
 
@@ -384,7 +384,7 @@ func (g *GroqTextProvider) Chat(ctx context.Context, message ChatMessage) (strin
 			return "", errors.WithDetails(
 				ErrAPIResponseError,
 				"body", response.Error,
-				"apiRequest", requestID,
+				"apiRequest", apiRequest,
 			)
 		}
 
@@ -392,13 +392,13 @@ func (g *GroqTextProvider) Chat(ctx context.Context, message ChatMessage) (strin
 			return "", errors.WithDetails(
 				ErrUnexpectedNumberOfMessages,
 				"number", len(response.Choices),
-				"apiRequest", requestID,
+				"apiRequest", apiRequest,
 			)
 		}
 
 		if callRecorder != nil {
 			callRecorder.addUsedTokens(
-				requestID,
+				apiRequest,
 				g.MaxContextLength,
 				g.MaxResponseLength,
 				response.Usage.PromptTokens,
@@ -407,13 +407,13 @@ func (g *GroqTextProvider) Chat(ctx context.Context, message ChatMessage) (strin
 				nil,
 			)
 			callRecorder.addUsedTime(
-				requestID,
+				apiRequest,
 				time.Duration(response.Usage.PromptTime*float64(time.Second)),
 				time.Duration(response.Usage.CompletionTime*float64(time.Second)),
 				apiCallDuration,
 			)
 
-			g.recordMessage(callRecorder, response.Choices[0].Message, 0, nil, false)
+			g.recordMessage(callRecorder, response.Choices[0].Message)
 
 			callRecorder.notify()
 		}
@@ -427,7 +427,7 @@ func (g *GroqTextProvider) Chat(ctx context.Context, message ChatMessage) (strin
 				"total", response.Usage.TotalTokens,
 				"maxTotal", g.MaxContextLength,
 				"maxResponse", g.MaxResponseLength,
-				"apiRequest", requestID,
+				"apiRequest", apiRequest,
 			)
 		}
 
@@ -435,7 +435,7 @@ func (g *GroqTextProvider) Chat(ctx context.Context, message ChatMessage) (strin
 			return "", errors.WithDetails(
 				ErrUnexpectedRole,
 				"role", response.Choices[0].Message.Role,
-				"apiRequest", requestID,
+				"apiRequest", apiRequest,
 			)
 		}
 
@@ -444,42 +444,36 @@ func (g *GroqTextProvider) Chat(ctx context.Context, message ChatMessage) (strin
 				return "", errors.WithDetails(
 					ErrUnexpectedNumberOfMessages,
 					"number", len(response.Choices[0].Message.ToolCalls),
-					"apiRequest", requestID,
+					"apiRequest", apiRequest,
 				)
 			}
 
 			// We have already recorded this message above.
 			messages = append(messages, response.Choices[0].Message)
 
+			var wg sync.WaitGroup
 			for _, toolCall := range response.Choices[0].Message.ToolCalls {
-				isError := false
-				output, calls, duration, errE := g.callTool(ctx, callRecorder, toolCall)
-				if errE != nil {
-					zerolog.Ctx(ctx).Warn().Err(errE).Str("name", toolCall.Function.Name).Str("apiRequest", requestID).
-						Str("tool", toolCall.ID).RawJSON("input", json.RawMessage(toolCall.Function.Arguments)).Msg("tool error")
-					content := fmt.Sprintf("Error: %s", errE.Error())
-					messages = append(messages, groqMessage{
-						Role:       roleTool,
-						Content:    &content,
-						ToolCalls:  nil,
-						ToolCallID: toolCall.ID,
-					})
-					isError = true
-				} else {
-					messages = append(messages, groqMessage{
-						Role:       roleTool,
-						Content:    &output,
-						ToolCalls:  nil,
-						ToolCallID: toolCall.ID,
-					})
-				}
+				messages = append(messages, groqMessage{
+					Role:       roleTool,
+					Content:    nil,
+					ToolCalls:  nil,
+					ToolCallID: toolCall.ID,
+				})
+				result := &messages[len(messages)-1]
 
+				toolCtx := ctx
+				var toolMessage *TextRecorderMessage
 				if callRecorder != nil {
-					g.recordMessage(callRecorder, messages[len(messages)-1], duration, calls, isError)
-
-					callRecorder.notify()
+					toolCtx, toolMessage = callRecorder.startToolMessage(ctx, toolCall.ID)
 				}
+				wg.Add(1)
+				go func() {
+					defer wg.Done()
+					g.callToolWrapper(toolCtx, apiRequest, toolCall, result, callRecorder, toolMessage)
+				}()
 			}
+
+			wg.Wait()
 
 			continue
 		}
@@ -488,13 +482,13 @@ func (g *GroqTextProvider) Chat(ctx context.Context, message ChatMessage) (strin
 			return "", errors.WithDetails(
 				ErrUnexpectedStop,
 				"reason", response.Choices[0].FinishReason,
-				"apiRequest", requestID,
+				"apiRequest", apiRequest,
 			)
 		}
 		if response.Choices[0].Message.Content == nil {
 			return "", errors.WithDetails(
 				ErrUnexpectedMessageType,
-				"apiRequest", requestID,
+				"apiRequest", apiRequest,
 			)
 		}
 
@@ -549,7 +543,41 @@ func (g *GroqTextProvider) InitTools(ctx context.Context, tools map[string]TextT
 	return nil
 }
 
-func (g *GroqTextProvider) callTool(ctx context.Context, callRecorder *TextRecorderCall, toolCall groqToolCall) (string, []TextRecorderCall, time.Duration, errors.E) {
+func (g *GroqTextProvider) callToolWrapper(ctx context.Context, apiRequest string, toolCall groqToolCall, result *groqMessage, callRecorder *TextRecorderCall, toolMessage *TextRecorderMessage) {
+	logger := zerolog.Ctx(ctx).With().Str("tool", toolCall.ID).Logger()
+	ctx = logger.WithContext(ctx)
+
+	output, duration, errE := g.callTool(ctx, toolCall)
+	if errE != nil {
+		zerolog.Ctx(ctx).Warn().Err(errE).Str("name", toolCall.Function.Name).Str("apiRequest", apiRequest).
+			Str("tool", toolCall.ID).RawJSON("input", json.RawMessage(toolCall.Function.Arguments)).Msg("tool error")
+		content := fmt.Sprintf("Error: %s", errE.Error())
+		result.Content = &content
+
+		if toolMessage != nil {
+			toolMessage.Content = &content
+			toolMessage.IsError = true
+		}
+	} else {
+		result.Content = &output
+
+		if toolMessage != nil {
+			toolMessage.Content = &output
+		}
+	}
+
+	if toolMessage != nil {
+		toolMessage.ToolCalls = GetTextRecorder(ctx).Calls()
+		toolMessage.ToolDuration = duration
+		toolMessage.start = time.Time{}
+	}
+
+	if callRecorder != nil {
+		callRecorder.notify()
+	}
+}
+
+func (g *GroqTextProvider) callTool(ctx context.Context, toolCall groqToolCall) (string, Duration, errors.E) {
 	var tool TextTooler
 	for _, t := range g.tools {
 		if t.Function.Name == toolCall.Function.Name {
@@ -558,31 +586,18 @@ func (g *GroqTextProvider) callTool(ctx context.Context, callRecorder *TextRecor
 		}
 	}
 	if tool == nil {
-		return "", nil, 0, errors.Errorf("%w: %s", ErrToolNotFound, toolCall.Function.Name)
-	}
-
-	logger := zerolog.Ctx(ctx).With().Str("tool", toolCall.ID).Logger()
-	ctx = logger.WithContext(ctx)
-
-	if callRecorder != nil {
-		// If recorder is present in the current content, we create a new context with
-		// a new recorder so that we can record a tool implemented with Text.
-		ctx = callRecorder.withTextRecorder(ctx)
+		return "", 0, errors.Errorf("%w: %s", ErrToolNotFound, toolCall.Function.Name)
 	}
 
 	start := time.Now()
 	output, errE := tool.Call(ctx, json.RawMessage(toolCall.Function.Arguments))
 	duration := time.Since(start)
-	// If there is no recorder, Calls returns nil.
-	// Calls returns nil as well if the tool was not implemented with Text.
-	return output, GetTextRecorder(ctx).Calls(), duration, errE
+	return output, Duration(duration), errE
 }
 
-func (g *GroqTextProvider) recordMessage(recorder *TextRecorderCall, message groqMessage, duration time.Duration, calls []TextRecorderCall, isError bool) {
+func (g *GroqTextProvider) recordMessage(recorder *TextRecorderCall, message groqMessage) {
 	if message.Role == roleTool {
-		if message.Content != nil {
-			recorder.addMessage(roleToolResult, *message.Content, message.ToolCallID, "", duration, calls, isError, false)
-		}
+		panic(errors.New("recording tool result message should not happen"))
 	} else {
 		if message.Content != nil {
 			recorder.addMessage(message.Role, *message.Content, "", "", 0, nil, false, false)

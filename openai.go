@@ -286,7 +286,7 @@ func (o *OpenAITextProvider) Chat(ctx context.Context, message ChatMessage) (str
 
 	if callRecorder != nil {
 		for _, message := range messages {
-			o.recordMessage(callRecorder, message, 0, nil, false)
+			o.recordMessage(callRecorder, message)
 		}
 
 		callRecorder.notify()
@@ -396,7 +396,7 @@ func (o *OpenAITextProvider) Chat(ctx context.Context, message ChatMessage) (str
 				apiCallDuration,
 			)
 
-			o.recordMessage(callRecorder, response.Choices[0].Message, 0, nil, false)
+			o.recordMessage(callRecorder, response.Choices[0].Message)
 
 			callRecorder.notify()
 		}
@@ -434,37 +434,30 @@ func (o *OpenAITextProvider) Chat(ctx context.Context, message ChatMessage) (str
 			// We have already recorded this message above.
 			messages = append(messages, response.Choices[0].Message)
 
+			var wg sync.WaitGroup
 			for _, toolCall := range response.Choices[0].Message.ToolCalls {
-				isError := false
-				output, calls, duration, errE := o.callTool(ctx, callRecorder, toolCall)
-				if errE != nil {
-					zerolog.Ctx(ctx).Warn().Err(errE).Str("name", toolCall.Function.Name).Str("apiRequest", apiRequest).
-						Str("tool", toolCall.ID).RawJSON("input", json.RawMessage(toolCall.Function.Arguments)).Msg("tool error")
-					content := fmt.Sprintf("Error: %s", errE.Error())
-					messages = append(messages, openAIMessage{
-						Role:       roleTool,
-						Content:    &content,
-						Refusal:    nil,
-						ToolCalls:  nil,
-						ToolCallID: toolCall.ID,
-					})
-					isError = true
-				} else {
-					messages = append(messages, openAIMessage{
-						Role:       roleTool,
-						Content:    &output,
-						Refusal:    nil,
-						ToolCalls:  nil,
-						ToolCallID: toolCall.ID,
-					})
-				}
+				messages = append(messages, openAIMessage{
+					Role:       roleTool,
+					Content:    nil,
+					Refusal:    nil,
+					ToolCalls:  nil,
+					ToolCallID: toolCall.ID,
+				})
+				result := &messages[len(messages)-1]
 
+				toolCtx := ctx
+				var toolMessage *TextRecorderMessage
 				if callRecorder != nil {
-					o.recordMessage(callRecorder, messages[len(messages)-1], duration, calls, isError)
-
-					callRecorder.notify()
+					toolCtx, toolMessage = callRecorder.startToolMessage(ctx, toolCall.ID)
 				}
+				wg.Add(1)
+				go func() {
+					defer wg.Done()
+					o.callToolWrapper(toolCtx, apiRequest, toolCall, result, callRecorder, toolMessage)
+				}()
 			}
+
+			wg.Wait()
 
 			continue
 		}
@@ -555,7 +548,41 @@ func (o *OpenAITextProvider) InitTools(ctx context.Context, tools map[string]Tex
 	return nil
 }
 
-func (o *OpenAITextProvider) callTool(ctx context.Context, callRecorder *TextRecorderCall, toolCall openAIToolCall) (string, []TextRecorderCall, time.Duration, errors.E) {
+func (o *OpenAITextProvider) callToolWrapper(ctx context.Context, apiRequest string, toolCall openAIToolCall, result *openAIMessage, callRecorder *TextRecorderCall, toolMessage *TextRecorderMessage) {
+	logger := zerolog.Ctx(ctx).With().Str("tool", toolCall.ID).Logger()
+	ctx = logger.WithContext(ctx)
+
+	output, duration, errE := o.callTool(ctx, toolCall)
+	if errE != nil {
+		zerolog.Ctx(ctx).Warn().Err(errE).Str("name", toolCall.Function.Name).Str("apiRequest", apiRequest).
+			Str("tool", toolCall.ID).RawJSON("input", json.RawMessage(toolCall.Function.Arguments)).Msg("tool error")
+		content := fmt.Sprintf("Error: %s", errE.Error())
+		result.Content = &content
+
+		if toolMessage != nil {
+			toolMessage.Content = &content
+			toolMessage.IsError = true
+		}
+	} else {
+		result.Content = &output
+
+		if toolMessage != nil {
+			toolMessage.Content = &output
+		}
+	}
+
+	if toolMessage != nil {
+		toolMessage.ToolCalls = GetTextRecorder(ctx).Calls()
+		toolMessage.ToolDuration = duration
+		toolMessage.start = time.Time{}
+	}
+
+	if callRecorder != nil {
+		callRecorder.notify()
+	}
+}
+
+func (o *OpenAITextProvider) callTool(ctx context.Context, toolCall openAIToolCall) (string, Duration, errors.E) {
 	var tool TextTooler
 	for _, t := range o.tools {
 		if t.Function.Name == toolCall.Function.Name {
@@ -564,31 +591,18 @@ func (o *OpenAITextProvider) callTool(ctx context.Context, callRecorder *TextRec
 		}
 	}
 	if tool == nil {
-		return "", nil, 0, errors.Errorf("%w: %s", ErrToolNotFound, toolCall.Function.Name)
-	}
-
-	logger := zerolog.Ctx(ctx).With().Str("tool", toolCall.ID).Logger()
-	ctx = logger.WithContext(ctx)
-
-	if callRecorder != nil {
-		// If recorder is present in the current content, we create a new context with
-		// a new recorder so that we can record a tool implemented with Text.
-		ctx = callRecorder.withTextRecorder(ctx)
+		return "", 0, errors.Errorf("%w: %s", ErrToolNotFound, toolCall.Function.Name)
 	}
 
 	start := time.Now()
 	output, errE := tool.Call(ctx, json.RawMessage(toolCall.Function.Arguments))
 	duration := time.Since(start)
-	// If there is no recorder, Calls returns nil.
-	// Calls returns nil as well if the tool was not implemented with Text.
-	return output, GetTextRecorder(ctx).Calls(), duration, errE
+	return output, Duration(duration), errE
 }
 
-func (o *OpenAITextProvider) recordMessage(recorder *TextRecorderCall, message openAIMessage, duration time.Duration, calls []TextRecorderCall, isError bool) {
+func (o *OpenAITextProvider) recordMessage(recorder *TextRecorderCall, message openAIMessage) {
 	if message.Role == roleTool {
-		if message.Content != nil {
-			recorder.addMessage(roleToolResult, *message.Content, message.ToolCallID, "", duration, calls, isError, false)
-		}
+		panic(errors.New("recording tool result message should not happen"))
 	} else {
 		if message.Content != nil {
 			recorder.addMessage(message.Role, *message.Content, "", "", 0, nil, false, false)

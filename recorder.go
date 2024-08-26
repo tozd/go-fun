@@ -96,8 +96,8 @@ type TextRecorderCall struct {
 	// Duration is end-to-end duration of this call.
 	Duration Duration `json:"duration,omitempty"`
 
-	parentRecorder *TextRecorder
-	start          time.Time
+	recorder *TextRecorder
+	start    time.Time
 }
 
 // TextRecorderMessage describes one message sent to or received
@@ -108,13 +108,13 @@ type TextRecorderMessage struct {
 	Role string `json:"role"`
 
 	// Content is textual content of the message.
-	Content string `json:"content"`
+	Content *string `json:"content,omitempty"`
 
 	// ToolUseID is the ID of the tool use to correlate
 	// "tool_use" and "tool_result" messages.
 	ToolUseID string `json:"toolUseId,omitempty"`
 
-	// ToolUseName is the name of the tool used.
+	// ToolUseName is the name of the tool to use.
 	ToolUseName string `json:"toolUseName,omitempty"`
 
 	// ToolDuration is duration of the tool call.
@@ -130,33 +130,88 @@ type TextRecorderMessage struct {
 	// IsRefusal is true if the AI model refused to respond.
 	// In this case, Content is the explanation of the refusal.
 	IsRefusal bool `json:"isRefusal,omitempty"`
+
+	start time.Time
 }
 
-func (c *TextRecorderCall) clone() TextRecorderCall {
-	// We do not clone messages themselves (including their ToolCalls)
-	// because we assume messages are never changed once they are made.
-	return TextRecorderCall{
-		ID:             c.ID,
-		Provider:       c.Provider,
-		Messages:       slices.Clone(c.Messages),
-		UsedTokens:     maps.Clone(c.UsedTokens),
-		UsedTime:       maps.Clone(c.UsedTime),
-		Duration:       Duration(time.Since(c.start)),
-		parentRecorder: nil,
-		start:          c.start,
+func (m *TextRecorderMessage) snapshot(final bool) TextRecorderMessage {
+	var duration Duration
+	if !m.start.IsZero() {
+		duration = Duration(time.Since(m.start))
+	} else {
+		duration = m.ToolDuration
+	}
+
+	var toolCalls []TextRecorderCall
+	if m.ToolCalls != nil {
+		toolCalls = make([]TextRecorderCall, 0, len(m.ToolCalls))
+		for _, toolCall := range m.ToolCalls {
+			toolCalls = append(toolCalls, toolCall.snapshot(final))
+		}
+	}
+
+	var start time.Time
+	if !final {
+		start = m.start
+	}
+
+	return TextRecorderMessage{
+		Role:         m.Role,
+		Content:      m.Content,
+		ToolUseID:    m.ToolUseID,
+		ToolUseName:  m.ToolUseName,
+		ToolDuration: duration,
+		ToolCalls:    toolCalls,
+		IsError:      m.IsError,
+		IsRefusal:    m.IsRefusal,
+		start:        start,
 	}
 }
 
-func (c *TextRecorderCall) addMessage(role, content, toolID, toolName string, toolDuration time.Duration, toolCalls []TextRecorderCall, isError, isRefusal bool) {
+func (c *TextRecorderCall) snapshot(final bool) TextRecorderCall {
+	var duration Duration
+	if !c.start.IsZero() {
+		duration = Duration(time.Since(c.start))
+	} else {
+		duration = c.Duration
+	}
+
+	var messages []TextRecorderMessage
+	if c.Messages != nil {
+		messages = make([]TextRecorderMessage, 0, len(c.Messages))
+		for _, message := range c.Messages {
+			messages = append(messages, message.snapshot(final))
+		}
+	}
+
+	var start time.Time
+	if !final {
+		start = c.start
+	}
+
+	return TextRecorderCall{
+		ID:         c.ID,
+		Provider:   c.Provider,
+		Messages:   messages,
+		UsedTokens: maps.Clone(c.UsedTokens),
+		UsedTime:   maps.Clone(c.UsedTime),
+		Duration:   duration,
+		recorder:   nil,
+		start:      start,
+	}
+}
+
+func (c *TextRecorderCall) addMessage(role, content, toolID, toolName string, toolDuration Duration, toolCalls []TextRecorderCall, isError, isRefusal bool) {
 	c.Messages = append(c.Messages, TextRecorderMessage{
 		Role:         role,
-		Content:      content,
+		Content:      &content,
 		ToolUseID:    toolID,
 		ToolUseName:  toolName,
-		ToolDuration: Duration(toolDuration),
+		ToolDuration: toolDuration,
 		ToolCalls:    toolCalls,
 		IsError:      isError,
 		IsRefusal:    isRefusal,
+		start:        time.Time{},
 	})
 }
 
@@ -190,30 +245,41 @@ func (c *TextRecorderCall) addUsedTime(requestID string, prompt, response, apiCa
 }
 
 func (c *TextRecorderCall) notify() {
-	c.parentRecorder.mu.Lock()
-	defer c.parentRecorder.mu.Unlock()
+	c.recorder.mu.Lock()
+	defer c.recorder.mu.Unlock()
 
-	if c.parentRecorder.c == nil {
+	if c.recorder.c == nil {
 		return
 	}
 
-	calls := slices.Clone(c.parentRecorder.calls)
-	calls = append(calls, c.parentRecorder.parentCalls...)
-	calls = append(calls, c.clone())
+	calls := slices.Clone(c.recorder.calls)
+	calls = append(calls, c.snapshot(false))
 
-	c.parentRecorder.c <- calls
+	c.recorder.c <- calls
 }
 
-func (c *TextRecorderCall) withTextRecorder(ctx context.Context) context.Context {
-	c.parentRecorder.mu.Lock()
-	defer c.parentRecorder.mu.Unlock()
+func (c *TextRecorderCall) startToolMessage(ctx context.Context, toolCallID string) (context.Context, *TextRecorderMessage) {
+	c.recorder.mu.Lock()
+	defer c.recorder.mu.Unlock()
+
+	c.Messages = append(c.Messages, TextRecorderMessage{
+		Role:         roleToolResult,
+		Content:      nil,
+		ToolUseID:    toolCallID,
+		ToolUseName:  "",
+		ToolDuration: 0,
+		ToolCalls:    nil,
+		IsError:      false,
+		IsRefusal:    false,
+		start:        time.Now(),
+	})
 
 	return context.WithValue(ctx, textRecorderContextKey, &TextRecorder{
-		mu:          sync.Mutex{},
-		calls:       c.parentRecorder.calls,
-		parentCalls: append(slices.Clone(c.parentRecorder.parentCalls), c.clone()),
-		c:           c.parentRecorder.c,
-	})
+		mu:     sync.Mutex{},
+		calls:  nil,
+		parent: c.recorder,
+		c:      nil,
+	}), &c.Messages[len(c.Messages)-1]
 }
 
 // TextRecorderCall is a recorder which records all communication
@@ -225,9 +291,9 @@ func (c *TextRecorderCall) withTextRecorder(ctx context.Context) context.Context
 type TextRecorder struct {
 	mu sync.Mutex
 
-	calls       []TextRecorderCall
-	parentCalls []TextRecorderCall
-	c           chan<- []TextRecorderCall
+	calls  []TextRecorderCall
+	parent *TextRecorder
+	c      chan<- []TextRecorderCall
 }
 
 func (t *TextRecorder) newCall(callID string, provider TextProvider) *TextRecorderCall {
@@ -235,14 +301,14 @@ func (t *TextRecorder) newCall(callID string, provider TextProvider) *TextRecord
 	defer t.mu.Unlock()
 
 	return &TextRecorderCall{
-		ID:             callID,
-		Provider:       provider,
-		Messages:       nil,
-		UsedTokens:     nil,
-		UsedTime:       nil,
-		Duration:       0,
-		parentRecorder: t,
-		start:          time.Now(),
+		ID:         callID,
+		Provider:   provider,
+		Messages:   nil,
+		UsedTokens: nil,
+		UsedTime:   nil,
+		Duration:   0,
+		recorder:   t,
+		start:      time.Now(),
 	}
 }
 
@@ -250,7 +316,7 @@ func (t *TextRecorder) recordCall(call *TextRecorderCall) {
 	t.mu.Lock()
 	defer t.mu.Unlock()
 
-	t.calls = append(t.calls, call.clone())
+	t.calls = append(t.calls, call.snapshot(true))
 }
 
 // Notify sets a channel which is used to send all recorded calls

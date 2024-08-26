@@ -5,6 +5,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"fmt"
 	"io"
 	"net/http"
 	"slices"
@@ -322,7 +323,7 @@ func (a *AnthropicTextProvider) Chat(ctx context.Context, message ChatMessage) (
 		}
 
 		for _, message := range messages {
-			a.recordMessage(callRecorder, message, nil, nil)
+			a.recordMessage(callRecorder, message)
 		}
 
 		callRecorder.notify()
@@ -424,7 +425,7 @@ func (a *AnthropicTextProvider) Chat(ctx context.Context, message ChatMessage) (
 			a.recordMessage(callRecorder, anthropicMessage{
 				Role:    response.Role,
 				Content: response.Content,
-			}, nil, nil)
+			})
 
 			callRecorder.notify()
 		}
@@ -464,39 +465,37 @@ func (a *AnthropicTextProvider) Chat(ctx context.Context, message ChatMessage) (
 				Content: response.Content,
 			})
 
-			outputContent := []anthropicContent{}
-			durations := []time.Duration{}
-			outputCalls := [][]TextRecorderCall{}
+			messages = append(messages, anthropicMessage{
+				Role:    roleUser,
+				Content: nil,
+			})
 
+			ct, cancel := context.WithCancel(ctx)
+
+			var wg sync.WaitGroup
 			for _, content := range response.Content {
 				switch content.Type {
 				case typeText:
 					// We do nothing.
 				case roleToolUse:
-					output, calls, duration, errE := a.callTool(ctx, callRecorder, content)
-					if errE != nil {
-						e := zerolog.Ctx(ctx).Warn().Err(errE).Str("name", content.Name).Str("apiRequest", apiRequest).Str("tool", content.ID)
-						if content.Input != nil {
-							e = e.RawJSON("input", content.Input)
-						}
-						e.Msg("tool error")
-						c := errE.Error()
-						outputContent = append(outputContent, anthropicContent{ //nolint:exhaustruct
-							Type:      roleToolResult,
-							ToolUseID: content.ID,
-							IsError:   true,
-							Content:   &c,
-						})
-					} else {
-						outputContent = append(outputContent, anthropicContent{ //nolint:exhaustruct
-							Type:      roleToolResult,
-							ToolUseID: content.ID,
-							Content:   &output,
-						})
+					messages[len(messages)-1].Content = append(messages[len(messages)-1].Content, anthropicContent{ //nolint:exhaustruct
+						Type:      roleToolResult,
+						ToolUseID: content.ID,
+					})
+					result := &messages[len(messages)-1].Content[len(messages[len(messages)-1].Content)-1]
+
+					toolCtx := ct
+					var toolMessage *TextRecorderMessage
+					if callRecorder != nil {
+						toolCtx, toolMessage = callRecorder.startToolMessage(ct, content.ID)
 					}
-					durations = append(durations, duration)
-					outputCalls = append(outputCalls, calls)
+					wg.Add(1)
+					go func() {
+						defer wg.Done()
+						a.callToolWrapper(toolCtx, apiRequest, content, result, callRecorder, toolMessage)
+					}()
 				default:
+					cancel()
 					return "", errors.WithDetails(
 						ErrUnexpectedMessageType,
 						"type", content.Type,
@@ -505,22 +504,14 @@ func (a *AnthropicTextProvider) Chat(ctx context.Context, message ChatMessage) (
 				}
 			}
 
-			if len(outputContent) == 0 {
+			wg.Wait()
+			cancel()
+
+			if len(messages[len(messages)-1].Content) == 0 {
 				return "", errors.WithDetails(
 					ErrToolCallsWithoutCalls,
 					"apiRequest", apiRequest,
 				)
-			}
-
-			messages = append(messages, anthropicMessage{
-				Role:    roleUser,
-				Content: outputContent,
-			})
-
-			if callRecorder != nil {
-				a.recordMessage(callRecorder, messages[len(messages)-1], durations, outputCalls)
-
-				callRecorder.notify()
 			}
 
 			continue
@@ -627,56 +618,70 @@ func (a *AnthropicTextProvider) InitTools(ctx context.Context, tools map[string]
 	return nil
 }
 
-func (a *AnthropicTextProvider) callTool(ctx context.Context, callRecorder *TextRecorderCall, content anthropicContent) (string, []TextRecorderCall, time.Duration, errors.E) {
+func (a *AnthropicTextProvider) callToolWrapper(ctx context.Context, apiRequest string, toolCall anthropicContent, result *anthropicContent, callRecorder *TextRecorderCall, toolMessage *TextRecorderMessage) {
+	logger := zerolog.Ctx(ctx).With().Str("tool", toolCall.ID).Logger()
+	ctx = logger.WithContext(ctx)
+
+	output, duration, errE := a.callTool(ctx, toolCall)
+	if errE != nil {
+		zerolog.Ctx(ctx).Warn().Err(errE).Str("name", toolCall.Name).Str("apiRequest", apiRequest).
+			Str("tool", toolCall.ID).RawJSON("input", toolCall.Input).Msg("tool error")
+		content := fmt.Sprintf("Error: %s", errE.Error())
+		result.Content = &content
+		result.IsError = true
+
+		if toolMessage != nil {
+			toolMessage.Content = &content
+			toolMessage.IsError = true
+		}
+	} else {
+		result.Content = &output
+
+		if toolMessage != nil {
+			toolMessage.Content = &output
+		}
+	}
+
+	if toolMessage != nil {
+		toolMessage.ToolCalls = GetTextRecorder(ctx).Calls()
+		toolMessage.ToolDuration = duration
+		toolMessage.start = time.Time{}
+	}
+
+	if callRecorder != nil {
+		callRecorder.notify()
+	}
+}
+
+func (a *AnthropicTextProvider) callTool(ctx context.Context, toolCall anthropicContent) (string, Duration, errors.E) {
 	var tool TextTooler
 	for _, t := range a.tools {
-		if t.Name == content.Name {
+		if t.Name == toolCall.Name {
 			tool = t.tool
 			break
 		}
 	}
 	if tool == nil {
-		return "", nil, 0, errors.Errorf("%w: %s", ErrToolNotFound, content.Name)
-	}
-
-	logger := zerolog.Ctx(ctx).With().Str("tool", content.ID).Logger()
-	ctx = logger.WithContext(ctx)
-
-	if callRecorder != nil {
-		// If recorder is present in the current content, we create a new context with
-		// a new recorder so that we can record a tool implemented with Text.
-		ctx = callRecorder.withTextRecorder(ctx)
+		return "", 0, errors.Errorf("%w: %s", ErrToolNotFound, toolCall.Name)
 	}
 
 	start := time.Now()
-	output, errE := tool.Call(ctx, content.Input)
+	output, errE := tool.Call(ctx, toolCall.Input)
 	duration := time.Since(start)
-	// If there is no recorder, Calls returns nil.
-	// Calls returns nil as well if the tool was not implemented with Text.
-	return output, GetTextRecorder(ctx).Calls(), duration, errE
+	return output, Duration(duration), errE
 }
 
-func (a *AnthropicTextProvider) recordMessage(recorder *TextRecorderCall, message anthropicMessage, durations []time.Duration, outputCalls [][]TextRecorderCall) {
-	for i, content := range message.Content {
-		var duration time.Duration
-		if len(durations) > 0 {
-			duration = durations[i]
-		}
-		var calls []TextRecorderCall
-		if len(outputCalls) > 0 {
-			calls = outputCalls[i]
-		}
+func (a *AnthropicTextProvider) recordMessage(recorder *TextRecorderCall, message anthropicMessage) {
+	for _, content := range message.Content {
 		switch content.Type {
+		case roleToolResult:
+			panic(errors.New("recording tool result message should not happen"))
 		case typeText:
 			if content.Text != nil {
 				recorder.addMessage(message.Role, *content.Text, "", "", 0, nil, false, false)
 			}
 		case roleToolUse:
 			recorder.addMessage(roleToolUse, string(content.Input), content.ID, content.Name, 0, nil, false, false)
-		case roleToolResult:
-			if content.Content != nil {
-				recorder.addMessage(roleToolResult, *content.Content, content.ToolUseID, "", duration, calls, content.IsError, false)
-			}
 		}
 	}
 }

@@ -238,7 +238,7 @@ func (o *OllamaTextProvider) Chat(ctx context.Context, message ChatMessage) (str
 
 	if callRecorder != nil {
 		for _, message := range messages {
-			o.recordMessage(callRecorder, message, 0, nil, "", false)
+			o.recordMessage(callRecorder, message, "")
 		}
 
 		callRecorder.notify()
@@ -291,7 +291,7 @@ func (o *OllamaTextProvider) Chat(ctx context.Context, message ChatMessage) (str
 			)
 		}
 
-		toolIDPrefix := fmt.Sprintf("call_%d", len(messages))
+		toolCallIDPrefix := fmt.Sprintf("call_%d", len(messages))
 
 		if callRecorder != nil {
 			callRecorder.addUsedTokens(
@@ -310,7 +310,7 @@ func (o *OllamaTextProvider) Chat(ctx context.Context, message ChatMessage) (str
 				apiCallDuration,
 			)
 
-			o.recordMessage(callRecorder, responses[0].Message, 0, nil, toolIDPrefix, false)
+			o.recordMessage(callRecorder, responses[0].Message, toolCallIDPrefix)
 
 			callRecorder.notify()
 		}
@@ -348,36 +348,30 @@ func (o *OllamaTextProvider) Chat(ctx context.Context, message ChatMessage) (str
 			// We have already recorded this message above.
 			messages = append(messages, responses[0].Message)
 
+			var wg sync.WaitGroup
 			for i, toolCall := range responses[0].Message.ToolCalls {
-				toolID := fmt.Sprintf("%s_%d", toolIDPrefix, i)
-				isError := false
-				output, calls, duration, errE := o.callTool(ctx, callRecorder, toolCall, toolID)
-				if errE != nil {
-					zerolog.Ctx(ctx).Warn().Err(errE).Str("name", toolCall.Function.Name).Str("apiRequest", apiRequest).
-						Str("tool", toolID).RawJSON("input", json.RawMessage(toolCall.Function.Arguments.String())).Msg("tool error")
-					content := fmt.Sprintf("Error: %s", errE.Error())
-					messages = append(messages, api.Message{
-						Role:      roleTool,
-						Content:   content,
-						Images:    nil,
-						ToolCalls: nil,
-					})
-					isError = true
-				} else {
-					messages = append(messages, api.Message{
-						Role:      roleTool,
-						Content:   output,
-						Images:    nil,
-						ToolCalls: nil,
-					})
-				}
+				toolCallID := fmt.Sprintf("%s_%d", toolCallIDPrefix, i)
+				messages = append(messages, api.Message{
+					Role:      roleTool,
+					Content:   "",
+					Images:    nil,
+					ToolCalls: nil,
+				})
+				result := &messages[len(messages)-1]
 
+				toolCtx := ctx
+				var toolMessage *TextRecorderMessage
 				if callRecorder != nil {
-					o.recordMessage(callRecorder, messages[len(messages)-1], duration, calls, toolID, isError)
-
-					callRecorder.notify()
+					toolCtx, toolMessage = callRecorder.startToolMessage(ctx, toolCallID)
 				}
+				wg.Add(1)
+				go func() {
+					defer wg.Done()
+					o.callToolWrapper(toolCtx, apiRequest, toolCall, toolCallID, result, callRecorder, toolMessage)
+				}()
 			}
+
+			wg.Wait()
 
 			continue
 		}
@@ -446,42 +440,61 @@ func (o *OllamaTextProvider) InitTools(ctx context.Context, tools map[string]Tex
 	return nil
 }
 
-func (o *OllamaTextProvider) callTool(ctx context.Context, callRecorder *TextRecorderCall, toolCall api.ToolCall, toolID string) (string, []TextRecorderCall, time.Duration, errors.E) {
-	tool, ok := o.toolers[toolCall.Function.Name]
-	if !ok {
-		return "", nil, 0, errors.Errorf("%w: %s", ErrToolNotFound, toolCall.Function.Name)
-	}
-
-	logger := zerolog.Ctx(ctx).With().Str("tool", toolID).Logger()
+func (o *OllamaTextProvider) callToolWrapper(ctx context.Context, apiRequest string, toolCall api.ToolCall, toolCallID string, result *api.Message, callRecorder *TextRecorderCall, toolMessage *TextRecorderMessage) {
+	logger := zerolog.Ctx(ctx).With().Str("tool", toolCallID).Logger()
 	ctx = logger.WithContext(ctx)
 
+	output, duration, errE := o.callTool(ctx, toolCall)
+	if errE != nil {
+		zerolog.Ctx(ctx).Warn().Err(errE).Str("name", toolCall.Function.Name).Str("apiRequest", apiRequest).
+			Str("tool", toolCallID).RawJSON("input", json.RawMessage(toolCall.Function.Arguments.String())).Msg("tool error")
+		content := fmt.Sprintf("Error: %s", errE.Error())
+		result.Content = content
+
+		if toolMessage != nil {
+			toolMessage.Content = &content
+			toolMessage.IsError = true
+		}
+	} else {
+		result.Content = output
+
+		if toolMessage != nil {
+			toolMessage.Content = &output
+		}
+	}
+
+	if toolMessage != nil {
+		toolMessage.ToolCalls = GetTextRecorder(ctx).Calls()
+		toolMessage.ToolDuration = duration
+		toolMessage.start = time.Time{}
+	}
+
 	if callRecorder != nil {
-		// If recorder is present in the current content, we create a new context with
-		// a new recorder so that we can record a tool implemented with Text.
-		ctx = callRecorder.withTextRecorder(ctx)
+		callRecorder.notify()
+	}
+}
+
+func (o *OllamaTextProvider) callTool(ctx context.Context, toolCall api.ToolCall) (string, Duration, errors.E) {
+	tool, ok := o.toolers[toolCall.Function.Name]
+	if !ok {
+		return "", 0, errors.Errorf("%w: %s", ErrToolNotFound, toolCall.Function.Name)
 	}
 
 	start := time.Now()
 	output, errE := tool.Call(ctx, json.RawMessage(toolCall.Function.Arguments.String()))
 	duration := time.Since(start)
-	// If there is no recorder, Calls returns nil.
-	// Calls returns nil as well if the tool was not implemented with Text.
-	return output, GetTextRecorder(ctx).Calls(), duration, errE
+	return output, Duration(duration), errE
 }
 
-func (o *OllamaTextProvider) recordMessage(
-	recorder *TextRecorderCall, message api.Message, duration time.Duration, calls []TextRecorderCall, toolID string, isError bool,
-) {
+func (o *OllamaTextProvider) recordMessage(recorder *TextRecorderCall, message api.Message, toolCallIDPrefix string) {
 	if message.Role == roleTool {
-		// In roleToolResult messages, toolID is toolID itself.
-		recorder.addMessage(roleToolResult, message.Content, toolID, "", duration, calls, isError, false)
+		panic(errors.New("recording tool result message should not happen"))
 	} else if message.Content != "" || len(message.ToolCalls) == 0 {
 		// Often with ToolCalls present, the content is empty and we do not record the content in that case.
 		// But we do want to record empty content when there are no ToolCalls.
 		recorder.addMessage(message.Role, message.Content, "", "", 0, nil, false, false)
 	}
 	for i, tool := range message.ToolCalls {
-		// In roleToolUse messages, toolID is the prefix to use.
-		recorder.addMessage(roleToolUse, tool.Function.Arguments.String(), fmt.Sprintf("%s_%d", toolID, i), tool.Function.Name, 0, nil, false, false)
+		recorder.addMessage(roleToolUse, tool.Function.Arguments.String(), fmt.Sprintf("%s_%d", toolCallIDPrefix, i), tool.Function.Name, 0, nil, false, false)
 	}
 }
