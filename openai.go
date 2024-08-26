@@ -289,7 +289,7 @@ func (o *OpenAITextProvider) Chat(ctx context.Context, message ChatMessage) (str
 			o.recordMessage(callRecorder, message)
 		}
 
-		callRecorder.notify()
+		callRecorder.notify("", nil)
 	}
 
 	for {
@@ -398,7 +398,7 @@ func (o *OpenAITextProvider) Chat(ctx context.Context, message ChatMessage) (str
 
 			o.recordMessage(callRecorder, response.Choices[0].Message)
 
-			callRecorder.notify()
+			callRecorder.notify("", nil)
 		}
 
 		if response.Usage.TotalTokens >= o.MaxContextLength {
@@ -578,7 +578,7 @@ func (o *OpenAITextProvider) callToolWrapper(ctx context.Context, apiRequest str
 	}
 
 	if callRecorder != nil {
-		callRecorder.notify()
+		callRecorder.notify("", nil)
 	}
 }
 

@@ -201,6 +201,15 @@ func (c *TextRecorderCall) snapshot(final bool) TextRecorderCall {
 	}
 }
 
+func (c *TextRecorderCall) setToolCalls(toolCallID string, children []TextRecorderCall) {
+	for i := 0; i < len(c.Messages); i++ {
+		if c.Messages[i].Role == roleToolResult && c.Messages[i].ToolUseID == toolCallID {
+			c.Messages[i].ToolCalls = children
+			break
+		}
+	}
+}
+
 func (c *TextRecorderCall) addMessage(role, content, toolID, toolName string, toolDuration Duration, toolCalls []TextRecorderCall, isError, isRefusal bool) {
 	c.Messages = append(c.Messages, TextRecorderMessage{
 		Role:         role,
@@ -244,18 +253,28 @@ func (c *TextRecorderCall) addUsedTime(requestID string, prompt, response, apiCa
 	}
 }
 
-func (c *TextRecorderCall) notify() {
+func (c *TextRecorderCall) notify(toolCallID string, children []TextRecorderCall) {
 	c.recorder.mu.Lock()
 	defer c.recorder.mu.Unlock()
 
-	if c.recorder.c == nil {
+	if c.recorder.c == nil && c.recorder.parent == nil {
 		return
 	}
 
 	calls := slices.Clone(c.recorder.calls)
-	calls = append(calls, c.snapshot(false))
+	call := c.snapshot(false)
+	if toolCallID != "" {
+		call.setToolCalls(toolCallID, children)
+	}
+	calls = append(calls, call)
 
-	c.recorder.c <- calls
+	if c.recorder.c != nil {
+		c.recorder.c <- calls
+	}
+
+	if c.recorder.parent != nil {
+		c.recorder.parent.notify(c.recorder.parentToolCallID, calls)
+	}
 }
 
 func (c *TextRecorderCall) startToolMessage(ctx context.Context, toolCallID string) (context.Context, *TextRecorderMessage) {
@@ -275,10 +294,11 @@ func (c *TextRecorderCall) startToolMessage(ctx context.Context, toolCallID stri
 	})
 
 	return context.WithValue(ctx, textRecorderContextKey, &TextRecorder{
-		mu:     sync.Mutex{},
-		calls:  nil,
-		parent: c.recorder,
-		c:      nil,
+		mu:               sync.Mutex{},
+		calls:            nil,
+		parent:           c,
+		parentToolCallID: toolCallID,
+		c:                nil,
 	}), &c.Messages[len(c.Messages)-1]
 }
 
@@ -291,9 +311,10 @@ func (c *TextRecorderCall) startToolMessage(ctx context.Context, toolCallID stri
 type TextRecorder struct {
 	mu sync.Mutex
 
-	calls  []TextRecorderCall
-	parent *TextRecorder
-	c      chan<- []TextRecorderCall
+	calls            []TextRecorderCall
+	parent           *TextRecorderCall
+	parentToolCallID string
+	c                chan<- []TextRecorderCall
 }
 
 func (t *TextRecorder) newCall(callID string, provider TextProvider) *TextRecorderCall {

@@ -326,7 +326,7 @@ func (a *AnthropicTextProvider) Chat(ctx context.Context, message ChatMessage) (
 			a.recordMessage(callRecorder, message)
 		}
 
-		callRecorder.notify()
+		callRecorder.notify("", nil)
 	}
 
 	for {
@@ -427,7 +427,7 @@ func (a *AnthropicTextProvider) Chat(ctx context.Context, message ChatMessage) (
 				Content: response.Content,
 			})
 
-			callRecorder.notify()
+			callRecorder.notify("", nil)
 		}
 
 		if response.Usage.InputTokens+response.Usage.OutputTokens > estimatedTokens {
@@ -649,7 +649,7 @@ func (a *AnthropicTextProvider) callToolWrapper(ctx context.Context, apiRequest 
 	}
 
 	if callRecorder != nil {
-		callRecorder.notify()
+		callRecorder.notify("", nil)
 	}
 }
 

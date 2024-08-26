@@ -241,7 +241,7 @@ func (o *OllamaTextProvider) Chat(ctx context.Context, message ChatMessage) (str
 			o.recordMessage(callRecorder, message, "")
 		}
 
-		callRecorder.notify()
+		callRecorder.notify("", nil)
 	}
 
 	// We allow only one request at a time to an Ollama host.
@@ -312,7 +312,7 @@ func (o *OllamaTextProvider) Chat(ctx context.Context, message ChatMessage) (str
 
 			o.recordMessage(callRecorder, responses[0].Message, toolCallIDPrefix)
 
-			callRecorder.notify()
+			callRecorder.notify("", nil)
 		}
 
 		if responses[0].Metrics.PromptEvalCount+responses[0].Metrics.EvalCount >= o.MaxContextLength {
@@ -470,7 +470,7 @@ func (o *OllamaTextProvider) callToolWrapper(ctx context.Context, apiRequest str
 	}
 
 	if callRecorder != nil {
-		callRecorder.notify()
+		callRecorder.notify("", nil)
 	}
 }
 

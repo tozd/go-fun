@@ -320,7 +320,7 @@ func (g *GroqTextProvider) Chat(ctx context.Context, message ChatMessage) (strin
 			g.recordMessage(callRecorder, message)
 		}
 
-		callRecorder.notify()
+		callRecorder.notify("", nil)
 	}
 
 	for {
@@ -415,7 +415,7 @@ func (g *GroqTextProvider) Chat(ctx context.Context, message ChatMessage) (strin
 
 			g.recordMessage(callRecorder, response.Choices[0].Message)
 
-			callRecorder.notify()
+			callRecorder.notify("", nil)
 		}
 
 		if response.Usage.TotalTokens >= g.MaxContextLength {
@@ -573,7 +573,7 @@ func (g *GroqTextProvider) callToolWrapper(ctx context.Context, apiRequest strin
 	}
 
 	if callRecorder != nil {
-		callRecorder.notify()
+		callRecorder.notify("", nil)
 	}
 }
 
