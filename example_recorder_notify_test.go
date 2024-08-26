@@ -70,6 +70,9 @@ func ExampleTextRecorder_Notify() {
 	go func() {
 		defer wg.Done()
 		for n := range c {
+			// We change calls a bit for the example to be deterministic.
+			cleanCalls(n)
+
 			nJSON, err := json.MarshalIndent(n, "", "  ")
 			if err != nil {
 				log.Fatalf("%v\n", err)
@@ -89,5 +92,433 @@ func ExampleTextRecorder_Notify() {
 	fmt.Println(output)
 
 	// Output:
+	// [
+	//   {
+	//     "id": "id_1",
+	//     "provider": {
+	//       "type": "openai",
+	//       "model": "gpt-4o-mini-2024-07-18",
+	//       "maxContextLength": 128000,
+	//       "maxResponseLength": 16384,
+	//       "forceOutputJsonSchema": false,
+	//       "seed": 42,
+	//       "temperature": 0
+	//     },
+	//     "messages": [
+	//       {
+	//         "role": "system",
+	//         "content": "Sum numbers together. Output only the number."
+	//       },
+	//       {
+	//         "role": "user",
+	//         "content": "[38,4]"
+	//       }
+	//     ],
+	//     "duration": 1.000
+	//   }
+	// ]
+	// [
+	//   {
+	//     "id": "id_1",
+	//     "provider": {
+	//       "type": "openai",
+	//       "model": "gpt-4o-mini-2024-07-18",
+	//       "maxContextLength": 128000,
+	//       "maxResponseLength": 16384,
+	//       "forceOutputJsonSchema": false,
+	//       "seed": 42,
+	//       "temperature": 0
+	//     },
+	//     "messages": [
+	//       {
+	//         "role": "system",
+	//         "content": "Sum numbers together. Output only the number."
+	//       },
+	//       {
+	//         "role": "user",
+	//         "content": "[38,4]"
+	//       },
+	//       {
+	//         "role": "tool_use",
+	//         "content": "{\"numbers\":[38,4]}",
+	//         "toolUseId": "call_1_2",
+	//         "toolUseName": "sum_numbers"
+	//       }
+	//     ],
+	//     "usedTokens": {
+	//       "req_1_0": {
+	//         "maxTotal": 128000,
+	//         "maxResponse": 16384,
+	//         "prompt": 57,
+	//         "response": 16,
+	//         "total": 73
+	//       }
+	//     },
+	//     "usedTime": {
+	//       "req_1_0": {
+	//         "apiCall": 1.000
+	//       }
+	//     },
+	//     "duration": 1.000
+	//   }
+	// ]
+	// [
+	//   {
+	//     "id": "id_1",
+	//     "provider": {
+	//       "type": "openai",
+	//       "model": "gpt-4o-mini-2024-07-18",
+	//       "maxContextLength": 128000,
+	//       "maxResponseLength": 16384,
+	//       "forceOutputJsonSchema": false,
+	//       "seed": 42,
+	//       "temperature": 0
+	//     },
+	//     "messages": [
+	//       {
+	//         "role": "system",
+	//         "content": "Sum numbers together. Output only the number."
+	//       },
+	//       {
+	//         "role": "user",
+	//         "content": "[38,4]"
+	//       },
+	//       {
+	//         "role": "tool_use",
+	//         "content": "{\"numbers\":[38,4]}",
+	//         "toolUseId": "call_1_2",
+	//         "toolUseName": "sum_numbers"
+	//       },
+	//       {
+	//         "role": "tool_result",
+	//         "toolUseId": "call_1_2",
+	//         "toolDuration": 100004.000,
+	//         "toolCalls": [
+	//           {
+	//             "id": "id_2",
+	//             "provider": {
+	//               "type": "anthropic",
+	//               "model": "claude-3-haiku-20240307",
+	//               "promptCaching": false,
+	//               "temperature": 0
+	//             },
+	//             "messages": [
+	//               {
+	//                 "role": "system",
+	//                 "content": "Sum numbers together. Output only the number."
+	//               },
+	//               {
+	//                 "role": "user",
+	//                 "content": "{\"numbers\":[38,4]}"
+	//               }
+	//             ],
+	//             "duration": 2.000
+	//           }
+	//         ]
+	//       }
+	//     ],
+	//     "usedTokens": {
+	//       "req_1_0": {
+	//         "maxTotal": 128000,
+	//         "maxResponse": 16384,
+	//         "prompt": 57,
+	//         "response": 16,
+	//         "total": 73
+	//       }
+	//     },
+	//     "usedTime": {
+	//       "req_1_0": {
+	//         "apiCall": 1.000
+	//       }
+	//     },
+	//     "duration": 1.000
+	//   }
+	// ]
+	// [
+	//   {
+	//     "id": "id_1",
+	//     "provider": {
+	//       "type": "openai",
+	//       "model": "gpt-4o-mini-2024-07-18",
+	//       "maxContextLength": 128000,
+	//       "maxResponseLength": 16384,
+	//       "forceOutputJsonSchema": false,
+	//       "seed": 42,
+	//       "temperature": 0
+	//     },
+	//     "messages": [
+	//       {
+	//         "role": "system",
+	//         "content": "Sum numbers together. Output only the number."
+	//       },
+	//       {
+	//         "role": "user",
+	//         "content": "[38,4]"
+	//       },
+	//       {
+	//         "role": "tool_use",
+	//         "content": "{\"numbers\":[38,4]}",
+	//         "toolUseId": "call_1_2",
+	//         "toolUseName": "sum_numbers"
+	//       },
+	//       {
+	//         "role": "tool_result",
+	//         "toolUseId": "call_1_2",
+	//         "toolDuration": 100004.000,
+	//         "toolCalls": [
+	//           {
+	//             "id": "id_2",
+	//             "provider": {
+	//               "type": "anthropic",
+	//               "model": "claude-3-haiku-20240307",
+	//               "promptCaching": false,
+	//               "temperature": 0
+	//             },
+	//             "messages": [
+	//               {
+	//                 "role": "system",
+	//                 "content": "Sum numbers together. Output only the number."
+	//               },
+	//               {
+	//                 "role": "user",
+	//                 "content": "{\"numbers\":[38,4]}"
+	//               },
+	//               {
+	//                 "role": "assistant",
+	//                 "content": "42"
+	//               }
+	//             ],
+	//             "usedTokens": {
+	//               "req_2_0": {
+	//                 "maxTotal": 8207,
+	//                 "maxResponse": 4096,
+	//                 "prompt": 24,
+	//                 "response": 5,
+	//                 "total": 29
+	//               }
+	//             },
+	//             "usedTime": {
+	//               "req_2_0": {
+	//                 "apiCall": 1.000
+	//               }
+	//             },
+	//             "duration": 2.000
+	//           }
+	//         ]
+	//       }
+	//     ],
+	//     "usedTokens": {
+	//       "req_1_0": {
+	//         "maxTotal": 128000,
+	//         "maxResponse": 16384,
+	//         "prompt": 57,
+	//         "response": 16,
+	//         "total": 73
+	//       }
+	//     },
+	//     "usedTime": {
+	//       "req_1_0": {
+	//         "apiCall": 1.000
+	//       }
+	//     },
+	//     "duration": 1.000
+	//   }
+	// ]
+	// [
+	//   {
+	//     "id": "id_1",
+	//     "provider": {
+	//       "type": "openai",
+	//       "model": "gpt-4o-mini-2024-07-18",
+	//       "maxContextLength": 128000,
+	//       "maxResponseLength": 16384,
+	//       "forceOutputJsonSchema": false,
+	//       "seed": 42,
+	//       "temperature": 0
+	//     },
+	//     "messages": [
+	//       {
+	//         "role": "system",
+	//         "content": "Sum numbers together. Output only the number."
+	//       },
+	//       {
+	//         "role": "user",
+	//         "content": "[38,4]"
+	//       },
+	//       {
+	//         "role": "tool_use",
+	//         "content": "{\"numbers\":[38,4]}",
+	//         "toolUseId": "call_1_2",
+	//         "toolUseName": "sum_numbers"
+	//       },
+	//       {
+	//         "role": "tool_result",
+	//         "content": "42",
+	//         "toolUseId": "call_1_2",
+	//         "toolDuration": 100004.000,
+	//         "toolCalls": [
+	//           {
+	//             "id": "id_2",
+	//             "provider": {
+	//               "type": "anthropic",
+	//               "model": "claude-3-haiku-20240307",
+	//               "promptCaching": false,
+	//               "temperature": 0
+	//             },
+	//             "messages": [
+	//               {
+	//                 "role": "system",
+	//                 "content": "Sum numbers together. Output only the number."
+	//               },
+	//               {
+	//                 "role": "user",
+	//                 "content": "{\"numbers\":[38,4]}"
+	//               },
+	//               {
+	//                 "role": "assistant",
+	//                 "content": "42"
+	//               }
+	//             ],
+	//             "usedTokens": {
+	//               "req_2_0": {
+	//                 "maxTotal": 8207,
+	//                 "maxResponse": 4096,
+	//                 "prompt": 24,
+	//                 "response": 5,
+	//                 "total": 29
+	//               }
+	//             },
+	//             "usedTime": {
+	//               "req_2_0": {
+	//                 "apiCall": 1.000
+	//               }
+	//             },
+	//             "duration": 2.000
+	//           }
+	//         ]
+	//       }
+	//     ],
+	//     "usedTokens": {
+	//       "req_1_0": {
+	//         "maxTotal": 128000,
+	//         "maxResponse": 16384,
+	//         "prompt": 57,
+	//         "response": 16,
+	//         "total": 73
+	//       }
+	//     },
+	//     "usedTime": {
+	//       "req_1_0": {
+	//         "apiCall": 1.000
+	//       }
+	//     },
+	//     "duration": 1.000
+	//   }
+	// ]
+	// [
+	//   {
+	//     "id": "id_1",
+	//     "provider": {
+	//       "type": "openai",
+	//       "model": "gpt-4o-mini-2024-07-18",
+	//       "maxContextLength": 128000,
+	//       "maxResponseLength": 16384,
+	//       "forceOutputJsonSchema": false,
+	//       "seed": 42,
+	//       "temperature": 0
+	//     },
+	//     "messages": [
+	//       {
+	//         "role": "system",
+	//         "content": "Sum numbers together. Output only the number."
+	//       },
+	//       {
+	//         "role": "user",
+	//         "content": "[38,4]"
+	//       },
+	//       {
+	//         "role": "tool_use",
+	//         "content": "{\"numbers\":[38,4]}",
+	//         "toolUseId": "call_1_2",
+	//         "toolUseName": "sum_numbers"
+	//       },
+	//       {
+	//         "role": "tool_result",
+	//         "content": "42",
+	//         "toolUseId": "call_1_2",
+	//         "toolDuration": 100004.000,
+	//         "toolCalls": [
+	//           {
+	//             "id": "id_2",
+	//             "provider": {
+	//               "type": "anthropic",
+	//               "model": "claude-3-haiku-20240307",
+	//               "promptCaching": false,
+	//               "temperature": 0
+	//             },
+	//             "messages": [
+	//               {
+	//                 "role": "system",
+	//                 "content": "Sum numbers together. Output only the number."
+	//               },
+	//               {
+	//                 "role": "user",
+	//                 "content": "{\"numbers\":[38,4]}"
+	//               },
+	//               {
+	//                 "role": "assistant",
+	//                 "content": "42"
+	//               }
+	//             ],
+	//             "usedTokens": {
+	//               "req_2_0": {
+	//                 "maxTotal": 8207,
+	//                 "maxResponse": 4096,
+	//                 "prompt": 24,
+	//                 "response": 5,
+	//                 "total": 29
+	//               }
+	//             },
+	//             "usedTime": {
+	//               "req_2_0": {
+	//                 "apiCall": 1.000
+	//               }
+	//             },
+	//             "duration": 2.000
+	//           }
+	//         ]
+	//       },
+	//       {
+	//         "role": "assistant",
+	//         "content": "42"
+	//       }
+	//     ],
+	//     "usedTokens": {
+	//       "req_1_0": {
+	//         "maxTotal": 128000,
+	//         "maxResponse": 16384,
+	//         "prompt": 57,
+	//         "response": 16,
+	//         "total": 73
+	//       },
+	//       "req_1_1": {
+	//         "maxTotal": 128000,
+	//         "maxResponse": 16384,
+	//         "prompt": 82,
+	//         "response": 2,
+	//         "total": 84
+	//       }
+	//     },
+	//     "usedTime": {
+	//       "req_1_0": {
+	//         "apiCall": 1.000
+	//       },
+	//       "req_1_1": {
+	//         "apiCall": 2.000
+	//       }
+	//     },
+	//     "duration": 1.000
+	//   }
+	// ]
 	// 42
 }
