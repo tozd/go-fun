@@ -298,14 +298,7 @@ func (a *AnthropicTextProvider) Chat(ctx context.Context, message ChatMessage) (
 
 	var callRecorder *TextRecorderCall
 	if recorder := GetTextRecorder(ctx); recorder != nil {
-		callRecorder = &TextRecorderCall{
-			ID:         callID,
-			Provider:   a,
-			Messages:   nil,
-			UsedTokens: nil,
-			UsedTime:   nil,
-			Duration:   0,
-		}
+		callRecorder = recorder.newCall(callID, a)
 		defer recorder.recordCall(callRecorder, time.Now())
 	}
 
@@ -476,7 +469,7 @@ func (a *AnthropicTextProvider) Chat(ctx context.Context, message ChatMessage) (
 				case typeText:
 					// We do nothing.
 				case roleToolUse:
-					output, calls, duration, errE := a.callTool(ctx, content)
+					output, calls, duration, errE := a.callTool(ctx, callRecorder, content)
 					if errE != nil {
 						e := zerolog.Ctx(ctx).Warn().Err(errE).Str("name", content.Name).Str("apiRequest", apiRequest).Str("tool", content.ID)
 						if content.Input != nil {
@@ -628,7 +621,7 @@ func (a *AnthropicTextProvider) InitTools(ctx context.Context, tools map[string]
 	return nil
 }
 
-func (a *AnthropicTextProvider) callTool(ctx context.Context, content anthropicContent) (string, []TextRecorderCall, time.Duration, errors.E) {
+func (a *AnthropicTextProvider) callTool(ctx context.Context, callRecorder *TextRecorderCall, content anthropicContent) (string, []TextRecorderCall, time.Duration, errors.E) {
 	var tool TextTooler
 	for _, t := range a.tools {
 		if t.Name == content.Name {
@@ -643,10 +636,10 @@ func (a *AnthropicTextProvider) callTool(ctx context.Context, content anthropicC
 	logger := zerolog.Ctx(ctx).With().Str("tool", content.ID).Logger()
 	ctx = logger.WithContext(ctx)
 
-	if recorder := GetTextRecorder(ctx); recorder != nil {
+	if callRecorder != nil {
 		// If recorder is present in the current content, we create a new context with
 		// a new recorder so that we can record a tool implemented with Text.
-		ctx = WithTextRecorder(ctx)
+		ctx = callRecorder.withTextRecorder(ctx)
 	}
 
 	now := time.Now()

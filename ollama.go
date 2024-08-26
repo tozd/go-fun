@@ -221,14 +221,7 @@ func (o *OllamaTextProvider) Chat(ctx context.Context, message ChatMessage) (str
 
 	var callRecorder *TextRecorderCall
 	if recorder := GetTextRecorder(ctx); recorder != nil {
-		callRecorder = &TextRecorderCall{
-			ID:         callID,
-			Provider:   o,
-			Messages:   nil,
-			UsedTokens: nil,
-			UsedTime:   nil,
-			Duration:   0,
-		}
+		callRecorder = recorder.newCall(callID, o)
 		defer recorder.recordCall(callRecorder, time.Now())
 	}
 
@@ -354,7 +347,7 @@ func (o *OllamaTextProvider) Chat(ctx context.Context, message ChatMessage) (str
 			for i, toolCall := range responses[0].Message.ToolCalls {
 				toolID := fmt.Sprintf("%s_%d", toolIDPrefix, i)
 				isError := false
-				output, calls, duration, errE := o.callTool(ctx, toolCall, toolID)
+				output, calls, duration, errE := o.callTool(ctx, callRecorder, toolCall, toolID)
 				if errE != nil {
 					zerolog.Ctx(ctx).Warn().Err(errE).Str("name", toolCall.Function.Name).Str("apiRequest", apiRequest).
 						Str("tool", toolID).RawJSON("input", json.RawMessage(toolCall.Function.Arguments.String())).Msg("tool error")
@@ -447,7 +440,7 @@ func (o *OllamaTextProvider) InitTools(ctx context.Context, tools map[string]Tex
 	return nil
 }
 
-func (o *OllamaTextProvider) callTool(ctx context.Context, toolCall api.ToolCall, toolID string) (string, []TextRecorderCall, time.Duration, errors.E) {
+func (o *OllamaTextProvider) callTool(ctx context.Context, callRecorder *TextRecorderCall, toolCall api.ToolCall, toolID string) (string, []TextRecorderCall, time.Duration, errors.E) {
 	tool, ok := o.toolers[toolCall.Function.Name]
 	if !ok {
 		return "", nil, 0, errors.Errorf("%w: %s", ErrToolNotFound, toolCall.Function.Name)
@@ -456,10 +449,10 @@ func (o *OllamaTextProvider) callTool(ctx context.Context, toolCall api.ToolCall
 	logger := zerolog.Ctx(ctx).With().Str("tool", toolID).Logger()
 	ctx = logger.WithContext(ctx)
 
-	if recorder := GetTextRecorder(ctx); recorder != nil {
+	if callRecorder != nil {
 		// If recorder is present in the current content, we create a new context with
 		// a new recorder so that we can record a tool implemented with Text.
-		ctx = WithTextRecorder(ctx)
+		ctx = callRecorder.withTextRecorder(ctx)
 	}
 
 	now := time.Now()

@@ -295,19 +295,12 @@ func (g *GroqTextProvider) Init(ctx context.Context, messages []ChatMessage) err
 }
 
 // Chat implements [TextProvider] interface.
-func (g *GroqTextProvider) Chat(ctx context.Context, message ChatMessage) (string, errors.E) { //nolint:maintidx
+func (g *GroqTextProvider) Chat(ctx context.Context, message ChatMessage) (string, errors.E) {
 	callID := identifier.New().String()
 
 	var callRecorder *TextRecorderCall
 	if recorder := GetTextRecorder(ctx); recorder != nil {
-		callRecorder = &TextRecorderCall{
-			ID:         callID,
-			Provider:   g,
-			Messages:   nil,
-			UsedTokens: nil,
-			UsedTime:   nil,
-			Duration:   0,
-		}
+		callRecorder = recorder.newCall(callID, g)
 		defer recorder.recordCall(callRecorder, time.Now())
 	}
 
@@ -456,7 +449,7 @@ func (g *GroqTextProvider) Chat(ctx context.Context, message ChatMessage) (strin
 
 			for _, toolCall := range response.Choices[0].Message.ToolCalls {
 				isError := false
-				output, calls, duration, errE := g.callTool(ctx, toolCall)
+				output, calls, duration, errE := g.callTool(ctx, callRecorder, toolCall)
 				if errE != nil {
 					zerolog.Ctx(ctx).Warn().Err(errE).Str("name", toolCall.Function.Name).Str("apiRequest", requestID).
 						Str("tool", toolCall.ID).RawJSON("input", json.RawMessage(toolCall.Function.Arguments)).Msg("tool error")
@@ -550,7 +543,7 @@ func (g *GroqTextProvider) InitTools(ctx context.Context, tools map[string]TextT
 	return nil
 }
 
-func (g *GroqTextProvider) callTool(ctx context.Context, toolCall groqToolCall) (string, []TextRecorderCall, time.Duration, errors.E) { //nolint:dupl
+func (g *GroqTextProvider) callTool(ctx context.Context, callRecorder *TextRecorderCall, toolCall groqToolCall) (string, []TextRecorderCall, time.Duration, errors.E) {
 	var tool TextTooler
 	for _, t := range g.tools {
 		if t.Function.Name == toolCall.Function.Name {
@@ -565,10 +558,10 @@ func (g *GroqTextProvider) callTool(ctx context.Context, toolCall groqToolCall) 
 	logger := zerolog.Ctx(ctx).With().Str("tool", toolCall.ID).Logger()
 	ctx = logger.WithContext(ctx)
 
-	if recorder := GetTextRecorder(ctx); recorder != nil {
+	if callRecorder != nil {
 		// If recorder is present in the current content, we create a new context with
 		// a new recorder so that we can record a tool implemented with Text.
-		ctx = WithTextRecorder(ctx)
+		ctx = callRecorder.withTextRecorder(ctx)
 	}
 
 	now := time.Now()

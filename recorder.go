@@ -62,6 +62,12 @@ type TextRecorderUsedTime struct {
 	APICall Duration `json:"apiCall"`
 }
 
+type TextRecorderNotification struct {
+	Stack []string `json:"stack"`
+
+	Message TextRecorderMessage `json:"message"`
+}
+
 // TextRecorderCall describes a call to an AI model.
 //
 // There might be multiple requests made to an AI model
@@ -87,6 +93,9 @@ type TextRecorderCall struct {
 
 	// Duration is end-to-end duration of this call.
 	Duration Duration `json:"duration"`
+
+	c     chan<- TextRecorderNotification
+	stack []string
 }
 
 // TextRecorderMessage describes one message sent to or received
@@ -122,7 +131,7 @@ type TextRecorderMessage struct {
 }
 
 func (c *TextRecorderCall) addMessage(role, content, toolID, toolName string, toolDuration time.Duration, toolCalls []TextRecorderCall, isError, isRefusal bool) {
-	c.Messages = append(c.Messages, TextRecorderMessage{
+	m := TextRecorderMessage{
 		Role:         role,
 		Content:      content,
 		ToolUseID:    toolID,
@@ -131,7 +140,14 @@ func (c *TextRecorderCall) addMessage(role, content, toolID, toolName string, to
 		ToolCalls:    toolCalls,
 		IsError:      isError,
 		IsRefusal:    isRefusal,
-	})
+	}
+	c.Messages = append(c.Messages, m)
+	if c.c != nil {
+		c.c <- TextRecorderNotification{
+			Stack:   c.stack,
+			Message: m,
+		}
+	}
 }
 
 func (c *TextRecorderCall) addUsedTokens(requestID string, maxTotal, maxResponse, prompt, response int, cacheCreationInputTokens, cacheReadInputTokens *int) {
@@ -163,6 +179,15 @@ func (c *TextRecorderCall) addUsedTime(requestID string, prompt, response, apiCa
 	}
 }
 
+func (c *TextRecorderCall) withTextRecorder(ctx context.Context) context.Context {
+	return context.WithValue(ctx, textRecorderContextKey, &TextRecorder{
+		mu:    sync.Mutex{},
+		calls: nil,
+		c:     c.c,
+		stack: c.stack,
+	})
+}
+
 // TextRecorderCall is a recorder which records all communication
 // with the AI model and track usage.
 //
@@ -173,6 +198,24 @@ type TextRecorder struct {
 	mu sync.Mutex
 
 	calls []TextRecorderCall
+	c     chan<- TextRecorderNotification
+	stack []string
+}
+
+func (t *TextRecorder) newCall(callID string, provider TextProvider) *TextRecorderCall {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+
+	return &TextRecorderCall{
+		ID:         callID,
+		Provider:   provider,
+		Messages:   nil,
+		UsedTokens: nil,
+		UsedTime:   nil,
+		Duration:   0,
+		c:          t.c,
+		stack:      append(t.stack, callID),
+	}
 }
 
 func (t *TextRecorder) recordCall(call *TextRecorderCall, now time.Time) {
@@ -183,6 +226,17 @@ func (t *TextRecorder) recordCall(call *TextRecorderCall, now time.Time) {
 	c.Duration = Duration(time.Since(now))
 
 	t.calls = append(t.calls, c)
+}
+
+// Notify sets a channel which should be used to send
+// every recorded message as soon they are recorded.
+//
+// Messages are send only for calls started after calling Notify.
+func (t *TextRecorder) Notify(c chan<- TextRecorderNotification) {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+
+	t.c = c
 }
 
 // TextRecorderCall returns calls records recorded by this recorder.
