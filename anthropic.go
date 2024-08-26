@@ -299,7 +299,7 @@ func (a *AnthropicTextProvider) Chat(ctx context.Context, message ChatMessage) (
 	var callRecorder *TextRecorderCall
 	if recorder := GetTextRecorder(ctx); recorder != nil {
 		callRecorder = recorder.newCall(callID, a)
-		defer recorder.recordCall(callRecorder, time.Now())
+		defer recorder.recordCall(callRecorder)
 	}
 
 	logger := zerolog.Ctx(ctx).With().Str("fun", callID).Logger()
@@ -324,6 +324,8 @@ func (a *AnthropicTextProvider) Chat(ctx context.Context, message ChatMessage) (
 		for _, message := range messages {
 			a.recordMessage(callRecorder, message, nil, nil)
 		}
+
+		callRecorder.notify()
 	}
 
 	for {
@@ -365,7 +367,7 @@ func (a *AnthropicTextProvider) Chat(ctx context.Context, message ChatMessage) (
 		if errE != nil {
 			return "", errE
 		}
-		now := time.Now()
+		start := time.Now()
 		resp, err := a.Client.Do(req)
 		var apiRequest string
 		if resp != nil {
@@ -392,7 +394,7 @@ func (a *AnthropicTextProvider) Chat(ctx context.Context, message ChatMessage) (
 			return "", errE
 		}
 
-		apiCallDuration := time.Since(now)
+		apiCallDuration := time.Since(start)
 
 		if response.Error != nil {
 			return "", errors.WithDetails(
@@ -423,6 +425,8 @@ func (a *AnthropicTextProvider) Chat(ctx context.Context, message ChatMessage) (
 				Role:    response.Role,
 				Content: response.Content,
 			}, nil, nil)
+
+			callRecorder.notify()
 		}
 
 		if response.Usage.InputTokens+response.Usage.OutputTokens > estimatedTokens {
@@ -515,6 +519,8 @@ func (a *AnthropicTextProvider) Chat(ctx context.Context, message ChatMessage) (
 
 			if callRecorder != nil {
 				a.recordMessage(callRecorder, messages[len(messages)-1], durations, outputCalls)
+
+				callRecorder.notify()
 			}
 
 			continue
@@ -642,9 +648,9 @@ func (a *AnthropicTextProvider) callTool(ctx context.Context, callRecorder *Text
 		ctx = callRecorder.withTextRecorder(ctx)
 	}
 
-	now := time.Now()
+	start := time.Now()
 	output, errE := tool.Call(ctx, content.Input)
-	duration := time.Since(now)
+	duration := time.Since(start)
 	// If there is no recorder, Calls returns nil.
 	// Calls returns nil as well if the tool was not implemented with Text.
 	return output, GetTextRecorder(ctx).Calls(), duration, errE

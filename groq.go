@@ -301,7 +301,7 @@ func (g *GroqTextProvider) Chat(ctx context.Context, message ChatMessage) (strin
 	var callRecorder *TextRecorderCall
 	if recorder := GetTextRecorder(ctx); recorder != nil {
 		callRecorder = recorder.newCall(callID, g)
-		defer recorder.recordCall(callRecorder, time.Now())
+		defer recorder.recordCall(callRecorder)
 	}
 
 	logger := zerolog.Ctx(ctx).With().Str("fun", callID).Logger()
@@ -319,6 +319,8 @@ func (g *GroqTextProvider) Chat(ctx context.Context, message ChatMessage) (strin
 		for _, message := range messages {
 			g.recordMessage(callRecorder, message, 0, nil, false)
 		}
+
+		callRecorder.notify()
 	}
 
 	for {
@@ -349,7 +351,7 @@ func (g *GroqTextProvider) Chat(ctx context.Context, message ChatMessage) (strin
 		if errE != nil {
 			return "", errE
 		}
-		now := time.Now()
+		start := time.Now()
 		resp, err := g.Client.Do(req)
 		var requestID string
 		if resp != nil {
@@ -376,7 +378,7 @@ func (g *GroqTextProvider) Chat(ctx context.Context, message ChatMessage) (strin
 			return "", errE
 		}
 
-		apiCallDuration := time.Since(now)
+		apiCallDuration := time.Since(start)
 
 		if response.Error != nil {
 			return "", errors.WithDetails(
@@ -412,6 +414,8 @@ func (g *GroqTextProvider) Chat(ctx context.Context, message ChatMessage) (strin
 			)
 
 			g.recordMessage(callRecorder, response.Choices[0].Message, 0, nil, false)
+
+			callRecorder.notify()
 		}
 
 		if response.Usage.TotalTokens >= g.MaxContextLength {
@@ -472,6 +476,8 @@ func (g *GroqTextProvider) Chat(ctx context.Context, message ChatMessage) (strin
 
 				if callRecorder != nil {
 					g.recordMessage(callRecorder, messages[len(messages)-1], duration, calls, isError)
+
+					callRecorder.notify()
 				}
 			}
 
@@ -564,9 +570,9 @@ func (g *GroqTextProvider) callTool(ctx context.Context, callRecorder *TextRecor
 		ctx = callRecorder.withTextRecorder(ctx)
 	}
 
-	now := time.Now()
+	start := time.Now()
 	output, errE := tool.Call(ctx, json.RawMessage(toolCall.Function.Arguments))
-	duration := time.Since(now)
+	duration := time.Since(start)
 	// If there is no recorder, Calls returns nil.
 	// Calls returns nil as well if the tool was not implemented with Text.
 	return output, GetTextRecorder(ctx).Calls(), duration, errE

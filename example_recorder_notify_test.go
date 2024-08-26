@@ -62,7 +62,7 @@ func ExampleTextRecorder_Notify() {
 	ctx = fun.WithTextRecorder(ctx)
 
 	// We want to be notified as soon as a message is received or send.
-	c := make(chan fun.TextRecorderNotification, 10000)
+	c := make(chan []fun.TextRecorderCall)
 	fun.GetTextRecorder(ctx).Notify(c)
 
 	var wg sync.WaitGroup

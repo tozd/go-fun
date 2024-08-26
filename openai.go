@@ -269,7 +269,7 @@ func (o *OpenAITextProvider) Chat(ctx context.Context, message ChatMessage) (str
 	var callRecorder *TextRecorderCall
 	if recorder := GetTextRecorder(ctx); recorder != nil {
 		callRecorder = recorder.newCall(callID, o)
-		defer recorder.recordCall(callRecorder, time.Now())
+		defer recorder.recordCall(callRecorder)
 	}
 
 	logger := zerolog.Ctx(ctx).With().Str("fun", callID).Logger()
@@ -288,6 +288,8 @@ func (o *OpenAITextProvider) Chat(ctx context.Context, message ChatMessage) (str
 		for _, message := range messages {
 			o.recordMessage(callRecorder, message, 0, nil, false)
 		}
+
+		callRecorder.notify()
 	}
 
 	for {
@@ -332,7 +334,7 @@ func (o *OpenAITextProvider) Chat(ctx context.Context, message ChatMessage) (str
 		if errE != nil {
 			return "", errE
 		}
-		now := time.Now()
+		start := time.Now()
 		resp, err := o.Client.Do(req)
 		var apiRequest string
 		if resp != nil {
@@ -359,7 +361,7 @@ func (o *OpenAITextProvider) Chat(ctx context.Context, message ChatMessage) (str
 			return "", errE
 		}
 
-		apiCallDuration := time.Since(now)
+		apiCallDuration := time.Since(start)
 
 		if response.Error != nil {
 			return "", errors.WithDetails(
@@ -395,6 +397,8 @@ func (o *OpenAITextProvider) Chat(ctx context.Context, message ChatMessage) (str
 			)
 
 			o.recordMessage(callRecorder, response.Choices[0].Message, 0, nil, false)
+
+			callRecorder.notify()
 		}
 
 		if response.Usage.TotalTokens >= o.MaxContextLength {
@@ -457,6 +461,8 @@ func (o *OpenAITextProvider) Chat(ctx context.Context, message ChatMessage) (str
 
 				if callRecorder != nil {
 					o.recordMessage(callRecorder, messages[len(messages)-1], duration, calls, isError)
+
+					callRecorder.notify()
 				}
 			}
 
@@ -570,9 +576,9 @@ func (o *OpenAITextProvider) callTool(ctx context.Context, callRecorder *TextRec
 		ctx = callRecorder.withTextRecorder(ctx)
 	}
 
-	now := time.Now()
+	start := time.Now()
 	output, errE := tool.Call(ctx, json.RawMessage(toolCall.Function.Arguments))
-	duration := time.Since(now)
+	duration := time.Since(start)
 	// If there is no recorder, Calls returns nil.
 	// Calls returns nil as well if the tool was not implemented with Text.
 	return output, GetTextRecorder(ctx).Calls(), duration, errE

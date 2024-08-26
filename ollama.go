@@ -222,7 +222,7 @@ func (o *OllamaTextProvider) Chat(ctx context.Context, message ChatMessage) (str
 	var callRecorder *TextRecorderCall
 	if recorder := GetTextRecorder(ctx); recorder != nil {
 		callRecorder = recorder.newCall(callID, o)
-		defer recorder.recordCall(callRecorder, time.Now())
+		defer recorder.recordCall(callRecorder)
 	}
 
 	logger := zerolog.Ctx(ctx).With().Str("fun", callID).Logger()
@@ -240,6 +240,8 @@ func (o *OllamaTextProvider) Chat(ctx context.Context, message ChatMessage) (str
 		for _, message := range messages {
 			o.recordMessage(callRecorder, message, 0, nil, "", false)
 		}
+
+		callRecorder.notify()
 	}
 
 	// We allow only one request at a time to an Ollama host.
@@ -256,7 +258,7 @@ func (o *OllamaTextProvider) Chat(ctx context.Context, message ChatMessage) (str
 
 		responses := []api.ChatResponse{}
 
-		now := time.Now()
+		start := time.Now()
 		stream := false
 		err := o.client.Chat(ctx, &api.ChatRequest{ //nolint:exhaustruct
 			Model:    o.Model,
@@ -279,7 +281,7 @@ func (o *OllamaTextProvider) Chat(ctx context.Context, message ChatMessage) (str
 			return "", errE
 		}
 
-		apiCallDuration := time.Since(now)
+		apiCallDuration := time.Since(start)
 
 		if len(responses) != 1 {
 			return "", errors.WithDetails(
@@ -309,6 +311,8 @@ func (o *OllamaTextProvider) Chat(ctx context.Context, message ChatMessage) (str
 			)
 
 			o.recordMessage(callRecorder, responses[0].Message, 0, nil, toolIDPrefix, false)
+
+			callRecorder.notify()
 		}
 
 		if responses[0].Metrics.PromptEvalCount+responses[0].Metrics.EvalCount >= o.MaxContextLength {
@@ -370,6 +374,8 @@ func (o *OllamaTextProvider) Chat(ctx context.Context, message ChatMessage) (str
 
 				if callRecorder != nil {
 					o.recordMessage(callRecorder, messages[len(messages)-1], duration, calls, toolID, isError)
+
+					callRecorder.notify()
 				}
 			}
 
@@ -455,9 +461,9 @@ func (o *OllamaTextProvider) callTool(ctx context.Context, callRecorder *TextRec
 		ctx = callRecorder.withTextRecorder(ctx)
 	}
 
-	now := time.Now()
+	start := time.Now()
 	output, errE := tool.Call(ctx, json.RawMessage(toolCall.Function.Arguments.String()))
-	duration := time.Since(now)
+	duration := time.Since(start)
 	// If there is no recorder, Calls returns nil.
 	// Calls returns nil as well if the tool was not implemented with Text.
 	return output, GetTextRecorder(ctx).Calls(), duration, errE
