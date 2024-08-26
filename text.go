@@ -111,6 +111,13 @@ func toInputString[T any](data []T) (string, errors.E) {
 		if ok {
 			return i, nil
 		}
+
+		j, errE := x.MarshalWithoutEscapeHTML(data[0])
+		if errE != nil {
+			return "", errE
+		}
+
+		return string(j), nil
 	}
 
 	j, errE := x.MarshalWithoutEscapeHTML(data)
