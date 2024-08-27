@@ -456,6 +456,11 @@ func (g *GroqTextProvider) Chat(ctx context.Context, message ChatMessage) (strin
 			// does not grow when appending below and invalidate pointers goroutines keep.
 			messages = slices.Grow(messages, len(response.Choices[0].Message.ToolCalls))
 
+			if callRecorder != nil {
+				// We grow the slice inside call recorder as well.
+				callRecorder.prepareForToolMessages(len(response.Choices[0].Message.ToolCalls))
+			}
+
 			var wg sync.WaitGroup
 			for _, toolCall := range response.Choices[0].Message.ToolCalls {
 				toolCall := toolCall

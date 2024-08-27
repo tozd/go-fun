@@ -472,6 +472,11 @@ func (a *AnthropicTextProvider) Chat(ctx context.Context, message ChatMessage) (
 				Content: make([]anthropicContent, 0, len(response.Content)),
 			})
 
+			if callRecorder != nil {
+				// We grow the slice inside call recorder as well.
+				callRecorder.prepareForToolMessages(len(response.Content))
+			}
+
 			ct, cancel := context.WithCancel(ctx)
 
 			var wg sync.WaitGroup

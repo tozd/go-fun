@@ -277,6 +277,13 @@ func (c *TextRecorderCall) notify(toolCallID string, children []TextRecorderCall
 	}
 }
 
+func (c *TextRecorderCall) prepareForToolMessages(n int) {
+	c.recorder.mu.Lock()
+	defer c.recorder.mu.Unlock()
+
+	c.Messages = slices.Grow(c.Messages, n)
+}
+
 func (c *TextRecorderCall) startToolMessage(ctx context.Context, toolCallID string) (context.Context, *TextRecorderMessage) {
 	c.recorder.mu.Lock()
 	defer c.recorder.mu.Unlock()
