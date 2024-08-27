@@ -442,25 +442,24 @@ func runTextTests(
 	}
 }
 
-func cleanCall(call fun.TextRecorderCall, d *int64) fun.TextRecorderCall {
+func cleanCall(call *fun.TextRecorderCall, d *int64) {
 	*d++
 	callID := *d
 
 	toolUses := map[string]string{}
-	for i, message := range call.Messages {
-		if message.ToolUseID != "" {
-			if _, ok := toolUses[message.ToolUseID]; !ok {
-				toolUses[message.ToolUseID] = fmt.Sprintf("call_%d_%d", callID, i)
+	for i := 0; i < len(call.Messages); i++ {
+		if call.Messages[i].ToolUseID != "" {
+			if _, ok := toolUses[call.Messages[i].ToolUseID]; !ok {
+				toolUses[call.Messages[i].ToolUseID] = fmt.Sprintf("call_%d_%d", callID, i)
 			}
-			message.ToolUseID = toolUses[message.ToolUseID]
+			call.Messages[i].ToolUseID = toolUses[call.Messages[i].ToolUseID]
 		}
-		for j, call := range message.ToolCalls {
-			message.ToolCalls[j] = cleanCall(call, d)
+		for j := 0; j < len(call.Messages[i].ToolCalls); j++ {
+			cleanCall(&call.Messages[i].ToolCalls[j], d)
 		}
-		if message.ToolDuration != 0 {
-			message.ToolDuration = fun.Duration((callID*100000 + int64(i) + 1) * int64(time.Second))
+		if call.Messages[i].ToolDuration != 0 {
+			call.Messages[i].ToolDuration = fun.Duration((callID*100000 + int64(i) + 1) * int64(time.Second))
 		}
-		call.Messages[i] = message
 	}
 
 	call.ID = fmt.Sprintf("id_%d", callID)
@@ -488,14 +487,12 @@ func cleanCall(call fun.TextRecorderCall, d *int64) fun.TextRecorderCall {
 	call.UsedTime = usedTime
 
 	call.Duration = fun.Duration(callID * int64(time.Second))
-
-	return call
 }
 
 func cleanCalls(calls []fun.TextRecorderCall) {
 	var d int64
-	for i, call := range calls {
-		calls[i] = cleanCall(call, &d)
+	for i := 0; i < len(calls); i++ {
+		cleanCall(&calls[i], &d)
 	}
 }
 
@@ -631,24 +628,26 @@ func TestTextTools(t *testing.T) { //nolint:paralleltest,tparallel
 			func(t *testing.T, recorder *fun.TextRecorder, providerName string) {
 				t.Helper()
 
-				if assert.Len(t, recorder.Calls(), 1) {
+				calls := recorder.Calls()
+				if assert.Len(t, calls, 1) {
 					usedTool := 0
-					for _, message := range recorder.Calls()[0].Messages {
-						if message.Role == "tool_use" || message.Role == "tool_result" {
+					messages := calls[0].Messages
+					for i := 0; i < len(messages); i++ {
+						if messages[i].Role == "tool_use" || messages[i].Role == "tool_result" {
 							usedTool++
 						}
 					}
 					if providerName == "groq" {
 						// For some reason groq calls the tool twice.
-						assert.Equal(t, 4, usedTool, recorder.Calls()[0].Messages)
+						assert.Equal(t, 4, usedTool, messages)
 					} else {
-						assert.Equal(t, 2, usedTool, recorder.Calls()[0].Messages)
+						assert.Equal(t, 2, usedTool, messages)
 					}
 
 					if providerName == "anthropic" {
-						assert.Len(t, recorder.Calls()[0].Messages, 4+usedTool)
+						assert.Len(t, messages, 4+usedTool)
 					} else {
-						assert.Len(t, recorder.Calls()[0].Messages, 3+usedTool)
+						assert.Len(t, messages, 3+usedTool)
 					}
 				}
 			},
