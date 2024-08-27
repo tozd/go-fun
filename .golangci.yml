@@ -137,6 +137,7 @@ issues:
     - path: example_.*_test\.go
       linters:
         - godot
+        - maintidx
     - path: .*_test\.go
       linters:
         - dupl

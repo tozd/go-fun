@@ -296,7 +296,7 @@ func (g *GroqTextProvider) Init(ctx context.Context, messages []ChatMessage) err
 }
 
 // Chat implements [TextProvider] interface.
-func (g *GroqTextProvider) Chat(ctx context.Context, message ChatMessage) (string, errors.E) {
+func (g *GroqTextProvider) Chat(ctx context.Context, message ChatMessage) (string, errors.E) { //nolint:maintidx
 	callID := identifier.New().String()
 
 	var callRecorder *TextRecorderCall
@@ -555,7 +555,9 @@ func (g *GroqTextProvider) InitTools(ctx context.Context, tools map[string]TextT
 	return nil
 }
 
-func (g *GroqTextProvider) callToolWrapper(ctx context.Context, apiRequest string, toolCall groqToolCall, result *groqMessage, callRecorder *TextRecorderCall, toolMessage *TextRecorderMessage) {
+func (g *GroqTextProvider) callToolWrapper( //nolint:dupl
+	ctx context.Context, apiRequest string, toolCall groqToolCall, result *groqMessage, callRecorder *TextRecorderCall, toolMessage *TextRecorderMessage,
+) {
 	if callRecorder != nil {
 		defer func() {
 			callRecorder.notify("", nil)
@@ -616,10 +618,8 @@ func (g *GroqTextProvider) callTool(ctx context.Context, toolCall groqToolCall) 
 func (g *GroqTextProvider) recordMessage(recorder *TextRecorderCall, message groqMessage) {
 	if message.Role == roleTool {
 		panic(errors.New("recording tool result message should not happen"))
-	} else {
-		if message.Content != nil {
-			recorder.addMessage(message.Role, *message.Content, "", "", false)
-		}
+	} else if message.Content != nil {
+		recorder.addMessage(message.Role, *message.Content, "", "", false)
 	}
 	for _, tool := range message.ToolCalls {
 		recorder.addMessage(roleToolUse, tool.Function.Arguments, tool.ID, tool.Function.Name, false)

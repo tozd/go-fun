@@ -627,7 +627,9 @@ func (a *AnthropicTextProvider) InitTools(ctx context.Context, tools map[string]
 	return nil
 }
 
-func (a *AnthropicTextProvider) callToolWrapper(ctx context.Context, apiRequest string, toolCall anthropicContent, result *anthropicContent, callRecorder *TextRecorderCall, toolMessage *TextRecorderMessage) {
+func (a *AnthropicTextProvider) callToolWrapper(
+	ctx context.Context, apiRequest string, toolCall anthropicContent, result *anthropicContent, callRecorder *TextRecorderCall, toolMessage *TextRecorderMessage,
+) {
 	if callRecorder != nil {
 		defer func() {
 			callRecorder.notify("", nil)

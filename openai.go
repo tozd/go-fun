@@ -559,7 +559,9 @@ func (o *OpenAITextProvider) InitTools(ctx context.Context, tools map[string]Tex
 	return nil
 }
 
-func (o *OpenAITextProvider) callToolWrapper(ctx context.Context, apiRequest string, toolCall openAIToolCall, result *openAIMessage, callRecorder *TextRecorderCall, toolMessage *TextRecorderMessage) {
+func (o *OpenAITextProvider) callToolWrapper( //nolint:dupl
+	ctx context.Context, apiRequest string, toolCall openAIToolCall, result *openAIMessage, callRecorder *TextRecorderCall, toolMessage *TextRecorderMessage,
+) {
 	if callRecorder != nil {
 		defer func() {
 			callRecorder.notify("", nil)
@@ -620,12 +622,10 @@ func (o *OpenAITextProvider) callTool(ctx context.Context, toolCall openAIToolCa
 func (o *OpenAITextProvider) recordMessage(recorder *TextRecorderCall, message openAIMessage) {
 	if message.Role == roleTool {
 		panic(errors.New("recording tool result message should not happen"))
-	} else {
-		if message.Content != nil {
-			recorder.addMessage(message.Role, *message.Content, "", "", false)
-		} else if message.Refusal != nil {
-			recorder.addMessage(message.Role, *message.Refusal, "", "", true)
-		}
+	} else if message.Content != nil {
+		recorder.addMessage(message.Role, *message.Content, "", "", false)
+	} else if message.Refusal != nil {
+		recorder.addMessage(message.Role, *message.Refusal, "", "", true)
 	}
 	for _, tool := range message.ToolCalls {
 		recorder.addMessage(roleToolUse, tool.Function.Arguments, tool.ID, tool.Function.Name, false)

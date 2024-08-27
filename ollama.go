@@ -451,7 +451,9 @@ func (o *OllamaTextProvider) InitTools(ctx context.Context, tools map[string]Tex
 	return nil
 }
 
-func (o *OllamaTextProvider) callToolWrapper(ctx context.Context, apiRequest string, toolCall api.ToolCall, toolCallID string, result *api.Message, callRecorder *TextRecorderCall, toolMessage *TextRecorderMessage) {
+func (o *OllamaTextProvider) callToolWrapper(
+	ctx context.Context, apiRequest string, toolCall api.ToolCall, toolCallID string, result *api.Message, callRecorder *TextRecorderCall, toolMessage *TextRecorderMessage,
+) {
 	if callRecorder != nil {
 		defer func() {
 			callRecorder.notify("", nil)
