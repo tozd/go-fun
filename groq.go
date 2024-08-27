@@ -556,28 +556,23 @@ func (g *GroqTextProvider) InitTools(ctx context.Context, tools map[string]TextT
 }
 
 func (g *GroqTextProvider) callToolWrapper(ctx context.Context, apiRequest string, toolCall groqToolCall, result *groqMessage, callRecorder *TextRecorderCall, toolMessage *TextRecorderMessage) {
-	defer func() {
-		if callRecorder != nil {
+	if callRecorder != nil {
+		defer func() {
 			callRecorder.notify("", nil)
-		}
-	}()
+		}()
+	}
 
 	defer func() {
 		if err := recover(); err != nil {
 			content := fmt.Sprintf("Error: %s", err)
 			result.Content = &content
 
-			if toolMessage != nil {
-				toolMessage.Content = &content
-				toolMessage.IsError = true
-			}
+			toolMessage.setContent(content, true)
 		}
 	}()
 
 	defer func() {
-		if toolMessage != nil {
-			toolMessage.ToolCalls = GetTextRecorder(ctx).Calls()
-		}
+		toolMessage.setToolCalls(GetTextRecorder(ctx).Calls())
 	}()
 
 	logger := zerolog.Ctx(ctx).With().Str("tool", toolCall.ID).Logger()
@@ -590,22 +585,14 @@ func (g *GroqTextProvider) callToolWrapper(ctx context.Context, apiRequest strin
 		content := fmt.Sprintf("Error: %s", errE.Error())
 		result.Content = &content
 
-		if toolMessage != nil {
-			toolMessage.Content = &content
-			toolMessage.IsError = true
-		}
+		toolMessage.setContent(content, true)
 	} else {
 		result.Content = &output
 
-		if toolMessage != nil {
-			toolMessage.Content = &output
-		}
+		toolMessage.setContent(output, false)
 	}
 
-	if toolMessage != nil {
-		toolMessage.ToolDuration = duration
-		toolMessage.start = time.Time{}
-	}
+	toolMessage.setToolDuration(duration)
 }
 
 func (g *GroqTextProvider) callTool(ctx context.Context, toolCall groqToolCall) (string, Duration, errors.E) {
@@ -631,10 +618,10 @@ func (g *GroqTextProvider) recordMessage(recorder *TextRecorderCall, message gro
 		panic(errors.New("recording tool result message should not happen"))
 	} else {
 		if message.Content != nil {
-			recorder.addMessage(message.Role, *message.Content, "", "", 0, nil, false, false)
+			recorder.addMessage(message.Role, *message.Content, "", "", false)
 		}
 	}
 	for _, tool := range message.ToolCalls {
-		recorder.addMessage(roleToolUse, tool.Function.Arguments, tool.ID, tool.Function.Name, 0, nil, false, false)
+		recorder.addMessage(roleToolUse, tool.Function.Arguments, tool.ID, tool.Function.Name, false)
 	}
 }

@@ -319,7 +319,7 @@ func (a *AnthropicTextProvider) Chat(ctx context.Context, message ChatMessage) (
 
 	if callRecorder != nil {
 		for _, system := range a.system {
-			callRecorder.addMessage(roleSystem, system.Text, "", "", 0, nil, false, false)
+			callRecorder.addMessage(roleSystem, system.Text, "", "", false)
 		}
 
 		for _, message := range messages {
@@ -628,11 +628,11 @@ func (a *AnthropicTextProvider) InitTools(ctx context.Context, tools map[string]
 }
 
 func (a *AnthropicTextProvider) callToolWrapper(ctx context.Context, apiRequest string, toolCall anthropicContent, result *anthropicContent, callRecorder *TextRecorderCall, toolMessage *TextRecorderMessage) {
-	defer func() {
-		if callRecorder != nil {
+	if callRecorder != nil {
+		defer func() {
 			callRecorder.notify("", nil)
-		}
-	}()
+		}()
+	}
 
 	defer func() {
 		if err := recover(); err != nil {
@@ -640,17 +640,12 @@ func (a *AnthropicTextProvider) callToolWrapper(ctx context.Context, apiRequest 
 			result.Content = &content
 			result.IsError = true
 
-			if toolMessage != nil {
-				toolMessage.Content = &content
-				toolMessage.IsError = true
-			}
+			toolMessage.setContent(content, true)
 		}
 	}()
 
 	defer func() {
-		if toolMessage != nil {
-			toolMessage.ToolCalls = GetTextRecorder(ctx).Calls()
-		}
+		toolMessage.setToolCalls(GetTextRecorder(ctx).Calls())
 	}()
 
 	logger := zerolog.Ctx(ctx).With().Str("tool", toolCall.ID).Logger()
@@ -664,22 +659,14 @@ func (a *AnthropicTextProvider) callToolWrapper(ctx context.Context, apiRequest 
 		result.Content = &content
 		result.IsError = true
 
-		if toolMessage != nil {
-			toolMessage.Content = &content
-			toolMessage.IsError = true
-		}
+		toolMessage.setContent(content, true)
 	} else {
 		result.Content = &output
 
-		if toolMessage != nil {
-			toolMessage.Content = &output
-		}
+		toolMessage.setContent(output, false)
 	}
 
-	if toolMessage != nil {
-		toolMessage.ToolDuration = duration
-		toolMessage.start = time.Time{}
-	}
+	toolMessage.setToolDuration(duration)
 }
 
 func (a *AnthropicTextProvider) callTool(ctx context.Context, toolCall anthropicContent) (string, Duration, errors.E) {
@@ -707,10 +694,10 @@ func (a *AnthropicTextProvider) recordMessage(recorder *TextRecorderCall, messag
 			panic(errors.New("recording tool result message should not happen"))
 		case typeText:
 			if content.Text != nil {
-				recorder.addMessage(message.Role, *content.Text, "", "", 0, nil, false, false)
+				recorder.addMessage(message.Role, *content.Text, "", "", false)
 			}
 		case roleToolUse:
-			recorder.addMessage(roleToolUse, string(content.Input), content.ID, content.Name, 0, nil, false, false)
+			recorder.addMessage(roleToolUse, string(content.Input), content.ID, content.Name, false)
 		}
 	}
 }

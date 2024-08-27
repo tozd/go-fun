@@ -452,28 +452,23 @@ func (o *OllamaTextProvider) InitTools(ctx context.Context, tools map[string]Tex
 }
 
 func (o *OllamaTextProvider) callToolWrapper(ctx context.Context, apiRequest string, toolCall api.ToolCall, toolCallID string, result *api.Message, callRecorder *TextRecorderCall, toolMessage *TextRecorderMessage) {
-	defer func() {
-		if callRecorder != nil {
+	if callRecorder != nil {
+		defer func() {
 			callRecorder.notify("", nil)
-		}
-	}()
+		}()
+	}
 
 	defer func() {
 		if err := recover(); err != nil {
 			content := fmt.Sprintf("Error: %s", err)
 			result.Content = content
 
-			if toolMessage != nil {
-				toolMessage.Content = &content
-				toolMessage.IsError = true
-			}
+			toolMessage.setContent(content, true)
 		}
 	}()
 
 	defer func() {
-		if toolMessage != nil {
-			toolMessage.ToolCalls = GetTextRecorder(ctx).Calls()
-		}
+		toolMessage.setToolCalls(GetTextRecorder(ctx).Calls())
 	}()
 
 	logger := zerolog.Ctx(ctx).With().Str("tool", toolCallID).Logger()
@@ -486,22 +481,14 @@ func (o *OllamaTextProvider) callToolWrapper(ctx context.Context, apiRequest str
 		content := fmt.Sprintf("Error: %s", errE.Error())
 		result.Content = content
 
-		if toolMessage != nil {
-			toolMessage.Content = &content
-			toolMessage.IsError = true
-		}
+		toolMessage.setContent(content, true)
 	} else {
 		result.Content = output
 
-		if toolMessage != nil {
-			toolMessage.Content = &output
-		}
+		toolMessage.setContent(output, false)
 	}
 
-	if toolMessage != nil {
-		toolMessage.ToolDuration = duration
-		toolMessage.start = time.Time{}
-	}
+	toolMessage.setToolDuration(duration)
 }
 
 func (o *OllamaTextProvider) callTool(ctx context.Context, toolCall api.ToolCall) (string, Duration, errors.E) {
@@ -522,9 +509,9 @@ func (o *OllamaTextProvider) recordMessage(recorder *TextRecorderCall, message a
 	} else if message.Content != "" || len(message.ToolCalls) == 0 {
 		// Often with ToolCalls present, the content is empty and we do not record the content in that case.
 		// But we do want to record empty content when there are no ToolCalls.
-		recorder.addMessage(message.Role, message.Content, "", "", 0, nil, false, false)
+		recorder.addMessage(message.Role, message.Content, "", "", false)
 	}
 	for i, tool := range message.ToolCalls {
-		recorder.addMessage(roleToolUse, tool.Function.Arguments.String(), fmt.Sprintf("%s_%d", toolCallIDPrefix, i), tool.Function.Name, 0, nil, false, false)
+		recorder.addMessage(roleToolUse, tool.Function.Arguments.String(), fmt.Sprintf("%s_%d", toolCallIDPrefix, i), tool.Function.Name, false)
 	}
 }
