@@ -465,15 +465,19 @@ func (a *AnthropicTextProvider) Chat(ctx context.Context, message ChatMessage) (
 				Content: response.Content,
 			})
 
+			// We make space for tool results (one per tool call) so that the Content slice
+			// does not grow when appending below and invalidate pointers goroutines keep.
 			messages = append(messages, anthropicMessage{
 				Role:    roleUser,
-				Content: nil,
+				Content: make([]anthropicContent, 0, len(response.Content)),
 			})
 
 			ct, cancel := context.WithCancel(ctx)
 
 			var wg sync.WaitGroup
 			for _, content := range response.Content {
+				content := content
+
 				switch content.Type {
 				case typeText:
 					// We do nothing.
@@ -619,6 +623,31 @@ func (a *AnthropicTextProvider) InitTools(ctx context.Context, tools map[string]
 }
 
 func (a *AnthropicTextProvider) callToolWrapper(ctx context.Context, apiRequest string, toolCall anthropicContent, result *anthropicContent, callRecorder *TextRecorderCall, toolMessage *TextRecorderMessage) {
+	defer func() {
+		if callRecorder != nil {
+			callRecorder.notify("", nil)
+		}
+	}()
+
+	defer func() {
+		if err := recover(); err != nil {
+			content := fmt.Sprintf("Error: %s", err)
+			result.Content = &content
+			result.IsError = true
+
+			if toolMessage != nil {
+				toolMessage.Content = &content
+				toolMessage.IsError = true
+			}
+		}
+	}()
+
+	defer func() {
+		if toolMessage != nil {
+			toolMessage.ToolCalls = GetTextRecorder(ctx).Calls()
+		}
+	}()
+
 	logger := zerolog.Ctx(ctx).With().Str("tool", toolCall.ID).Logger()
 	ctx = logger.WithContext(ctx)
 
@@ -643,13 +672,8 @@ func (a *AnthropicTextProvider) callToolWrapper(ctx context.Context, apiRequest 
 	}
 
 	if toolMessage != nil {
-		toolMessage.ToolCalls = GetTextRecorder(ctx).Calls()
 		toolMessage.ToolDuration = duration
 		toolMessage.start = time.Time{}
-	}
-
-	if callRecorder != nil {
-		callRecorder.notify("", nil)
 	}
 }
 

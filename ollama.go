@@ -348,8 +348,14 @@ func (o *OllamaTextProvider) Chat(ctx context.Context, message ChatMessage) (str
 			// We have already recorded this message above.
 			messages = append(messages, responses[0].Message)
 
+			// We make space for tool results (one per tool call) so that the messages slice
+			// does not grow when appending below and invalidate pointers goroutines keep.
+			messages = slices.Grow(messages, len(responses[0].Message.ToolCalls))
+
 			var wg sync.WaitGroup
 			for i, toolCall := range responses[0].Message.ToolCalls {
+				toolCall := toolCall
+
 				toolCallID := fmt.Sprintf("%s_%d", toolCallIDPrefix, i)
 				messages = append(messages, api.Message{
 					Role:      roleTool,
@@ -441,6 +447,30 @@ func (o *OllamaTextProvider) InitTools(ctx context.Context, tools map[string]Tex
 }
 
 func (o *OllamaTextProvider) callToolWrapper(ctx context.Context, apiRequest string, toolCall api.ToolCall, toolCallID string, result *api.Message, callRecorder *TextRecorderCall, toolMessage *TextRecorderMessage) {
+	defer func() {
+		if callRecorder != nil {
+			callRecorder.notify("", nil)
+		}
+	}()
+
+	defer func() {
+		if err := recover(); err != nil {
+			content := fmt.Sprintf("Error: %s", err)
+			result.Content = content
+
+			if toolMessage != nil {
+				toolMessage.Content = &content
+				toolMessage.IsError = true
+			}
+		}
+	}()
+
+	defer func() {
+		if toolMessage != nil {
+			toolMessage.ToolCalls = GetTextRecorder(ctx).Calls()
+		}
+	}()
+
 	logger := zerolog.Ctx(ctx).With().Str("tool", toolCallID).Logger()
 	ctx = logger.WithContext(ctx)
 
@@ -464,13 +494,8 @@ func (o *OllamaTextProvider) callToolWrapper(ctx context.Context, apiRequest str
 	}
 
 	if toolMessage != nil {
-		toolMessage.ToolCalls = GetTextRecorder(ctx).Calls()
 		toolMessage.ToolDuration = duration
 		toolMessage.start = time.Time{}
-	}
-
-	if callRecorder != nil {
-		callRecorder.notify("", nil)
 	}
 }
 
