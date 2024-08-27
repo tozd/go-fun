@@ -79,6 +79,7 @@ type groqMessage struct {
 	ToolCalls  []groqToolCall `json:"tool_calls,omitempty"`
 	ToolCallID string         `json:"tool_call_id,omitempty"`
 }
+
 type groqResponse struct {
 	ID                string `json:"id"`
 	Object            string `json:"object"`
