@@ -126,7 +126,7 @@ func ExampleTextRecorder() {
 	//               },
 	//               {
 	//                 "role": "user",
-	//                 "content": "[{\"numbers\":[38,4]}]"
+	//                 "content": "{\"numbers\":[38,4]}"
 	//               },
 	//               {
 	//                 "role": "assistant",
@@ -135,11 +135,11 @@ func ExampleTextRecorder() {
 	//             ],
 	//             "usedTokens": {
 	//               "req_2_0": {
-	//                 "maxTotal": 8208,
+	//                 "maxTotal": 8207,
 	//                 "maxResponse": 4096,
-	//                 "prompt": 26,
+	//                 "prompt": 24,
 	//                 "response": 5,
-	//                 "total": 31
+	//                 "total": 29
 	//               }
 	//             },
 	//             "usedTime": {
