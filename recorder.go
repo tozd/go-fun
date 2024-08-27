@@ -64,12 +64,6 @@ type TextRecorderUsedTime struct {
 	APICall Duration `json:"apiCall"`
 }
 
-type TextRecorderNotification struct {
-	Stack []string `json:"stack"`
-
-	Message TextRecorderMessage `json:"message"`
-}
-
 // TextRecorderCall describes a call to an AI model.
 //
 // There might be multiple requests made to an AI model
