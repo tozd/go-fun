@@ -171,9 +171,10 @@ type AnthropicTextProvider struct {
 	// Default is 0 which means not at all.
 	Temperature float64 `json:"temperature"`
 
-	system   []anthropicSystem
-	messages []anthropicMessage
-	tools    []anthropicTool
+	rateLimiterKey string
+	system         []anthropicSystem
+	messages       []anthropicMessage
+	tools          []anthropicTool
 }
 
 func (a AnthropicTextProvider) MarshalJSON() ([]byte, error) {
@@ -236,13 +237,15 @@ func (a *AnthropicTextProvider) Init(_ context.Context, messages []ChatMessage) 
 		}
 	}
 
+	a.rateLimiterKey = fmt.Sprintf("%s-%s", a.APIKey, a.Model)
+
 	if a.Client == nil {
 		a.Client = newClient(
 			func(req *http.Request) error {
 				ctx := req.Context()
 				estimatedTokens := getEstimatedTokens(ctx)
 				// Rate limit retries.
-				return anthropicRateLimiter.Take(ctx, a.APIKey, map[string]int{
+				return anthropicRateLimiter.Take(ctx, a.rateLimiterKey, map[string]int{
 					"rpm": 1,
 					"tpd": estimatedTokens,
 					"tpm": estimatedTokens,
@@ -285,7 +288,7 @@ func (a *AnthropicTextProvider) Init(_ context.Context, messages []ChatMessage) 
 						Resets:    resetTokens,
 					}
 				}
-				anthropicRateLimiter.Set(a.APIKey, rateLimits)
+				anthropicRateLimiter.Set(a.rateLimiterKey, rateLimits)
 			},
 		)
 	}
@@ -360,7 +363,7 @@ func (a *AnthropicTextProvider) Chat(ctx context.Context, message ChatMessage) (
 			req.Header.Add("anthropic-beta", "prompt-caching-2024-07-31")
 		}
 		// Rate limit the initial request.
-		errE = anthropicRateLimiter.Take(ctx, a.APIKey, map[string]int{
+		errE = anthropicRateLimiter.Take(ctx, a.rateLimiterKey, map[string]int{
 			"rpm": 1,
 			"tpd": estimatedTokens,
 			"tpm": estimatedTokens,

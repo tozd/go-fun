@@ -178,6 +178,7 @@ type OpenAITextProvider struct {
 	// Default is 0 which means not at all.
 	Temperature float64 `json:"temperature"`
 
+	rateLimiterKey              string
 	messages                    []openAIMessage
 	tools                       []openAITool
 	outputJSONSchema            json.RawMessage
@@ -216,18 +217,20 @@ func (o *OpenAITextProvider) Init(_ context.Context, messages []ChatMessage) err
 		})
 	}
 
+	o.rateLimiterKey = fmt.Sprintf("%s-%s", o.APIKey, o.Model)
+
 	if o.Client == nil {
 		o.Client = newClient(
 			func(req *http.Request) error {
 				// Rate limit retries.
-				return openAIRateLimiter.Take(req.Context(), o.APIKey, map[string]int{
+				return openAIRateLimiter.Take(req.Context(), o.rateLimiterKey, map[string]int{
 					"rpm": 1,
 					"tpm": o.MaxContextLength, // TODO: Can we provide a better estimate?
 				})
 			},
 			parseRateLimitHeaders,
 			func(limitRequests, limitTokens, remainingRequests, remainingTokens int, resetRequests, resetTokens time.Time) {
-				openAIRateLimiter.Set(o.APIKey, map[string]any{
+				openAIRateLimiter.Set(o.rateLimiterKey, map[string]any{
 					"rpm": resettingRateLimit{
 						Limit:     limitRequests,
 						Remaining: remainingRequests,
@@ -327,7 +330,7 @@ func (o *OpenAITextProvider) Chat(ctx context.Context, message ChatMessage) (str
 		req.Header.Add("Authorization", fmt.Sprintf("Bearer %s", o.APIKey))
 		req.Header.Add("Content-Type", "application/json")
 		// Rate limit the initial request.
-		errE = openAIRateLimiter.Take(ctx, o.APIKey, map[string]int{
+		errE = openAIRateLimiter.Take(ctx, o.rateLimiterKey, map[string]int{
 			"rpm": 1,
 			"tpm": o.MaxContextLength, // TODO: Can we provide a better estimate?
 		})

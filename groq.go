@@ -143,8 +143,9 @@ type GroqTextProvider struct {
 	// Default is 0 which means not at all.
 	Temperature float64 `json:"temperature"`
 
-	messages []groqMessage
-	tools    []groqTool
+	rateLimiterKey string
+	messages       []groqMessage
+	tools          []groqTool
 }
 
 func (g GroqTextProvider) MarshalJSON() ([]byte, error) {
@@ -177,12 +178,14 @@ func (g *GroqTextProvider) Init(ctx context.Context, messages []ChatMessage) err
 		})
 	}
 
+	g.rateLimiterKey = fmt.Sprintf("%s-%s", g.APIKey, g.Model)
+
 	if g.Client == nil {
 		g.Client = newClient(
 			func(req *http.Request) error {
 				if req.URL.Path == "/openai/v1/chat/completions" {
 					// Rate limit retries.
-					return groqRateLimiter.Take(req.Context(), g.APIKey, map[string]int{
+					return groqRateLimiter.Take(req.Context(), g.rateLimiterKey, map[string]int{
 						"rpm": 1,
 						"rpd": 1,
 						"tpm": g.MaxContextLength, // TODO: Can we provide a better estimate?
@@ -192,7 +195,7 @@ func (g *GroqTextProvider) Init(ctx context.Context, messages []ChatMessage) err
 			},
 			parseRateLimitHeaders,
 			func(limitRequests, limitTokens, remainingRequests, remainingTokens int, resetRequests, resetTokens time.Time) {
-				groqRateLimiter.Set(g.APIKey, map[string]any{
+				groqRateLimiter.Set(g.rateLimiterKey, map[string]any{
 					"rpm": tokenBucketRateLimit{
 						// TODO: Correctly implement this rate limit.
 						//       Currently there are not headers for this limit, so we are simulating it with a token
@@ -344,7 +347,7 @@ func (g *GroqTextProvider) Chat(ctx context.Context, message ChatMessage) (strin
 		req.Header.Add("Authorization", fmt.Sprintf("Bearer %s", g.APIKey))
 		req.Header.Add("Content-Type", "application/json")
 		// Rate limit the initial request.
-		errE = groqRateLimiter.Take(ctx, g.APIKey, map[string]int{
+		errE = groqRateLimiter.Take(ctx, g.rateLimiterKey, map[string]int{
 			"rpm": 1,
 			"rpd": 1,
 			"tpm": g.MaxContextLength, // TODO: Can we provide a better estimate?
