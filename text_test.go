@@ -378,14 +378,10 @@ func runTextTests(
 	t.Helper()
 
 	for _, provider := range providers {
-		provider := provider
-
 		t.Run(provider.Name, func(t *testing.T) {
 			t.Parallel()
 
 			for _, tt := range tests {
-				tt := tt
-
 				t.Run(tt.Name, func(t *testing.T) {
 					if provider.Name != "ollama" {
 						t.Parallel()
@@ -406,8 +402,6 @@ func runTextTests(
 					require.NoError(t, errE, "% -+#.1v", errE)
 
 					for _, d := range tt.Data {
-						d := d
-
 						t.Run(fmt.Sprintf("input=%s", d.Input), func(t *testing.T) {
 							if provider.Name != "ollama" {
 								t.Parallel()
@@ -415,15 +409,13 @@ func runTextTests(
 
 							ct := fun.WithTextRecorder(ctx)
 							output, errE := f.Call(ct, d.Input...)
-							assert.NoError(t, errE, "% -+#.1v", errE)
+							require.NoError(t, errE, "% -+#.1v", errE)
 							checkOutput(t, provider.Name, d, output)
 							tt.CheckRecorder(t, fun.GetTextRecorder(ct), provider.Name)
 						})
 					}
 
 					for _, c := range tt.Cases {
-						c := c
-
 						t.Run(fmt.Sprintf("input=%s", c.Input), func(t *testing.T) {
 							if provider.Name != "ollama" {
 								t.Parallel()
@@ -431,7 +423,7 @@ func runTextTests(
 
 							ct := fun.WithTextRecorder(ctx)
 							output, errE := f.Call(ct, c.Input...)
-							assert.NoError(t, errE, "% -+#.1v", errE)
+							require.NoError(t, errE, "% -+#.1v", errE)
 							checkOutput(t, provider.Name, c, output)
 							tt.CheckRecorder(t, fun.GetTextRecorder(ct), provider.Name)
 						})
@@ -447,14 +439,14 @@ func cleanCall(call *fun.TextRecorderCall, d *int64) {
 	callID := *d
 
 	toolUses := map[string]string{}
-	for i := 0; i < len(call.Messages); i++ {
+	for i := range call.Messages {
 		if call.Messages[i].ToolUseID != "" {
 			if _, ok := toolUses[call.Messages[i].ToolUseID]; !ok {
 				toolUses[call.Messages[i].ToolUseID] = fmt.Sprintf("call_%d_%d", callID, i)
 			}
 			call.Messages[i].ToolUseID = toolUses[call.Messages[i].ToolUseID]
 		}
-		for j := 0; j < len(call.Messages[i].ToolCalls); j++ {
+		for j := range call.Messages[i].ToolCalls {
 			cleanCall(&call.Messages[i].ToolCalls[j], d)
 		}
 		if call.Messages[i].ToolDuration != 0 {
@@ -491,7 +483,7 @@ func cleanCall(call *fun.TextRecorderCall, d *int64) {
 
 func cleanCalls(calls []fun.TextRecorderCall) {
 	var d int64
-	for i := 0; i < len(calls); i++ {
+	for i := range calls {
 		cleanCall(&calls[i], &d)
 	}
 }
@@ -632,7 +624,7 @@ func TestTextTools(t *testing.T) { //nolint:paralleltest,tparallel
 				if assert.Len(t, calls, 1) {
 					usedTool := 0
 					messages := calls[0].Messages
-					for i := 0; i < len(messages); i++ {
+					for i := range messages {
 						if messages[i].Role == "tool_use" || messages[i].Role == "tool_result" {
 							usedTool++
 						}
@@ -671,14 +663,10 @@ func TestTextStruct(t *testing.T) { //nolint:paralleltest,tparallel
 	// We do not run test cases in parallel, so that we can run Ollama tests in sequence.
 
 	for _, provider := range providers {
-		provider := provider
-
 		t.Run(provider.Name, func(t *testing.T) {
 			t.Parallel()
 
 			for _, tt := range tests {
-				tt := tt
-
 				t.Run(tt.Name, func(t *testing.T) {
 					if provider.Name != "ollama" {
 						t.Parallel()
@@ -713,8 +701,6 @@ func TestTextStruct(t *testing.T) { //nolint:paralleltest,tparallel
 					require.NoError(t, errE, "% -+#.1v", errE)
 
 					for _, d := range tt.Data {
-						d := d
-
 						t.Run(fmt.Sprintf("input=%s", d.Input), func(t *testing.T) {
 							if provider.Name != "ollama" {
 								t.Parallel()
@@ -722,15 +708,13 @@ func TestTextStruct(t *testing.T) { //nolint:paralleltest,tparallel
 
 							ct := fun.WithTextRecorder(ctx)
 							output, errE := f.Call(ct, d.Input...)
-							assert.NoError(t, errE, "% -+#.1v", errE)
+							require.NoError(t, errE, "% -+#.1v", errE)
 							assert.Equal(t, d.Output, output)
 							tt.CheckRecorder(t, fun.GetTextRecorder(ct), provider.Name)
 						})
 					}
 
 					for _, c := range tt.Cases {
-						c := c
-
 						t.Run(fmt.Sprintf("input=%s", c.Input), func(t *testing.T) {
 							if provider.Name != "ollama" {
 								t.Parallel()
@@ -738,7 +722,7 @@ func TestTextStruct(t *testing.T) { //nolint:paralleltest,tparallel
 
 							ct := fun.WithTextRecorder(ctx)
 							output, errE := f.Call(ct, c.Input...)
-							assert.NoError(t, errE, "% -+#.1v", errE)
+							require.NoError(t, errE, "% -+#.1v", errE)
 							assert.Equal(t, c.Output, output)
 							tt.CheckRecorder(t, fun.GetTextRecorder(ct), provider.Name)
 						})
@@ -757,8 +741,6 @@ func TestOpenAIJSONSchema(t *testing.T) {
 	}
 
 	for _, tt := range tests {
-		tt := tt
-
 		t.Run(tt.Name, func(t *testing.T) {
 			t.Parallel()
 
@@ -793,28 +775,24 @@ func TestOpenAIJSONSchema(t *testing.T) {
 			require.NoError(t, errE, "% -+#.1v", errE)
 
 			for _, d := range data {
-				d := d
-
 				t.Run(fmt.Sprintf("input=%s", d.Input), func(t *testing.T) {
 					t.Parallel()
 
 					ct := fun.WithTextRecorder(ctx)
 					output, errE := f.Call(ct, d.Input...)
-					assert.NoError(t, errE, "% -+#.1v", errE)
+					require.NoError(t, errE, "% -+#.1v", errE)
 					assert.Equal(t, d.Output, output)
 					tt.CheckRecorder(t, fun.GetTextRecorder(ct), "openai")
 				})
 			}
 
 			for _, c := range tt.Cases {
-				c := c
-
 				t.Run(fmt.Sprintf("input=%s", c.Input), func(t *testing.T) {
 					t.Parallel()
 
 					ct := fun.WithTextRecorder(ctx)
 					output, errE := f.Call(ct, c.Input...)
-					assert.NoError(t, errE, "% -+#.1v", errE)
+					require.NoError(t, errE, "% -+#.1v", errE)
 					assert.Equal(t, toOutputStructWithoutOmitEmpty(c.Output), output)
 					tt.CheckRecorder(t, fun.GetTextRecorder(ct), "openai")
 				})

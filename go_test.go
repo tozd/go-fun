@@ -6,6 +6,7 @@ import (
 
 	"github.com/rs/zerolog"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"gitlab.com/tozd/go/errors"
 
 	"gitlab.com/tozd/go/fun"
@@ -23,17 +24,17 @@ func TestGo(t *testing.T) {
 	ctx := zerolog.New(zerolog.NewTestWriter(t)).WithContext(context.Background())
 
 	errE := f.Init(ctx)
-	assert.NoError(t, errE, "% -+#.1v", errE)
+	require.NoError(t, errE, "% -+#.1v", errE)
 
 	output, errE := f.Call(ctx, "foo")
-	assert.NoError(t, errE, "% -+#.1v", errE)
+	require.NoError(t, errE, "% -+#.1v", errE)
 	assert.Equal(t, "foofoo", output)
 
 	output, errE = f.Variadic()(ctx, "foo")
-	assert.NoError(t, errE, "% -+#.1v", errE)
+	require.NoError(t, errE, "% -+#.1v", errE)
 	assert.Equal(t, "foofoo", output)
 
 	output, errE = f.Unary()(ctx, "foo")
-	assert.NoError(t, errE, "% -+#.1v", errE)
+	require.NoError(t, errE, "% -+#.1v", errE)
 	assert.Equal(t, "foofoo", output)
 }

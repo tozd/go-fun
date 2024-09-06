@@ -559,7 +559,7 @@ func (o *OpenAITextProvider) InitTools(ctx context.Context, tools map[string]Tex
 	return nil
 }
 
-func (o *OpenAITextProvider) callToolWrapper(
+func (o *OpenAITextProvider) callToolWrapper( //nolint:dupl
 	ctx context.Context, apiRequest string, toolCall openAIToolCall, result *openAIMessage, callRecorder *TextRecorderCall, toolMessage *TextRecorderMessage,
 ) {
 	if callRecorder != nil {

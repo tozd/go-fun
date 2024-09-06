@@ -555,7 +555,7 @@ func (g *GroqTextProvider) InitTools(ctx context.Context, tools map[string]TextT
 	return nil
 }
 
-func (g *GroqTextProvider) callToolWrapper(
+func (g *GroqTextProvider) callToolWrapper( //nolint:dupl
 	ctx context.Context, apiRequest string, toolCall groqToolCall, result *groqMessage, callRecorder *TextRecorderCall, toolMessage *TextRecorderMessage,
 ) {
 	if callRecorder != nil {
