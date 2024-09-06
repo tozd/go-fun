@@ -343,7 +343,7 @@ func (g *GroqTextProvider) Chat(ctx context.Context, message ChatMessage) (strin
 		if err != nil {
 			return "", errors.WithStack(err)
 		}
-		req.Header.Add("Authorization", "Bearer %s"+g.APIKey)
+		req.Header.Add("Authorization", "Bearer "+g.APIKey)
 		req.Header.Add("Content-Type", "application/json")
 		// Rate limit the initial request.
 		errE = groqRateLimiter.Take(ctx, g.rateLimiterKey, map[string]int{
