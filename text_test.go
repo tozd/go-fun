@@ -311,14 +311,8 @@ var tests = []struct {
 		func(t *testing.T, recorder *fun.TextRecorder, providerName string) {
 			t.Helper()
 
-			if providerName == "groq" {
-				if assert.Len(t, recorder.Calls(), 1) {
-					assert.Len(t, recorder.Calls()[0].Messages, 12)
-				}
-			} else {
-				if assert.Len(t, recorder.Calls(), 1) {
-					assert.Len(t, recorder.Calls()[0].Messages, 10)
-				}
+			if assert.Len(t, recorder.Calls(), 1) {
+				assert.Len(t, recorder.Calls()[0].Messages, 10)
 			}
 		},
 	},
@@ -673,11 +667,7 @@ func TestTextStruct(t *testing.T) { //nolint:paralleltest,tparallel
 					}
 
 					data := slices.Clone(tt.Data)
-					// TODO: Why is there a difference between providers so that we have to repeat the last training data sample.
-					//       And why with repeated sample Ollama starts returning non-JSON comments for "just_data".
-					if tt.Name == "just_data" && provider.Name == "groq" {
-						data = append(data, data[len(data)-1])
-					}
+					// TODO: See if there is a way to not have to repeat samples.
 					if tt.Name == "json_only_prompt_and_data" && provider.Name == "groq" {
 						data = append(data, data[len(data)-1])
 						data = append(data, data[len(data)-1])
