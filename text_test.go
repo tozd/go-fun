@@ -308,7 +308,7 @@ var tests = []struct {
 		[]fun.InputOutput[string, OutputStruct]{
 			{[]string{"name=42 [first=2 second=1]"}, OutputStruct{Key: "name", Value: 42, Children: []OutputStruct{{Key: "first", Value: 2}, {Key: "second", Value: 1}}}},
 		},
-		func(t *testing.T, recorder *fun.TextRecorder, providerName string) {
+		func(t *testing.T, recorder *fun.TextRecorder, _ string) {
 			t.Helper()
 
 			if assert.Len(t, recorder.Calls(), 1) {
