@@ -13,6 +13,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Record various end-to-end durations.
 - Support for prompt caching in `AnthropicTextProvider`.
 
+### Changed
+
+- Go 1.23 or newer is required.
+
 ## [0.5.1] - 2024-08-21
 
 ### Fixed

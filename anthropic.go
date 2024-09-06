@@ -263,7 +263,7 @@ func (a *AnthropicTextProvider) Init(_ context.Context, messages []ChatMessage) 
 				}
 				// Token rate limit headers can be returned for both minute or day, whichever is smaller,
 				// so we use heuristics to determine which one it is.
-				if limitTokens <= 100_000 { //nolint:gomnd
+				if limitTokens <= 100_000 { //nolint:mnd
 					// Even the free plan has tpd larger than 100,000, so if the limit is less, we know that it is tpm.
 					rateLimits["tpm"] = resettingRateLimit{
 						Limit:     limitTokens,
@@ -271,12 +271,12 @@ func (a *AnthropicTextProvider) Init(_ context.Context, messages []ChatMessage) 
 						Window:    time.Minute,
 						Resets:    resetTokens,
 					}
-				} else if limitTokens/limitRequests >= 2000 { //nolint:gomnd
+				} else if limitTokens/limitRequests >= 2000 { //nolint:mnd
 					// If the ratio between token limit and rpm is larger than 2000, we know it is tpd.
 					rateLimits["tpd"] = resettingRateLimit{
 						Limit:     limitTokens,
 						Remaining: remainingTokens,
-						Window:    24 * time.Hour, //nolint:gomnd
+						Window:    24 * time.Hour, //nolint:mnd
 						Resets:    resetTokens,
 					}
 				} else {
@@ -576,21 +576,21 @@ func (a *AnthropicTextProvider) estimatedTokens(messages []anthropicMessage) int
 	for _, message := range messages {
 		for _, content := range message.Content {
 			if content.Text != nil {
-				tokens += len(*content.Text) / 4 //nolint:gomnd
+				tokens += len(*content.Text) / 4 //nolint:mnd
 			}
-			tokens += len(content.Input) / 4 //nolint:gomnd
+			tokens += len(content.Input) / 4 //nolint:mnd
 			if content.Content != nil {
-				tokens += len(*content.Content) / 4 //nolint:gomnd
+				tokens += len(*content.Content) / 4 //nolint:mnd
 			}
 		}
 	}
 	for _, system := range a.system {
-		tokens += len(system.Text) / 4 //nolint:gomnd
+		tokens += len(system.Text) / 4 //nolint:mnd
 	}
 	for _, tool := range a.tools {
-		tokens += len(tool.Name) / 4            //nolint:gomnd
-		tokens += len(tool.Description) / 4     //nolint:gomnd
-		tokens += len(tool.InputJSONSchema) / 4 //nolint:gomnd
+		tokens += len(tool.Name) / 4            //nolint:mnd
+		tokens += len(tool.Description) / 4     //nolint:mnd
+		tokens += len(tool.InputJSONSchema) / 4 //nolint:mnd
 	}
 	// Each output can be up to anthropicMaxResponseTokens so we assume final output
 	// is at most that, with input the same.

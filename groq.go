@@ -202,14 +202,14 @@ func (g *GroqTextProvider) Init(ctx context.Context, messages []ChatMessage) err
 						//       bucket rate limit with burst 1. This means that if we have a burst of requests and then
 						//       a pause we do not process them as fast as we could.
 						//       See: https://console.groq.com/docs/rate-limits
-						//nolint:gomnd
+						//nolint:mnd
 						Limit: rate.Limit(float64(30) / time.Minute.Seconds()), // Requests per minute.
 						Burst: 1,
 					},
 					"rpd": resettingRateLimit{
 						Limit:     limitRequests,
 						Remaining: remainingRequests,
-						Window:    24 * time.Hour, //nolint:gomnd
+						Window:    24 * time.Hour, //nolint:mnd
 						Resets:    resetRequests,
 					},
 					"tpm": resettingRateLimit{
@@ -514,7 +514,7 @@ func (g *GroqTextProvider) Chat(ctx context.Context, message ChatMessage) (strin
 func (g *GroqTextProvider) maxContextLength(model groqModel) int {
 	// llama3-70b-8192 has only 6000 tokens per minute limit so a larger context length cannot be used.
 	if strings.Contains(model.ID, "llama3-70b") {
-		return 6000 //nolint:gomnd
+		return 6000 //nolint:mnd
 	}
 	return model.ContextWindow
 }
@@ -523,9 +523,9 @@ func (g *GroqTextProvider) maxResponseTokens(model groqModel) int {
 	// "During preview launch, we are limiting all 3.1 models to max_tokens of 8k and 405b to 16k input tokens."
 	// See: https://console.groq.com/docs/models
 	if strings.Contains(model.ID, "llama-3.1-405b") {
-		return 16000 //nolint:gomnd
+		return 16000 //nolint:mnd
 	} else if strings.Contains(model.ID, "llama-3.1") {
-		return 8000 //nolint:gomnd
+		return 8000 //nolint:mnd
 	}
 	return g.maxContextLength(model)
 }

@@ -25,7 +25,7 @@ type ExtractCommand struct {
 }
 
 func (c *ExtractCommand) Run(_ zerolog.Logger) errors.E {
-	err := os.MkdirAll(c.OutputDir, 0o755) //nolint:gomnd
+	err := os.MkdirAll(c.OutputDir, 0o755) //nolint:mnd
 	if err != nil {
 		return errors.WithStack(err)
 	}

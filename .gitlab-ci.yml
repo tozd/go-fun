@@ -36,7 +36,7 @@ test:
 
   before_script:
     - apk --update add make bash gcc musl-dev
-    - (cd /go; go install gotest.tools/gotestsum@v1.10.1)
+    - (cd /go; go install gotest.tools/gotestsum@v1.12.0)
     - (cd /go; go install github.com/boumenot/gocover-cobertura@v1.2.0)
     - go version
 
@@ -60,7 +60,7 @@ test:
 
   parallel:
     matrix:
-      - IMAGE_TAG: ['1.22-alpine3.18']
+      - IMAGE_TAG: ['1.23-alpine3.19']
 
   # We use a resource group to not hit rate limits when running multiple jobs in parallel (from potentially multiple pipelines).
   resource_group: llms
@@ -98,16 +98,16 @@ test_e2e:
 
   parallel:
     matrix:
-      - IMAGE_TAG: ['1.22-alpine3.18']
+      - IMAGE_TAG: ['1.23-alpine3.19']
         PROVIDER: ollama
         MODEL: "llama3:8b"
-      - IMAGE_TAG: ['1.22-alpine3.18']
+      - IMAGE_TAG: ['1.23-alpine3.19']
         PROVIDER: groq
         MODEL: "llama3-8b-8192"
-      - IMAGE_TAG: ['1.22-alpine3.18']
+      - IMAGE_TAG: ['1.23-alpine3.19']
         PROVIDER: anthropic
         MODEL: "claude-3-haiku-20240307"
-      - IMAGE_TAG: ['1.22-alpine3.18']
+      - IMAGE_TAG: ['1.23-alpine3.19']
         PROVIDER: openai
         MODEL: "gpt-4o-mini-2024-07-18"
 
@@ -119,11 +119,11 @@ test_e2e:
 lint:
   stage: test
 
-  image: golang:1.22-alpine3.18
+  image: golang:1.23-alpine3.19
 
   before_script:
     - apk --update add make bash gcc musl-dev
-    - wget -O- -nv https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b $(go env GOPATH)/bin v1.56.2
+    - wget -O- -nv https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b $(go env GOPATH)/bin v1.60.3
 
   script:
     - make lint-ci
@@ -137,12 +137,12 @@ lint:
 fmt:
   stage: test
 
-  image: golang:1.22-alpine3.18
+  image: golang:1.23-alpine3.19
 
   before_script:
     - apk --update add make bash git gcc musl-dev grep
-    - go install mvdan.cc/gofumpt@v0.5.0
-    - go install golang.org/x/tools/cmd/goimports@v0.13.0
+    - go install mvdan.cc/gofumpt@v0.7.0
+    - go install golang.org/x/tools/cmd/goimports@v0.24.0
 
   script:
     - make fmt-ci
@@ -150,7 +150,7 @@ fmt:
 lint_docs:
   stage: test
 
-  image: node:20.9-alpine3.18
+  image: node:20.17-alpine3.19
 
   before_script:
     - apk --update add make bash
@@ -161,11 +161,11 @@ lint_docs:
 audit:
   stage: test
 
-  image: golang:1.22-alpine3.18
+  image: golang:1.23-alpine3.19
 
   before_script:
     - apk --update add make bash git gcc musl-dev
-    - go install github.com/sonatype-nexus-community/nancy@v1.0.42
+    - go install github.com/sonatype-nexus-community/nancy@v1.0.46
 
   script:
     - make audit
@@ -173,7 +173,7 @@ audit:
 commits:
   stage: test
 
-  image: golang:1.22-alpine3.18
+  image: golang:1.23-alpine3.19
 
   variables:
     GIT_DEPTH: "0"
@@ -318,7 +318,7 @@ upload_binaries:
 publish:
   stage: deploy
 
-  image: golang:1.22-alpine3.18
+  image: golang:1.23-alpine3.19
 
   script:
     - GOPROXY=proxy.golang.org go list -m "gitlab.com/tozd/go/fun@$CI_COMMIT_REF_NAME"

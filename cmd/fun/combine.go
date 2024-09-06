@@ -23,7 +23,7 @@ func (c *CombineCommand) Help() string {
 }
 
 func (c *CombineCommand) Run(_ zerolog.Logger) errors.E {
-	err := os.MkdirAll(c.OutputDir, 0o755) //nolint:gomnd
+	err := os.MkdirAll(c.OutputDir, 0o755) //nolint:mnd
 	if err != nil {
 		return errors.WithStack(err)
 	}
@@ -61,7 +61,7 @@ FILE:
 		}
 
 		outputPath := filepath.Join(c.OutputDir, relPath)
-		err = os.WriteFile(outputPath, inputData, 0o644) //nolint:gosec,gomnd
+		err = os.WriteFile(outputPath, inputData, 0o644) //nolint:gosec,mnd
 		if err != nil {
 			return errors.WithDetails(err, "path", outputPath)
 		}

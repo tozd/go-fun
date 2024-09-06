@@ -7,7 +7,7 @@ import (
 )
 
 func writeFile(path, data string) errors.E {
-	f, err := os.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o644) //nolint:gomnd
+	f, err := os.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o644) //nolint:mnd
 	if err != nil {
 		return errors.WithStack(err)
 	}

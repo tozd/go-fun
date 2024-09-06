@@ -202,7 +202,7 @@ func (o *OllamaTextProvider) Init(ctx context.Context, messages []ChatMessage) e
 
 	if o.MaxResponseLength == 0 {
 		// -2 = fill the context.
-		o.MaxResponseLength = -2 //nolint:gomnd
+		o.MaxResponseLength = -2 //nolint:mnd
 	}
 	if o.MaxResponseLength > 0 && o.MaxResponseLength > o.MaxContextLength {
 		return errors.WithDetails(

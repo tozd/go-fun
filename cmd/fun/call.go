@@ -173,7 +173,7 @@ func (c *CallCommand) Run(logger zerolog.Logger) errors.E { //nolint:maintidx
 	}
 	slices.Sort(files)
 
-	err = os.MkdirAll(c.OutputDir, 0o755) //nolint:gomnd
+	err = os.MkdirAll(c.OutputDir, 0o755) //nolint:mnd
 	if err != nil {
 		return errors.WithStack(err)
 	}
@@ -293,7 +293,7 @@ func (c *CallCommand) processFile( //nolint:nonamedreturns
 		errored = errE == nil && errorErrE != nil && invalidErrE == nil
 	}()
 
-	f, err := os.OpenFile(outputPath, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o644) //nolint:gomnd
+	f, err := os.OpenFile(outputPath, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o644) //nolint:mnd
 	if errors.Is(err, fs.ErrExist) {
 		// We skip files which already exist.
 		return false, errors.Prefix(err, errFileSkipped)
@@ -318,7 +318,7 @@ func (c *CallCommand) processFile( //nolint:nonamedreturns
 	}()
 
 	errorOutputPath := outputPath + ".error"
-	fError, err := os.OpenFile(errorOutputPath, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o644) //nolint:gomnd
+	fError, err := os.OpenFile(errorOutputPath, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o644) //nolint:mnd
 	if errors.Is(err, fs.ErrExist) {
 		// We skip files which already exist.
 		return false, errors.Prefix(err, errFileSkipped)
@@ -341,7 +341,7 @@ func (c *CallCommand) processFile( //nolint:nonamedreturns
 	}()
 
 	invalidOutputPath := outputPath + ".invalid"
-	fInvalid, err := os.OpenFile(invalidOutputPath, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o644) //nolint:gomnd
+	fInvalid, err := os.OpenFile(invalidOutputPath, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o644) //nolint:mnd
 	if errors.Is(err, fs.ErrExist) {
 		// We skip files which already exist.
 		return false, errors.Prefix(err, errFileSkipped)
@@ -392,7 +392,7 @@ func (c *CallCommand) processFile( //nolint:nonamedreturns
 		}
 		errorErrE, errE = errE, nil
 		errJSON, errE := x.MarshalWithoutEscapeHTML(errorAndCalls{
-			Err:   errors.Formatter{Error: errorErrE}, //nolint:exhaustruct
+			Err:   errors.Formatter{Error: errorErrE}, 
 			Calls: fun.GetTextRecorder(ctx).Calls(),
 		})
 		if errE != nil {

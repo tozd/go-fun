@@ -19,7 +19,7 @@ import (
 	"gitlab.com/tozd/identifier"
 )
 
-//nolint:gomnd
+//nolint:mnd
 var openAIModels = map[string]struct { //nolint:gochecknoglobals
 	MaxContextLength  int
 	MaxResponseLength int

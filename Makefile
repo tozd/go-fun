@@ -12,7 +12,7 @@ ifeq ($(REVISION),)
  REVISION = `git rev-parse HEAD`
 endif
 
-.PHONY: build build-static test test-ci lint lint-ci fmt fmt-ci clean release lint-docs audit encrypt decrypt sops
+.PHONY: build build-static test test-ci lint lint-ci fmt fmt-ci upgrade clean release lint-docs audit encrypt decrypt sops
 
 build:
 	go build -trimpath -ldflags "-s -w -X gitlab.com/tozd/go/cli.Version=${VERSION} -X gitlab.com/tozd/go/cli.BuildTimestamp=${BUILD_TIMESTAMP} -X gitlab.com/tozd/go/cli.Revision=${REVISION}" -o fun gitlab.com/tozd/go/fun/cmd/fun
@@ -29,18 +29,22 @@ test-ci:
 	go tool cover -html=coverage.txt -o coverage.html
 
 lint:
-	golangci-lint run --timeout 4m --color always --allow-parallel-runners --fix
+	golangci-lint run --timeout 4m --color always --allow-parallel-runners --fix --max-issues-per-linter 0 --max-same-issues 0
 
 lint-ci:
-	golangci-lint run --timeout 4m --out-format colored-line-number,code-climate:codeclimate.json
+	golangci-lint run --timeout 4m --max-issues-per-linter 0 --max-same-issues 0 --out-format colored-line-number,code-climate:codeclimate.json
 
 fmt:
 	go mod tidy
 	git ls-files --cached --modified --other --exclude-standard -z | grep -z -Z '.go$$' | xargs -0 gofumpt -w
-	git ls-files --cached --modified --other --exclude-standard -z | grep -z -Z '.go$$' | xargs -0 goimports -w -local gitlab.com/tozd/go/pcontrol
+	git ls-files --cached --modified --other --exclude-standard -z | grep -z -Z '.go$$' | xargs -0 goimports -w -local gitlab.com/tozd/go/fun
 
 fmt-ci: fmt
 	git diff --exit-code --color=always
+
+upgrade:
+	go run github.com/icholy/gomajor@v0.13.2 get all
+	go mod tidy
 
 clean:
 	rm -f coverage.* codeclimate.json tests.xml fun
