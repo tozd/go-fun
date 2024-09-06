@@ -146,7 +146,7 @@ func (m *TextRecorderMessage) snapshot(final bool) TextRecorderMessage {
 	var toolCalls []TextRecorderCall
 	if m.ToolCalls != nil {
 		toolCalls = make([]TextRecorderCall, 0, len(m.ToolCalls))
-		for i := 0; i < len(m.ToolCalls); i++ {
+		for i := range m.ToolCalls {
 			toolCalls = append(toolCalls, m.ToolCalls[i].snapshot(final))
 		}
 	}
@@ -219,7 +219,7 @@ func (c *TextRecorderCall) snapshot(final bool) TextRecorderCall {
 	var messages []TextRecorderMessage
 	if c.Messages != nil {
 		messages = make([]TextRecorderMessage, 0, len(c.Messages))
-		for i := 0; i < len(c.Messages); i++ {
+		for i := range c.Messages {
 			messages = append(messages, c.Messages[i].snapshot(final))
 		}
 	}
@@ -246,7 +246,7 @@ func (c *TextRecorderCall) setToolCalls(toolCallID string, children []TextRecord
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
-	for i := 0; i < len(c.Messages); i++ {
+	for i := range c.Messages {
 		if c.Messages[i].Role == roleToolResult && c.Messages[i].ToolUseID == toolCallID {
 			c.Messages[i].setToolCalls(children)
 			break

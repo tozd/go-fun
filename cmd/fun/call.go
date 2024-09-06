@@ -229,7 +229,7 @@ func (c *CallCommand) Run(logger zerolog.Logger) errors.E { //nolint:maintidx
 		return nil
 	})
 
-	for i := 0; i < c.Parallel; i++ {
+	for range c.Parallel {
 		g.Go(func() error {
 			// Loop ends when filesChan is closed, which happens when context is cancelled, too.
 			for inputPath := range filesChan {
@@ -392,7 +392,7 @@ func (c *CallCommand) processFile( //nolint:nonamedreturns
 		}
 		errorErrE, errE = errE, nil
 		errJSON, errE := x.MarshalWithoutEscapeHTML(errorAndCalls{
-			Err:   errors.Formatter{Error: errorErrE}, 
+			Err:   errors.Formatter{Error: errorErrE},
 			Calls: fun.GetTextRecorder(ctx).Calls(),
 		})
 		if errE != nil {

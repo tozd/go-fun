@@ -198,7 +198,6 @@ func (a *AnthropicTextProvider) Init(_ context.Context, messages []ChatMessage) 
 	a.messages = []anthropicMessage{}
 
 	for _, message := range messages {
-		message := message
 		if message.Role == roleSystem {
 			if a.system != nil {
 				return errors.WithStack(ErrMultipleSystemMessages)
@@ -356,11 +355,11 @@ func (a *AnthropicTextProvider) Chat(ctx context.Context, message ChatMessage) (
 		if err != nil {
 			return "", errors.WithStack(err)
 		}
-		req.Header.Add("x-api-key", a.APIKey)
-		req.Header.Add("anthropic-version", "2023-06-01")
+		req.Header.Add("X-Api-Key", a.APIKey)
+		req.Header.Add("Anthropic-Version", "2023-06-01")
 		req.Header.Add("Content-Type", "application/json")
 		if a.PromptCaching {
-			req.Header.Add("anthropic-beta", "prompt-caching-2024-07-31")
+			req.Header.Add("Anthropic-Beta", "prompt-caching-2024-07-31")
 		}
 		// Rate limit the initial request.
 		errE = anthropicRateLimiter.Take(ctx, a.rateLimiterKey, map[string]int{
@@ -484,8 +483,6 @@ func (a *AnthropicTextProvider) Chat(ctx context.Context, message ChatMessage) (
 
 			var wg sync.WaitGroup
 			for _, content := range response.Content {
-				content := content
-
 				switch content.Type {
 				case typeText:
 					// We do nothing.
@@ -660,7 +657,7 @@ func (a *AnthropicTextProvider) callToolWrapper(
 	if errE != nil {
 		zerolog.Ctx(ctx).Warn().Err(errE).Str("name", toolCall.Name).Str("apiRequest", apiRequest).
 			Str("tool", toolCall.ID).RawJSON("input", toolCall.Input).Msg("tool error")
-		content := fmt.Sprintf("Error: %s", errE.Error())
+		content := "Error: " + errE.Error()
 		result.Content = &content
 		result.IsError = true
 

@@ -207,7 +207,6 @@ func (o *OpenAITextProvider) Init(_ context.Context, messages []ChatMessage) err
 	o.messages = []openAIMessage{}
 
 	for _, message := range messages {
-		message := message
 		o.messages = append(o.messages, openAIMessage{
 			Role:       message.Role,
 			Content:    &message.Content,
@@ -327,7 +326,7 @@ func (o *OpenAITextProvider) Chat(ctx context.Context, message ChatMessage) (str
 		if err != nil {
 			return "", errors.WithStack(err)
 		}
-		req.Header.Add("Authorization", fmt.Sprintf("Bearer %s", o.APIKey))
+		req.Header.Add("Authorization", "Bearer "+o.APIKey)
 		req.Header.Add("Content-Type", "application/json")
 		// Rate limit the initial request.
 		errE = openAIRateLimiter.Take(ctx, o.rateLimiterKey, map[string]int{
@@ -448,8 +447,6 @@ func (o *OpenAITextProvider) Chat(ctx context.Context, message ChatMessage) (str
 
 			var wg sync.WaitGroup
 			for _, toolCall := range response.Choices[0].Message.ToolCalls {
-				toolCall := toolCall
-
 				messages = append(messages, openAIMessage{
 					Role:       roleTool,
 					Content:    nil,
@@ -562,7 +559,7 @@ func (o *OpenAITextProvider) InitTools(ctx context.Context, tools map[string]Tex
 	return nil
 }
 
-func (o *OpenAITextProvider) callToolWrapper( //nolint:dupl
+func (o *OpenAITextProvider) callToolWrapper(
 	ctx context.Context, apiRequest string, toolCall openAIToolCall, result *openAIMessage, callRecorder *TextRecorderCall, toolMessage *TextRecorderMessage,
 ) {
 	if callRecorder != nil {
@@ -591,7 +588,7 @@ func (o *OpenAITextProvider) callToolWrapper( //nolint:dupl
 	if errE != nil {
 		zerolog.Ctx(ctx).Warn().Err(errE).Str("name", toolCall.Function.Name).Str("apiRequest", apiRequest).
 			Str("tool", toolCall.ID).RawJSON("input", json.RawMessage(toolCall.Function.Arguments)).Msg("tool error")
-		content := fmt.Sprintf("Error: %s", errE.Error())
+		content := "Error: " + errE.Error()
 		result.Content = &content
 
 		toolMessage.setContent(content, true)

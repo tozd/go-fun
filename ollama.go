@@ -179,7 +179,7 @@ func (o *OllamaTextProvider) Init(ctx context.Context, messages []ChatMessage) e
 	if !ok {
 		return errors.WithStack(ErrModelMaxContextLength)
 	}
-	contextLength, ok := resp.ModelInfo[fmt.Sprintf("%s.context_length", arch)].(float64)
+	contextLength, ok := resp.ModelInfo[arch+".context_length"].(float64)
 	if !ok {
 		return errors.WithStack(ErrModelMaxContextLength)
 	}
@@ -359,8 +359,6 @@ func (o *OllamaTextProvider) Chat(ctx context.Context, message ChatMessage) (str
 
 			var wg sync.WaitGroup
 			for i, toolCall := range responses[0].Message.ToolCalls {
-				toolCall := toolCall
-
 				toolCallID := fmt.Sprintf("%s_%d", toolCallIDPrefix, i)
 				messages = append(messages, api.Message{
 					Role:      roleTool,
@@ -480,7 +478,7 @@ func (o *OllamaTextProvider) callToolWrapper(
 	if errE != nil {
 		zerolog.Ctx(ctx).Warn().Err(errE).Str("name", toolCall.Function.Name).Str("apiRequest", apiRequest).
 			Str("tool", toolCallID).RawJSON("input", json.RawMessage(toolCall.Function.Arguments.String())).Msg("tool error")
-		content := fmt.Sprintf("Error: %s", errE.Error())
+		content := "Error: " + errE.Error()
 		result.Content = content
 
 		toolMessage.setContent(content, true)

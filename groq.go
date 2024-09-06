@@ -169,7 +169,6 @@ func (g *GroqTextProvider) Init(ctx context.Context, messages []ChatMessage) err
 	g.messages = []groqMessage{}
 
 	for _, message := range messages {
-		message := message
 		g.messages = append(g.messages, groqMessage{
 			Role:       message.Role,
 			Content:    &message.Content,
@@ -223,11 +222,11 @@ func (g *GroqTextProvider) Init(ctx context.Context, messages []ChatMessage) err
 		)
 	}
 
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, fmt.Sprintf("https://api.groq.com/openai/v1/models/%s", g.Model), nil)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, "https://api.groq.com/openai/v1/models/"+g.Model, nil)
 	if err != nil {
 		return errors.WithStack(err)
 	}
-	req.Header.Add("Authorization", fmt.Sprintf("Bearer %s", g.APIKey))
+	req.Header.Add("Authorization", "Bearer "+g.APIKey)
 	req.Header.Add("Content-Type", "application/json")
 	// This endpoint does not have rate limiting.
 	resp, err := g.Client.Do(req)
@@ -344,7 +343,7 @@ func (g *GroqTextProvider) Chat(ctx context.Context, message ChatMessage) (strin
 		if err != nil {
 			return "", errors.WithStack(err)
 		}
-		req.Header.Add("Authorization", fmt.Sprintf("Bearer %s", g.APIKey))
+		req.Header.Add("Authorization", "Bearer %s"+g.APIKey)
 		req.Header.Add("Content-Type", "application/json")
 		// Rate limit the initial request.
 		errE = groqRateLimiter.Take(ctx, g.rateLimiterKey, map[string]int{
@@ -466,8 +465,6 @@ func (g *GroqTextProvider) Chat(ctx context.Context, message ChatMessage) (strin
 
 			var wg sync.WaitGroup
 			for _, toolCall := range response.Choices[0].Message.ToolCalls {
-				toolCall := toolCall
-
 				messages = append(messages, groqMessage{
 					Role:       roleTool,
 					Content:    nil,
@@ -558,7 +555,7 @@ func (g *GroqTextProvider) InitTools(ctx context.Context, tools map[string]TextT
 	return nil
 }
 
-func (g *GroqTextProvider) callToolWrapper( //nolint:dupl
+func (g *GroqTextProvider) callToolWrapper(
 	ctx context.Context, apiRequest string, toolCall groqToolCall, result *groqMessage, callRecorder *TextRecorderCall, toolMessage *TextRecorderMessage,
 ) {
 	if callRecorder != nil {
@@ -587,7 +584,7 @@ func (g *GroqTextProvider) callToolWrapper( //nolint:dupl
 	if errE != nil {
 		zerolog.Ctx(ctx).Warn().Err(errE).Str("name", toolCall.Function.Name).Str("apiRequest", apiRequest).
 			Str("tool", toolCall.ID).RawJSON("input", json.RawMessage(toolCall.Function.Arguments)).Msg("tool error")
-		content := fmt.Sprintf("Error: %s", errE.Error())
+		content := "Error: " + errE.Error()
 		result.Content = &content
 
 		toolMessage.setContent(content, true)
