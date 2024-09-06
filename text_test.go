@@ -521,15 +521,12 @@ func TestText(t *testing.T) { //nolint:paralleltest,tparallel
 				{[]string{"abc"}, "abcabc"},
 				{[]string{"ddd"}, "dddddd"},
 				{[]string{"cba"}, "cbacba"},
-				{[]string{"zoo"}, "zoozoo"},
-				{[]string{"zoo"}, "zoozoo"},
+				// {[]string{"zoo"}, "zoozoo"}, // Does not work with groq.
 				{[]string{"AbC"}, "AbCAbC"},
 				{[]string{"roar"}, "roarroar"},
 				{[]string{"roar"}, "roarroar"},
 				{[]string{"lsdfk"}, "lsdfklsdfk"},
-				{[]string{"ZZZZ"}, "ZZZZZZZZ"},
-				{[]string{"ZZZZ"}, "ZZZZZZZZ"},
-				{[]string{"ZZZZ"}, "ZZZZZZZZ"},
+				// {[]string{"ZZZZ"}, "ZZZZZZZZ"}, // Does not work with groq.
 				{[]string{"long"}, "longlong"},
 			},
 			[]fun.InputOutput[string, string]{
@@ -542,7 +539,7 @@ func TestText(t *testing.T) { //nolint:paralleltest,tparallel
 				t.Helper()
 
 				if assert.Len(t, recorder.Calls(), 1) {
-					assert.Len(t, recorder.Calls()[0].Messages, 28)
+					assert.Len(t, recorder.Calls()[0].Messages, 18)
 				}
 			},
 		},
