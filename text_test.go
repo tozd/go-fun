@@ -536,7 +536,7 @@ func TestText(t *testing.T) { //nolint:paralleltest,tparallel
 				{[]string{"foo"}, "foofoo"},
 				{[]string{"bar"}, "barbar"},
 				{[]string{"test"}, "testtest"},
-				// {[]string{"zzz"}, "zzzzzz"}, // Returns "zzz..." with llama3.8b.
+				// {[]string{"zzz"}, "zzzzzz"}, // Returns "zzz..." with llama3:8b.
 			},
 			func(t *testing.T, recorder *fun.TextRecorder, _ string) {
 				t.Helper()
@@ -573,7 +573,7 @@ func TestText(t *testing.T) { //nolint:paralleltest,tparallel
 				{[]string{"foo"}, "foofoo"},
 				{[]string{"bar"}, "barbar"},
 				{[]string{"test"}, "testtest"},
-				// {[]string{"zzz"}, "zzzzzz"}, // Returns "zzzZZZ" with llama3.8b.
+				// {[]string{"zzz"}, "zzzzzz"}, // Returns "zzzZZZ" with llama3:8b.
 			},
 			func(t *testing.T, recorder *fun.TextRecorder, _ string) {
 				t.Helper()
