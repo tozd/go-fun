@@ -1,0 +1,21 @@
+To solve this problem, we need to find the number of marbles in each of Lana's bags and Markus' bags, and then calculate the difference between the number of marbles in each of Markus' bags and the number of marbles in each of Lana's bags.
+
+Given information:
+- Lana has 3 bags with the same amount of marbles in them, totaling 12 marbles.
+- Markus has 3 bags with the same amount of marbles in them, totaling 18 marbles.
+
+Step 1: Find the number of marbles in each of Lana's bags.
+Total marbles in Lana's bags = 12
+Number of bags = 3
+Marbles in each of Lana's bags = 12 ÷ 3 = 4 marbles
+
+Step 2: Find the number of marbles in each of Markus' bags.
+Total marbles in Markus' bags = 18
+Number of bags = 3
+Marbles in each of Markus' bags = 18 ÷ 3 = 6 marbles
+
+Step 3: Calculate the difference between the number of marbles in each of Markus' bags and the number of marbles in each of Lana's bags.
+Difference = Marbles in each of Markus' bags - Marbles in each of Lana's bags
+Difference = 6 - 4 = 2 marbles
+
+Therefore, Markus has 2 more marbles in each bag than Lana.
