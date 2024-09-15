@@ -12,7 +12,7 @@ ifeq ($(REVISION),)
  REVISION = `git rev-parse HEAD`
 endif
 
-.PHONY: build build-static test test-ci lint lint-ci fmt fmt-ci upgrade clean release lint-docs audit encrypt decrypt sops
+.PHONY: build build-static test test-ci lint lint-ci fmt fmt-ci upgrade clean release lint-docs lint-docs-ci audit encrypt decrypt sops
 
 build:
 	go build -trimpath -ldflags "-s -w -X gitlab.com/tozd/go/cli.Version=${VERSION} -X gitlab.com/tozd/go/cli.BuildTimestamp=${BUILD_TIMESTAMP} -X gitlab.com/tozd/go/cli.Revision=${REVISION}" -o fun gitlab.com/tozd/go/fun/cmd/fun
@@ -53,7 +53,10 @@ release:
 	npx --yes --package 'release-it@15.4.2' --package '@release-it/keep-a-changelog@3.1.0' -- release-it
 
 lint-docs:
-	npx --yes --package 'markdownlint-cli@~0.34.0' -- markdownlint --ignore-path .gitignore --ignore testdata/ '**/*.md'
+	npx --yes --package 'markdownlint-cli@~0.41.0' -- markdownlint --ignore-path .gitignore --ignore testdata/ --fix '**/*.md'
+
+lint-docs-ci: lint-docs
+	git diff --exit-code --color=always
 
 audit:
 	go list -json -deps ./... | nancy sleuth --skip-update-check
