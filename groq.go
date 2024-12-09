@@ -494,8 +494,8 @@ func (g *GroqTextProvider) Chat(ctx context.Context, message ChatMessage) (strin
 
 func (g *GroqTextProvider) maxContextLength(model groqModel) int {
 	// A free plan has only a 6000 tokens per minute limit so a larger context length cannot be used.
-	if model.ContextWindow > 6000 {
-		return 6000 //nolint:mnd
+	if model.ContextWindow > 6_000 { //nolint:mnd
+		return 6_000 //nolint:mnd
 	}
 	return model.ContextWindow
 }
