@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- Update Ollama dependency to 0.5.1.
+
 ### Fixed
 
 - Update rate limiting logic to new rate limiting used by Anthropic.
