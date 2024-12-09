@@ -199,6 +199,8 @@ func ExampleTextRecorder_Notify() {
 	//             "provider": {
 	//               "type": "anthropic",
 	//               "model": "claude-3-haiku-20240307",
+	//               "maxContextLength": 200000,
+	//               "maxResponseLength": 4096,
 	//               "promptCaching": false,
 	//               "temperature": 0
 	//             },
@@ -271,6 +273,8 @@ func ExampleTextRecorder_Notify() {
 	//             "provider": {
 	//               "type": "anthropic",
 	//               "model": "claude-3-haiku-20240307",
+	//               "maxContextLength": 200000,
+	//               "maxResponseLength": 4096,
 	//               "promptCaching": false,
 	//               "temperature": 0
 	//             },
@@ -290,7 +294,7 @@ func ExampleTextRecorder_Notify() {
 	//             ],
 	//             "usedTokens": {
 	//               "req_2_0": {
-	//                 "maxTotal": 8207,
+	//                 "maxTotal": 200000,
 	//                 "maxResponse": 4096,
 	//                 "prompt": 24,
 	//                 "response": 5,
@@ -362,6 +366,8 @@ func ExampleTextRecorder_Notify() {
 	//             "provider": {
 	//               "type": "anthropic",
 	//               "model": "claude-3-haiku-20240307",
+	//               "maxContextLength": 200000,
+	//               "maxResponseLength": 4096,
 	//               "promptCaching": false,
 	//               "temperature": 0
 	//             },
@@ -381,7 +387,7 @@ func ExampleTextRecorder_Notify() {
 	//             ],
 	//             "usedTokens": {
 	//               "req_2_0": {
-	//                 "maxTotal": 8207,
+	//                 "maxTotal": 200000,
 	//                 "maxResponse": 4096,
 	//                 "prompt": 24,
 	//                 "response": 5,
@@ -453,6 +459,8 @@ func ExampleTextRecorder_Notify() {
 	//             "provider": {
 	//               "type": "anthropic",
 	//               "model": "claude-3-haiku-20240307",
+	//               "maxContextLength": 200000,
+	//               "maxResponseLength": 4096,
 	//               "promptCaching": false,
 	//               "temperature": 0
 	//             },
@@ -472,7 +480,7 @@ func ExampleTextRecorder_Notify() {
 	//             ],
 	//             "usedTokens": {
 	//               "req_2_0": {
-	//                 "maxTotal": 8207,
+	//                 "maxTotal": 200000,
 	//                 "maxResponse": 4096,
 	//                 "prompt": 24,
 	//                 "response": 5,
