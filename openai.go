@@ -24,6 +24,10 @@ var openAIModels = map[string]struct { //nolint:gochecknoglobals
 	MaxContextLength  int
 	MaxResponseLength int
 }{
+	"gpt-4o-2024-11-20": {
+		MaxContextLength:  128_000,
+		MaxResponseLength: 16_384,
+	},
 	"gpt-4o-2024-08-06": {
 		MaxContextLength:  128_000,
 		MaxResponseLength: 16_384,
@@ -35,6 +39,14 @@ var openAIModels = map[string]struct { //nolint:gochecknoglobals
 	"gpt-4o-mini-2024-07-18": {
 		MaxContextLength:  128_000,
 		MaxResponseLength: 16_384,
+	},
+	"o1-preview-2024-09-12": {
+		MaxContextLength:  128_000,
+		MaxResponseLength: 32_768,
+	},
+	"o1-mini-2024-09-12": {
+		MaxContextLength:  128_000,
+		MaxResponseLength: 65_536,
 	},
 	"gpt-4-turbo-2024-04-09": {
 		MaxContextLength:  128_000,
