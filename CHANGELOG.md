@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- Update rate limiting logic to new rate limiting used by Anthropic.
+
 ## [0.6.0] - 2024-09-07
 
 ### Added

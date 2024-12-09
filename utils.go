@@ -180,10 +180,16 @@ type contextKey struct {
 
 var estimatedTokensContextKey = &contextKey{"estimated-tokens"} //nolint:gochecknoglobals
 
-func withEstimatedTokens(ctx context.Context, estimatedTokens int) context.Context {
-	return context.WithValue(ctx, estimatedTokensContextKey, estimatedTokens)
+type estimatedTokens struct {
+	Input  int
+	Output int
 }
 
-func getEstimatedTokens(ctx context.Context) int {
-	return ctx.Value(estimatedTokensContextKey).(int) //nolint:forcetypeassert
+func withEstimatedTokens(ctx context.Context, estimatedInputTokens, estimatedOutputTokens int) context.Context {
+	return context.WithValue(ctx, estimatedTokensContextKey, estimatedTokens{estimatedInputTokens, estimatedOutputTokens})
+}
+
+func getEstimatedTokens(ctx context.Context) (int, int) {
+	et := ctx.Value(estimatedTokensContextKey).(estimatedTokens) //nolint:forcetypeassert,errcheck
+	return et.Input, et.Output
 }

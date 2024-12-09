@@ -10,17 +10,16 @@ import (
 	"net/http"
 	"slices"
 	"strconv"
+	"strings"
 	"sync"
 	"time"
 
+	"github.com/hashicorp/go-retryablehttp"
 	"github.com/rs/zerolog"
 	"gitlab.com/tozd/go/errors"
 	"gitlab.com/tozd/go/x"
 	"gitlab.com/tozd/identifier"
 )
-
-// Max output tokens for current set of models.
-const anthropicMaxResponseTokens = 4096
 
 var anthropicRateLimiter = &keyedRateLimiter{ //nolint:gochecknoglobals
 	mu:       sync.RWMutex{},
@@ -83,19 +82,26 @@ type anthropicResponse struct {
 }
 
 func parseAnthropicRateLimitHeaders(resp *http.Response) ( //nolint:nonamedreturns
-	limitRequests, limitTokens,
-	remainingRequests, remainingTokens int,
-	resetRequests, resetTokens time.Time,
+	limitRequests, limitInputTokens, limitOutputTokens,
+	remainingRequests, remainingInputTokens, remainingOutputTokens int,
+	resetRequests, resetInputTokens, resetOutputTokens time.Time,
 	ok bool, errE errors.E,
 ) {
 	limitRequestsStr := resp.Header.Get("Anthropic-Ratelimit-Requests-Limit")         // Request per minute.
-	limitTokensStr := resp.Header.Get("Anthropic-Ratelimit-Tokens-Limit")             // Tokens per minute or day.
 	remainingRequestsStr := resp.Header.Get("Anthropic-Ratelimit-Requests-Remaining") // Remaining requests in current window (a minute).
-	remainingTokensStr := resp.Header.Get("Anthropic-Ratelimit-Tokens-Remaining")     // Remaining tokens in current window (a minute or a day).
 	resetRequestsStr := resp.Header.Get("Anthropic-Ratelimit-Requests-Reset")         // When will requests window reset.
-	resetTokensStr := resp.Header.Get("Anthropic-Ratelimit-Tokens-Reset")             // When will tokens window reset.
 
-	if limitRequestsStr == "" || limitTokensStr == "" || remainingRequestsStr == "" || remainingTokensStr == "" || resetRequestsStr == "" || resetTokensStr == "" {
+	limitInputTokensStr := resp.Header.Get("Anthropic-Ratelimit-Input-Tokens-Limit")         // Input tokens per minute or day.
+	remainingInputTokensStr := resp.Header.Get("Anthropic-Ratelimit-Input-Tokens-Remaining") // Remaining input tokens in current window (a minute).
+	resetInputTokensStr := resp.Header.Get("Anthropic-Ratelimit-Input-Tokens-Reset")         // When will input tokens window reset.
+
+	limitOutputTokensStr := resp.Header.Get("Anthropic-Ratelimit-Output-Tokens-Limit")         // Output tokens per minute or day.
+	remainingOutputTokensStr := resp.Header.Get("Anthropic-Ratelimit-Output-Tokens-Remaining") // Remaining output tokens in current window (a minute).
+	resetOutputTokensStr := resp.Header.Get("Anthropic-Ratelimit-Output-Tokens-Reset")         // When will output tokens window reset.
+
+	if limitRequestsStr == "" || remainingRequestsStr == "" || resetRequestsStr == "" ||
+		limitInputTokensStr == "" || remainingInputTokensStr == "" || resetInputTokensStr == "" ||
+		limitOutputTokensStr == "" || remainingOutputTokensStr == "" || resetOutputTokensStr == "" {
 		// ok == false here.
 		return //nolint:nakedret
 	}
@@ -109,19 +115,9 @@ func parseAnthropicRateLimitHeaders(resp *http.Response) ( //nolint:nonamedretur
 		errE = errors.WithDetails(err, "value", limitRequestsStr)
 		return //nolint:nakedret
 	}
-	limitTokens, err = strconv.Atoi(limitTokensStr)
-	if err != nil {
-		errE = errors.WithDetails(err, "value", limitTokensStr)
-		return //nolint:nakedret
-	}
 	remainingRequests, err = strconv.Atoi(remainingRequestsStr)
 	if err != nil {
 		errE = errors.WithDetails(err, "value", remainingRequestsStr)
-		return //nolint:nakedret
-	}
-	remainingTokens, err = strconv.Atoi(remainingTokensStr)
-	if err != nil {
-		errE = errors.WithDetails(err, "value", remainingTokensStr)
 		return //nolint:nakedret
 	}
 	resetRequests, err = time.Parse(time.RFC3339, resetRequestsStr)
@@ -129,9 +125,36 @@ func parseAnthropicRateLimitHeaders(resp *http.Response) ( //nolint:nonamedretur
 		errE = errors.WithDetails(err, "value", resetRequestsStr)
 		return //nolint:nakedret
 	}
-	resetTokens, err = time.Parse(time.RFC3339, resetTokensStr)
+
+	limitInputTokens, err = strconv.Atoi(limitInputTokensStr)
 	if err != nil {
-		errE = errors.WithDetails(err, "value", resetTokensStr)
+		errE = errors.WithDetails(err, "value", limitInputTokensStr)
+		return //nolint:nakedret
+	}
+	remainingInputTokens, err = strconv.Atoi(remainingInputTokensStr)
+	if err != nil {
+		errE = errors.WithDetails(err, "value", remainingInputTokensStr)
+		return //nolint:nakedret
+	}
+	resetInputTokens, err = time.Parse(time.RFC3339, resetInputTokensStr)
+	if err != nil {
+		errE = errors.WithDetails(err, "value", resetInputTokensStr)
+		return //nolint:nakedret
+	}
+
+	limitOutputTokens, err = strconv.Atoi(limitOutputTokensStr)
+	if err != nil {
+		errE = errors.WithDetails(err, "value", limitOutputTokensStr)
+		return //nolint:nakedret
+	}
+	remainingOutputTokens, err = strconv.Atoi(remainingOutputTokensStr)
+	if err != nil {
+		errE = errors.WithDetails(err, "value", remainingOutputTokensStr)
+		return //nolint:nakedret
+	}
+	resetOutputTokens, err = time.Parse(time.RFC3339, resetOutputTokensStr)
+	if err != nil {
+		errE = errors.WithDetails(err, "value", resetOutputTokensStr)
 		return //nolint:nakedret
 	}
 
@@ -163,6 +186,16 @@ type AnthropicTextProvider struct {
 
 	// Model is the name of the model to be used.
 	Model string `json:"model"`
+
+	// MaxContextLength is the maximum total number of tokens allowed to be used
+	// with the underlying AI model (i.e., the maximum context window).
+	// If not provided, heuristics are used to determine it automatically.
+	MaxContextLength int `json:"maxContextLength"`
+
+	// MaxResponseLength is the maximum number of tokens allowed to be used in
+	// a response with the underlying AI model. If not provided, heuristics
+	// are used to determine it automatically.
+	MaxResponseLength int `json:"maxResponseLength"`
 
 	// PromptCaching set to true enables prompt caching.
 	PromptCaching bool `json:"promptCaching"`
@@ -242,54 +275,72 @@ func (a *AnthropicTextProvider) Init(_ context.Context, messages []ChatMessage) 
 		a.Client = newClient(
 			func(req *http.Request) error {
 				ctx := req.Context()
-				estimatedTokens := getEstimatedTokens(ctx)
+				estimatedInputTokens, estimatedOutputTokens := getEstimatedTokens(ctx)
 				// Rate limit retries.
 				return anthropicRateLimiter.Take(ctx, a.rateLimiterKey, map[string]int{
-					"rpm": 1,
-					"tpd": estimatedTokens,
-					"tpm": estimatedTokens,
+					"rpm":  1,
+					"itpd": estimatedInputTokens,
+					"otpm": estimatedOutputTokens,
 				})
 			},
-			parseAnthropicRateLimitHeaders,
-			func(limitRequests, limitTokens, remainingRequests, remainingTokens int, resetRequests, resetTokens time.Time) {
-				rateLimits := map[string]any{
+			nil,
+			nil,
+		)
+		a.Client.Transport.(*retryablehttp.RoundTripper).Client.CheckRetry = func(ctx context.Context, resp *http.Response, err error) (bool, error) { //nolint:forcetypeassert
+			if err != nil {
+				check, err := retryablehttp.ErrorPropagatedRetryPolicy(ctx, resp, err) //nolint:govet
+				return check, errors.WithStack(err)
+			}
+			if resp.StatusCode == http.StatusTooManyRequests {
+				// We read the body and provide it back.
+				body, _ := io.ReadAll(resp.Body)
+				resp.Body.Close()
+				resp.Body = io.NopCloser(bytes.NewReader(body))
+				if resp.Header.Get("Content-Type") == applicationJSONHeader && json.Valid(body) {
+					zerolog.Ctx(ctx).Warn().RawJSON("body", body).Msg("hit rate limit")
+				} else {
+					zerolog.Ctx(ctx).Warn().Str("body", string(body)).Msg("hit rate limit")
+				}
+			}
+			limitRequests, limitInputTokens, limitOutputTokens,
+				remainingRequests, remainingInputTokens, remainingOutputTokens,
+				resetRequests, resetInputTokens, resetOutputTokens, ok, errE := parseAnthropicRateLimitHeaders(resp)
+			if errE != nil {
+				return false, errE
+			}
+			if ok {
+				anthropicRateLimiter.Set(a.rateLimiterKey, map[string]any{
 					"rpm": resettingRateLimit{
 						Limit:     limitRequests,
 						Remaining: remainingRequests,
 						Window:    time.Minute,
 						Resets:    resetRequests,
 					},
-				}
-				// Token rate limit headers can be returned for both minute or day, whichever is smaller,
-				// so we use heuristics to determine which one it is.
-				if limitTokens <= 100_000 { //nolint:mnd
-					// Even the free plan has tpd larger than 100,000, so if the limit is less, we know that it is tpm.
-					rateLimits["tpm"] = resettingRateLimit{
-						Limit:     limitTokens,
-						Remaining: remainingTokens,
+					"itpd": resettingRateLimit{
+						Limit:     limitInputTokens,
+						Remaining: remainingInputTokens,
 						Window:    time.Minute,
-						Resets:    resetTokens,
-					}
-				} else if limitTokens/limitRequests >= 2000 { //nolint:mnd
-					// If the ratio between token limit and rpm is larger than 2000, we know it is tpd.
-					rateLimits["tpd"] = resettingRateLimit{
-						Limit:     limitTokens,
-						Remaining: remainingTokens,
-						Window:    24 * time.Hour, //nolint:mnd
-						Resets:    resetTokens,
-					}
-				} else {
-					// Otherwise it is tpm.
-					rateLimits["tpm"] = resettingRateLimit{
-						Limit:     limitTokens,
-						Remaining: remainingTokens,
+						Resets:    resetInputTokens,
+					},
+					"otpd": resettingRateLimit{
+						Limit:     limitOutputTokens,
+						Remaining: remainingOutputTokens,
 						Window:    time.Minute,
-						Resets:    resetTokens,
-					}
-				}
-				anthropicRateLimiter.Set(a.rateLimiterKey, rateLimits)
-			},
-		)
+						Resets:    resetOutputTokens,
+					},
+				})
+			}
+			check, err := retryablehttp.ErrorPropagatedRetryPolicy(ctx, resp, err)
+			return check, errors.WithStack(err)
+		}
+	}
+
+	if a.MaxContextLength == 0 {
+		a.MaxContextLength = a.maxContextLength()
+	}
+
+	if a.MaxResponseLength == 0 {
+		a.MaxResponseLength = a.maxResponseTokens()
 	}
 
 	return nil
@@ -335,7 +386,7 @@ func (a *AnthropicTextProvider) Chat(ctx context.Context, message ChatMessage) (
 		request, errE := x.MarshalWithoutEscapeHTML(anthropicRequest{
 			Model:       a.Model,
 			Messages:    messages,
-			MaxTokens:   anthropicMaxResponseTokens,
+			MaxTokens:   a.MaxResponseLength,
 			System:      a.system,
 			Temperature: a.Temperature,
 			Tools:       a.tools,
@@ -344,10 +395,10 @@ func (a *AnthropicTextProvider) Chat(ctx context.Context, message ChatMessage) (
 			return "", errE
 		}
 
-		estimatedTokens := a.estimatedTokens(messages)
+		estimatedInputTokens, estimatedOutputTokens := a.estimatedTokens(messages)
 
 		req, err := http.NewRequestWithContext(
-			withEstimatedTokens(ctx, estimatedTokens),
+			withEstimatedTokens(ctx, estimatedInputTokens, estimatedOutputTokens),
 			http.MethodPost,
 			"https://api.anthropic.com/v1/messages",
 			bytes.NewReader(request),
@@ -363,9 +414,9 @@ func (a *AnthropicTextProvider) Chat(ctx context.Context, message ChatMessage) (
 		}
 		// Rate limit the initial request.
 		errE = anthropicRateLimiter.Take(ctx, a.rateLimiterKey, map[string]int{
-			"rpm": 1,
-			"tpd": estimatedTokens,
-			"tpm": estimatedTokens,
+			"rpm":  1,
+			"itpd": estimatedInputTokens,
+			"otpm": estimatedOutputTokens,
 		})
 		if errE != nil {
 			return "", errE
@@ -410,8 +461,8 @@ func (a *AnthropicTextProvider) Chat(ctx context.Context, message ChatMessage) (
 		if callRecorder != nil {
 			callRecorder.addUsedTokens(
 				apiRequest,
-				estimatedTokens,
-				anthropicMaxResponseTokens,
+				a.MaxContextLength,
+				a.MaxResponseLength,
 				response.Usage.InputTokens,
 				response.Usage.OutputTokens,
 				response.Usage.CacheCreationInputTokens,
@@ -432,14 +483,14 @@ func (a *AnthropicTextProvider) Chat(ctx context.Context, message ChatMessage) (
 			callRecorder.notify("", nil)
 		}
 
-		if response.Usage.InputTokens+response.Usage.OutputTokens > estimatedTokens {
+		if response.Usage.InputTokens+response.Usage.OutputTokens >= a.MaxContextLength {
 			return "", errors.WithDetails(
 				ErrUnexpectedNumberOfTokens,
 				"prompt", response.Usage.InputTokens,
 				"response", response.Usage.OutputTokens,
 				"total", response.Usage.InputTokens+response.Usage.OutputTokens,
-				"maxTotal", estimatedTokens,
-				"maxResponse", anthropicMaxResponseTokens,
+				"maxTotal", a.MaxContextLength,
+				"maxResponse", a.MaxResponseLength,
 				"apiRequest", apiRequest,
 			)
 		}
@@ -566,32 +617,43 @@ func (a *AnthropicTextProvider) Chat(ctx context.Context, message ChatMessage) (
 	}
 }
 
-func (a *AnthropicTextProvider) estimatedTokens(messages []anthropicMessage) int {
-	// We estimate tokens from training messages (including system message) by
+func (a *AnthropicTextProvider) estimatedTokens(messages []anthropicMessage) (int, int) {
+	// We estimate inputTokens from training messages (including system message) by
 	// dividing number of characters by 4.
-	tokens := 0
+	inputTokens := 0
 	for _, message := range messages {
 		for _, content := range message.Content {
 			if content.Text != nil {
-				tokens += len(*content.Text) / 4 //nolint:mnd
+				inputTokens += len(*content.Text) / 4 //nolint:mnd
 			}
-			tokens += len(content.Input) / 4 //nolint:mnd
+			inputTokens += len(content.Input) / 4 //nolint:mnd
 			if content.Content != nil {
-				tokens += len(*content.Content) / 4 //nolint:mnd
+				inputTokens += len(*content.Content) / 4 //nolint:mnd
 			}
 		}
 	}
 	for _, system := range a.system {
-		tokens += len(system.Text) / 4 //nolint:mnd
+		inputTokens += len(system.Text) / 4 //nolint:mnd
 	}
 	for _, tool := range a.tools {
-		tokens += len(tool.Name) / 4            //nolint:mnd
-		tokens += len(tool.Description) / 4     //nolint:mnd
-		tokens += len(tool.InputJSONSchema) / 4 //nolint:mnd
+		inputTokens += len(tool.Name) / 4            //nolint:mnd
+		inputTokens += len(tool.Description) / 4     //nolint:mnd
+		inputTokens += len(tool.InputJSONSchema) / 4 //nolint:mnd
 	}
-	// Each output can be up to anthropicMaxResponseTokens so we assume final output
-	// is at most that, with input the same.
-	return tokens + 2*anthropicMaxResponseTokens
+	// TODO: Can we provide a better estimate for output tokens?
+	return inputTokens, a.MaxResponseLength
+}
+
+func (a *AnthropicTextProvider) maxContextLength() int {
+	// Currently this is the same for all Anthropic models.
+	return 200_000 //nolint:mnd
+}
+
+func (a *AnthropicTextProvider) maxResponseTokens() int {
+	if strings.Contains(a.Model, "3-5") {
+		return 8192 //nolint:mnd
+	}
+	return 4096 //nolint:mnd
 }
 
 // InitTools implements [WithTools] interface.
