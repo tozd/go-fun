@@ -507,7 +507,8 @@ func (g *GroqTextProvider) maxResponseTokens(model groqModel) int {
 		return 32_000 //nolint:mnd
 	}
 	if model.ID == "llama-3.1-70b-versatile" {
-		return 32_000 //nolint:mnd
+		// This is different from the documentation.
+		return 8_000 //nolint:mnd
 	}
 	if strings.Contains(model.ID, "llama-3.2") {
 		return 8_000 //nolint:mnd
