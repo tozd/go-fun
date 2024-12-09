@@ -300,10 +300,12 @@ var tests = []struct {
 		"just_data",
 		"",
 		[]fun.InputOutput[string, OutputStruct]{
+			{[]string{"foo=1 [bar=3]"}, OutputStruct{Key: "foo", Value: 1, Children: []OutputStruct{{Key: "bar", Value: 3}}}},
 			{[]string{"foo=1"}, OutputStruct{Key: "foo", Value: 1}},
 			{[]string{"bar=3"}, OutputStruct{Key: "bar", Value: 3}},
-			{[]string{"foo=1 [bar=3]"}, OutputStruct{Key: "foo", Value: 1, Children: []OutputStruct{{Key: "bar", Value: 3}}}},
+			{[]string{"another=3 [field=5 bar=3]"}, OutputStruct{Key: "another", Value: 3, Children: []OutputStruct{{Key: "field", Value: 5}, {Key: "bar", Value: 3}}}},
 			{[]string{"foo=1 [bar=3 zoo=2]"}, OutputStruct{Key: "foo", Value: 1, Children: []OutputStruct{{Key: "bar", Value: 3}, {Key: "zoo", Value: 2}}}},
+			{[]string{"something=9 [else=2 test=1]"}, OutputStruct{Key: "something", Value: 9, Children: []OutputStruct{{Key: "else", Value: 2}, {Key: "test", Value: 1}}}},
 		},
 		[]fun.InputOutput[string, OutputStruct]{
 			{[]string{"name=42 [first=2 second=1]"}, OutputStruct{Key: "name", Value: 42, Children: []OutputStruct{{Key: "first", Value: 2}, {Key: "second", Value: 1}}}},
@@ -312,7 +314,7 @@ var tests = []struct {
 			t.Helper()
 
 			if assert.Len(t, recorder.Calls(), 1) {
-				assert.Len(t, recorder.Calls()[0].Messages, 10)
+				assert.Len(t, recorder.Calls()[0].Messages, 14)
 			}
 		},
 	},
@@ -340,25 +342,21 @@ var tests = []struct {
 		"json_only_prompt_and_data",
 		fun.TextToJSONPrompt,
 		[]fun.InputOutput[string, OutputStruct]{
+			{[]string{"foo=1 [bar=3]"}, OutputStruct{Key: "foo", Value: 1, Children: []OutputStruct{{Key: "bar", Value: 3}}}},
 			{[]string{"foo=1"}, OutputStruct{Key: "foo", Value: 1}},
 			{[]string{"bar=3"}, OutputStruct{Key: "bar", Value: 3}},
-			{[]string{"foo=1 [bar=3]"}, OutputStruct{Key: "foo", Value: 1, Children: []OutputStruct{{Key: "bar", Value: 3}}}},
+			{[]string{"another=3 [field=5 bar=3]"}, OutputStruct{Key: "another", Value: 3, Children: []OutputStruct{{Key: "field", Value: 5}, {Key: "bar", Value: 3}}}},
 			{[]string{"foo=1 [bar=3 zoo=2]"}, OutputStruct{Key: "foo", Value: 1, Children: []OutputStruct{{Key: "bar", Value: 3}, {Key: "zoo", Value: 2}}}},
+			{[]string{"something=9 [else=2 test=1]"}, OutputStruct{Key: "something", Value: 9, Children: []OutputStruct{{Key: "else", Value: 2}, {Key: "test", Value: 1}}}},
 		},
 		[]fun.InputOutput[string, OutputStruct]{
 			{[]string{"name=42 [first=2 second=1]"}, OutputStruct{Key: "name", Value: 42, Children: []OutputStruct{{Key: "first", Value: 2}, {Key: "second", Value: 1}}}},
 		},
-		func(t *testing.T, recorder *fun.TextRecorder, providerName string) {
+		func(t *testing.T, recorder *fun.TextRecorder, _ string) {
 			t.Helper()
 
-			if providerName == "groq" || providerName == "ollama" {
-				if assert.Len(t, recorder.Calls(), 1) {
-					assert.Len(t, recorder.Calls()[0].Messages, 15)
-				}
-			} else {
-				if assert.Len(t, recorder.Calls(), 1) {
-					assert.Len(t, recorder.Calls()[0].Messages, 11)
-				}
+			if assert.Len(t, recorder.Calls(), 1) {
+				assert.Len(t, recorder.Calls()[0].Messages, 15)
 			}
 		},
 	},
@@ -665,23 +663,12 @@ func TestTextStruct(t *testing.T) { //nolint:paralleltest,tparallel
 						t.Parallel()
 					}
 
-					data := slices.Clone(tt.Data)
-					// TODO: See if there is a way to not have to repeat samples.
-					if tt.Name == "json_only_prompt_and_data" && provider.Name == "groq" {
-						data = append(data, data[len(data)-1])
-						data = append(data, data[len(data)-1])
-					}
-					if tt.Name == "json_only_prompt_and_data" && provider.Name == "ollama" {
-						data = append(data, data[len(data)-1])
-						data = append(data, data[len(data)-1])
-					}
-
 					f := fun.Text[string, OutputStruct]{
 						Provider:         provider.Provider(t),
 						InputJSONSchema:  jsonSchemaString,
 						OutputJSONSchema: nil,
 						Prompt:           tt.Prompt,
-						Data:             data,
+						Data:             tt.Data,
 					}
 
 					ctx := zerolog.New(zerolog.NewTestWriter(t)).WithContext(context.Background())
