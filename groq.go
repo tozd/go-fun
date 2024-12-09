@@ -502,17 +502,18 @@ func (g *GroqTextProvider) maxContextLength(model groqModel) int {
 
 func (g *GroqTextProvider) maxResponseTokens(model groqModel) int {
 	// See: https://console.groq.com/docs/models
+	// TODO: Why are real limits smaller than what is in the documentation (8000 and not 8192, for example)? If you try 8192 you get an API error.
 	if strings.Contains(model.ID, "llama-3.3") {
-		return 32_768 //nolint:mnd
+		return 32_000 //nolint:mnd
 	}
 	if model.ID == "llama-3.1-70b-versatile" {
-		return 32_768 //nolint:mnd
+		return 32_000 //nolint:mnd
 	}
 	if strings.Contains(model.ID, "llama-3.2") {
-		return 8_192 //nolint:mnd
+		return 8_000 //nolint:mnd
 	}
 	if strings.Contains(model.ID, "llama-3.1") {
-		return 8_192 //nolint:mnd
+		return 8_000 //nolint:mnd
 	}
 	return g.maxContextLength(model)
 }
