@@ -115,7 +115,7 @@ var providers = []testProvider{
 			return &fun.OllamaTextProvider{
 				Client:            nil,
 				Base:              os.Getenv("OLLAMA_HOST"),
-				Model:             "llama3.3:70b",
+				Model:             "llama3.2:3b",
 				MaxContextLength:  0,
 				MaxResponseLength: 0,
 				Seed:              42,
