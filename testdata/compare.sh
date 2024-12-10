@@ -1,6 +1,6 @@
 #!/bin/sh -e
 
-for dir in "$testdata/expected-${MODEL//:/_}"*; do
+for dir in "testdata/expected-${MODEL//:/_}"*; do
   echo "Diffing $dir"
   if diff -aur --color=always "$dir/" results/; then
     exit 0
