@@ -494,13 +494,13 @@ func TestText(t *testing.T) { //nolint:paralleltest,tparallel
 	tests := []textTestCase{
 		{
 			"just_prompt",
-			"Repeat the input twice, by concatenating the input string without any space. Return just the result.",
+			"Repeat the input twice, by concatenating the input string without any space. Return just the raw result.",
 			nil,
 			[]fun.InputOutput[string, string]{
-				{[]string{"foo"}, "foofoo"},
+				{[]string{"fol"}, "folfol"},
 				{[]string{"bar"}, "barbar"},
-				{[]string{"test"}, "testtest"},
-				{[]string{"zzz"}, "zzzzzz"},
+				{[]string{"zkl"}, "zklzkl"},
+				{[]string{"42"}, "4242"},
 			},
 			func(t *testing.T, recorder *fun.TextRecorder, _ string) {
 				t.Helper()
@@ -514,69 +514,61 @@ func TestText(t *testing.T) { //nolint:paralleltest,tparallel
 			"just_data",
 			"",
 			[]fun.InputOutput[string, string]{
-				// We repeat some training data to reinforce those cases.
-				// (Otherwise they fail when we test training cases.)
+				{[]string{"word"}, "wordword"},
+				{[]string{"repeat"}, "repeatrepeat"},
+				{[]string{"[xyz]"}, "[xyz][xyz]"},
+				{[]string{"123"}, "123123"},
 				{[]string{"abc"}, "abcabc"},
-				{[]string{"ddd"}, "dddddd"},
 				{[]string{"cba"}, "cbacba"},
-				// {[]string{"zoo"}, "zoozoo"}, // Does not work with groq.
+				{[]string{"zoz"}, "zozzoz"},
+				{[]string{"zo"}, "zozo"},
 				{[]string{"AbC"}, "AbCAbC"},
 				{[]string{"roar"}, "roarroar"},
-				{[]string{"roar"}, "roarroar"},
-				{[]string{"roar"}, "roarroar"},
 				{[]string{"lsdfk"}, "lsdfklsdfk"},
-				// {[]string{"ZZZZ"}, "ZZZZZZZZ"}, // Does not work with groq.
-				{[]string{"long"}, "longlong"},
-				{[]string{"long"}, "longlong"},
+				{[]string{"odfp"}, "odfpodfp"},
 			},
 			[]fun.InputOutput[string, string]{
-				{[]string{"foo"}, "foofoo"},
+				{[]string{"fol"}, "folfol"},
 				{[]string{"bar"}, "barbar"},
-				{[]string{"test"}, "testtest"},
-				// {[]string{"zzz"}, "zzzzzz"}, // Returns "zzz..." with llama3:8b.
+				{[]string{"zkl"}, "zklzkl"},
+				{[]string{"42"}, "4242"},
 			},
 			func(t *testing.T, recorder *fun.TextRecorder, _ string) {
 				t.Helper()
 
 				if assert.Len(t, recorder.Calls(), 1) {
-					assert.Len(t, recorder.Calls()[0].Messages, 22)
+					assert.Len(t, recorder.Calls()[0].Messages, 26)
 				}
 			},
 		},
 		{
 			"prompt_and_data",
-			"Repeat the input twice, by concatenating the input string without any space. Return just the result.",
+			"Repeat the input twice, by concatenating the input string without any space. Return just the raw result.",
 			[]fun.InputOutput[string, string]{
-				// We repeat some training data to reinforce those cases.
-				// (Otherwise they fail when we test training cases.)
+				{[]string{"word"}, "wordword"},
+				{[]string{"repeat"}, "repeatrepeat"},
+				{[]string{"[xyz]"}, "[xyz][xyz]"},
+				{[]string{"123"}, "123123"},
 				{[]string{"abc"}, "abcabc"},
-				{[]string{"ddd"}, "dddddd"},
 				{[]string{"cba"}, "cbacba"},
-				{[]string{"zoo"}, "zoozoo"},
-				{[]string{"zoo"}, "zoozoo"},
-				{[]string{"zoo"}, "zoozoo"},
-				{[]string{"zoo"}, "zoozoo"},
-				{[]string{"zoo"}, "zoozoo"},
-				{[]string{"zoo"}, "zoozoo"},
+				{[]string{"zoz"}, "zozzoz"},
+				{[]string{"zo"}, "zozo"},
 				{[]string{"AbC"}, "AbCAbC"},
 				{[]string{"roar"}, "roarroar"},
-				{[]string{"roar"}, "roarroar"},
 				{[]string{"lsdfk"}, "lsdfklsdfk"},
-				{[]string{"ZZZZ"}, "ZZZZZZZZ"},
-				{[]string{"ZZZZ"}, "ZZZZZZZZ"},
-				{[]string{"long"}, "longlong"},
+				{[]string{"odfp"}, "odfpodfp"},
 			},
 			[]fun.InputOutput[string, string]{
-				{[]string{"foo"}, "foofoo"},
+				{[]string{"fol"}, "folfol"},
 				{[]string{"bar"}, "barbar"},
-				{[]string{"test"}, "testtest"},
-				// {[]string{"zzz"}, "zzzzzz"}, // Returns "zzzZZZ" with llama3:8b.
+				{[]string{"zkl"}, "zklzkl"},
+				{[]string{"42"}, "4242"},
 			},
 			func(t *testing.T, recorder *fun.TextRecorder, _ string) {
 				t.Helper()
 
 				if assert.Len(t, recorder.Calls(), 1) {
-					assert.Len(t, recorder.Calls()[0].Messages, 35)
+					assert.Len(t, recorder.Calls()[0].Messages, 27)
 				}
 			},
 		},
