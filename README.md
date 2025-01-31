@@ -172,6 +172,12 @@ echo '{"type": "string", "pattern": "^[0-9]+$"}' > schema.json
 fun call --input data --output results --provider anthropic --model claude-3-haiku-20240307 --in .txt --out .txt --prompt prompt.txt --output-schema schema.json
 ```
 
+## Related projects
+
+- [langchaingo](https://github.com/tmc/langchaingo) – Langchain exposes all different features of different models to you. But this package provides a higher-level abstraction.
+  The idea is that everything looks like functions and that you can then compose them as necessary. Tools are just functions as well, so you can have tools which call into other
+  LLMs. You can also implement functions which do not call into LLMs, e.g., to call into a REST API. Both can be used together. You can even have recursion.
+
 ## GitHub mirror
 
 There is also a [read-only GitHub mirror available](https://github.com/tozd/go-fun),
