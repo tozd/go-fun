@@ -174,9 +174,11 @@ fun call --input data --output results --provider anthropic --model claude-3-hai
 
 ## Related projects
 
-- [langchaingo](https://github.com/tmc/langchaingo) – Langchain exposes all different features of different models to you. But this package provides a higher-level abstraction.
-  The idea is that everything looks like functions and that you can then compose them as necessary. Tools are just functions as well, so you can have tools which call into other
-  LLMs. You can also implement functions which do not call into LLMs, e.g., to call into a REST API. Both can be used together. You can even have recursion.
+- [langchaingo](https://github.com/tmc/langchaingo) – Langchain exposes all different features of different models
+  to you. But this package provides a higher-level abstraction. The idea is that everything looks like functions
+  and that you can then compose them as necessary. Tools are just functions as well, so you can have tools which
+  call into other LLMs. You can also implement functions which do not call into LLMs, e.g., to call into a REST API.
+  Both can be used together. You can even have recursion.
 
 ## GitHub mirror
 
