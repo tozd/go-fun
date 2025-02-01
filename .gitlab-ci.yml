@@ -60,7 +60,7 @@ test:
 
   parallel:
     matrix:
-      - IMAGE_TAG: ['1.23-alpine3.19']
+      - IMAGE_TAG: ['1.23.5-alpine3.20']
 
   # We use a resource group to not hit rate limits when running multiple jobs in parallel (from potentially multiple pipelines).
   resource_group: llms
@@ -98,16 +98,16 @@ test_e2e:
 
   parallel:
     matrix:
-      - IMAGE_TAG: ['1.23-alpine3.19']
+      - IMAGE_TAG: ['1.23.5-alpine3.20']
         PROVIDER: ollama
         MODEL: "llama3:8b"
-      - IMAGE_TAG: ['1.23-alpine3.19']
+      - IMAGE_TAG: ['1.23.5-alpine3.20']
         PROVIDER: groq
         MODEL: "llama-3.3-70b-versatile"
-      - IMAGE_TAG: ['1.23-alpine3.19']
+      - IMAGE_TAG: ['1.23.5-alpine3.20']
         PROVIDER: anthropic
         MODEL: "claude-3-5-sonnet-20241022"
-      - IMAGE_TAG: ['1.23-alpine3.19']
+      - IMAGE_TAG: ['1.23.5-alpine3.20']
         PROVIDER: openai
         MODEL: "gpt-4o-2024-11-20"
 
@@ -119,7 +119,7 @@ test_e2e:
 lint:
   stage: test
 
-  image: golang:1.23-alpine3.19
+  image: golang:1.23.5-alpine3.20
 
   before_script:
     - apk --update add make bash gcc musl-dev
@@ -137,7 +137,7 @@ lint:
 fmt:
   stage: test
 
-  image: golang:1.23-alpine3.19
+  image: golang:1.23.5-alpine3.20
 
   before_script:
     - apk --update add make bash git gcc musl-dev grep
@@ -150,7 +150,7 @@ fmt:
 lint_docs:
   stage: test
 
-  image: node:20.17-alpine3.19
+  image: node:20.17-alpine3.20
 
   before_script:
     - apk --update add make bash git
@@ -161,7 +161,7 @@ lint_docs:
 audit:
   stage: test
 
-  image: golang:1.23-alpine3.19
+  image: golang:1.23.5-alpine3.20
 
   before_script:
     - apk --update add make bash git gcc musl-dev
@@ -173,7 +173,7 @@ audit:
 commits:
   stage: test
 
-  image: golang:1.23-alpine3.19
+  image: golang:1.23.5-alpine3.20
 
   variables:
     GIT_DEPTH: "0"
@@ -318,7 +318,7 @@ upload_binaries:
 publish:
   stage: deploy
 
-  image: golang:1.23-alpine3.19
+  image: golang:1.23.5-alpine3.20
 
   script:
     - GOPROXY=proxy.golang.org go list -m "gitlab.com/tozd/go/fun@$CI_COMMIT_REF_NAME"
