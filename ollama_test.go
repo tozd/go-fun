@@ -30,5 +30,5 @@ func TestOllamaJSON(t *testing.T) {
 
 	out, errE := x.MarshalWithoutEscapeHTML(provider)
 	require.NoError(t, errE, "% -+#.1v", errE)
-	assert.Equal(t, `{"type":"ollama","model":"llama3:8b","maxContextLength":43,"maxResponseLength":56,"seed":42,"temperature":0.7}`, string(out))
+	assert.Equal(t, `{"type":"ollama","model":"llama3:8b","maxContextLength":43,"maxResponseLength":56,"seed":42,"temperature":0.7}`, string(out)) //nolint:testifylint
 }

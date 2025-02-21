@@ -26,5 +26,5 @@ func TestOpenAIJSON(t *testing.T) {
 
 	out, errE := x.MarshalWithoutEscapeHTML(provider)
 	require.NoError(t, errE, "% -+#.1v", errE)
-	assert.Equal(t, `{"type":"openai","model":"gpt-4o-mini-2024-07-18","maxContextLength":43,"maxResponseLength":56,"forceOutputJsonSchema":false,"seed":42,"temperature":0.7}`, string(out))
+	assert.Equal(t, `{"type":"openai","model":"gpt-4o-mini-2024-07-18","maxContextLength":43,"maxResponseLength":56,"forceOutputJsonSchema":false,"seed":42,"temperature":0.7}`, string(out)) //nolint:testifylint
 }

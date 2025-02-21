@@ -25,5 +25,5 @@ func TestAnthropicJSON(t *testing.T) {
 
 	out, errE := x.MarshalWithoutEscapeHTML(provider)
 	require.NoError(t, errE, "% -+#.1v", errE)
-	assert.Equal(t, `{"type":"anthropic","model":"claude-3-haiku-20240307","maxContextLength":43,"maxResponseLength":56,"promptCaching":true,"temperature":0.7}`, string(out))
+	assert.Equal(t, `{"type":"anthropic","model":"claude-3-haiku-20240307","maxContextLength":43,"maxResponseLength":56,"promptCaching":true,"temperature":0.7}`, string(out)) //nolint:testifylint
 }
