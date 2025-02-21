@@ -10,6 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 
 - Go 1.23.6 or newer is required.
+- Update Ollama dependency to 0.5.11.
 
 ## [0.7.0] - 2024-12-10
 
