@@ -286,7 +286,7 @@ func (a *AnthropicTextProvider) Init(_ context.Context, messages []ChatMessage) 
 			nil,
 			nil,
 		)
-		a.Client.Transport.(*retryablehttp.RoundTripper).Client.CheckRetry = func(ctx context.Context, resp *http.Response, err error) (bool, error) { //nolint:forcetypeassert
+		a.Client.Transport.(*retryablehttp.RoundTripper).Client.CheckRetry = func(ctx context.Context, resp *http.Response, err error) (bool, error) { //nolint:forcetypeassert,errcheck,lll
 			if err != nil {
 				check, err := retryablehttp.ErrorPropagatedRetryPolicy(ctx, resp, err) //nolint:govet
 				return check, errors.WithStack(err)

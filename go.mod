@@ -1,6 +1,6 @@
 module gitlab.com/tozd/go/fun
 
-go 1.23.5
+go 1.23.6
 
 require (
 	github.com/ollama/ollama v0.5.11

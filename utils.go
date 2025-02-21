@@ -15,7 +15,7 @@ import (
 )
 
 const (
-	retryWaitMin = 100 * time.Millisecond //nolint:revive
+	retryWaitMin = 100 * time.Millisecond
 	retryWaitMax = 5 * time.Second
 	httpTimeout  = 5 * time.Minute
 )
