@@ -1,4 +1,4 @@
-CVE-2024-8421 # does not use HTTP server
-CVE-2024-39719 # Ollama is used only as a client
-CVE-2024-8063 # Ollama is used only as a client
 CVE-2024-12886 # Ollama is used only as a client
+CVE-2025-0315 # Ollama is used only as a client
+CVE-2025-0317 # Ollama is used only as a client
+CVE-2024-12055 # Ollama is used only as a client

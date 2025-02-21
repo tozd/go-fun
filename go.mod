@@ -3,7 +3,7 @@ module gitlab.com/tozd/go/fun
 go 1.23.5
 
 require (
-	github.com/ollama/ollama v0.5.7
+	github.com/ollama/ollama v0.5.11
 	github.com/rs/zerolog v1.33.0
 	github.com/santhosh-tekuri/jsonschema/v6 v6.0.1
 	github.com/tidwall/gjson v1.17.3
@@ -55,12 +55,12 @@ require (
 	gitlab.com/tozd/go/x v0.0.0-20240906084819-fda0a3bbba65
 	gitlab.com/tozd/identifier v0.4.0
 	golang.org/x/crypto v0.32.0 // indirect
-	golang.org/x/mod v0.17.0 // indirect
+	golang.org/x/mod v0.19.0 // indirect
 	golang.org/x/net v0.34.0 // indirect
 	golang.org/x/sys v0.29.0 // indirect
 	golang.org/x/text v0.21.0 // indirect
 	golang.org/x/time v0.6.0
-	golang.org/x/tools v0.21.1-0.20240508182429-e35e4ccd0d2d // indirect
+	golang.org/x/tools v0.23.0 // indirect
 	gopkg.in/warnings.v0 v0.1.2 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )
