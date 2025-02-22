@@ -141,7 +141,9 @@ func ExampleTextRecorder() {
 	//                 "maxResponse": 4096,
 	//                 "prompt": 24,
 	//                 "response": 5,
-	//                 "total": 29
+	//                 "total": 29,
+	//                 "cacheCreationInputTokens": 0,
+	//                 "cacheReadInputTokens": 0
 	//               }
 	//             },
 	//             "usedTime": {
@@ -163,15 +165,15 @@ func ExampleTextRecorder() {
 	//         "maxTotal": 128000,
 	//         "maxResponse": 16384,
 	//         "prompt": 57,
-	//         "response": 16,
-	//         "total": 73
+	//         "response": 17,
+	//         "total": 74
 	//       },
 	//       "req_1_1": {
 	//         "maxTotal": 128000,
 	//         "maxResponse": 16384,
 	//         "prompt": 82,
-	//         "response": 2,
-	//         "total": 84
+	//         "response": 3,
+	//         "total": 85
 	//       }
 	//     },
 	//     "usedTime": {
