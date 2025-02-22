@@ -493,10 +493,6 @@ func (g *GroqTextProvider) Chat(ctx context.Context, message ChatMessage) (strin
 }
 
 func (g *GroqTextProvider) maxContextLength(model groqModel) int {
-	// A free plan has only a 6000 tokens per minute limit so a larger context length cannot be used.
-	if model.ContextWindow > 6_000 { //nolint:mnd
-		return 6_000 //nolint:mnd
-	}
 	return model.ContextWindow
 }
 
@@ -506,15 +502,14 @@ func (g *GroqTextProvider) maxResponseTokens(model groqModel) int {
 	if strings.Contains(model.ID, "llama-3.3") {
 		return 32_000 //nolint:mnd
 	}
-	if model.ID == "llama-3.1-70b-versatile" {
-		// This is different from the documentation.
-		return 8_000 //nolint:mnd
-	}
 	if strings.Contains(model.ID, "llama-3.2") {
 		return 8_000 //nolint:mnd
 	}
 	if strings.Contains(model.ID, "llama-3.1") {
 		return 8_000 //nolint:mnd
+	}
+	if strings.Contains(model.ID, "deepseek-r1-distill") {
+		return 16_000 //nolint:mnd
 	}
 	return g.maxContextLength(model)
 }
