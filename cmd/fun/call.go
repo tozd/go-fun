@@ -120,7 +120,7 @@ func (c *CallCommand) Run(logger zerolog.Logger) errors.E { //nolint:maintidx
 	}
 
 	// TODO: We could use type:"filecontent" Kong's option on string field type instead?
-	//       See: https://github.com/alecthomas/kong/issues/346#issuecomment-2266381258
+	//       See: https://github.com/alecthomas/kong/issues/482
 	prompt := ""
 	if c.PromptPath != "" {
 		promptData, err := os.ReadFile(c.PromptPath)
