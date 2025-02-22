@@ -243,7 +243,7 @@ var providersForTools = []testProvider{
 			return &fun.GroqTextProvider{
 				Client:            nil,
 				APIKey:            os.Getenv("GROQ_API_KEY"),
-				Model:             "llama3-groq-70b-8192-tool-use-preview",
+				Model:             "llama-3.3-70b-versatile",
 				MaxContextLength:  0,
 				MaxResponseLength: 0,
 				Seed:              42,
