@@ -19,11 +19,12 @@ func TestAnthropicJSON(t *testing.T) {
 		Model:             "claude-3-haiku-20240307",
 		MaxContextLength:  43,
 		MaxResponseLength: 56,
+		MaxExchanges:      57,
 		PromptCaching:     true,
 		Temperature:       0.7,
 	}
 
 	out, errE := x.MarshalWithoutEscapeHTML(provider)
 	require.NoError(t, errE, "% -+#.1v", errE)
-	assert.Equal(t, `{"type":"anthropic","model":"claude-3-haiku-20240307","maxContextLength":43,"maxResponseLength":56,"promptCaching":true,"temperature":0.7}`, string(out)) //nolint:testifylint
+	assert.Equal(t, `{"type":"anthropic","model":"claude-3-haiku-20240307","maxContextLength":43,"maxResponseLength":56,"maxExchanges":57,"promptCaching":true,"temperature":0.7}`, string(out)) //nolint:testifylint
 }

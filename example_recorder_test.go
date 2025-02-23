@@ -86,6 +86,7 @@ func ExampleTextRecorder() {
 	//       "model": "gpt-4o-mini-2024-07-18",
 	//       "maxContextLength": 128000,
 	//       "maxResponseLength": 16384,
+	//       "maxExchanges": 10,
 	//       "forceOutputJsonSchema": false,
 	//       "seed": 42,
 	//       "temperature": 0
@@ -118,6 +119,7 @@ func ExampleTextRecorder() {
 	//               "model": "claude-3-haiku-20240307",
 	//               "maxContextLength": 200000,
 	//               "maxResponseLength": 4096,
+	//               "maxExchanges": 10,
 	//               "promptCaching": false,
 	//               "temperature": 0
 	//             },
