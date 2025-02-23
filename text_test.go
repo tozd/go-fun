@@ -615,7 +615,7 @@ func TestTextTools(t *testing.T) { //nolint:paralleltest,tparallel
 			"Repeat the input twice, by concatenating the input string without any space. Return only the resulting string. Do not explain anything.",
 			nil,
 			[]fun.InputOutput[string, string]{
-				// We cannot use "foo" here because groq makes trash output.
+				{[]string{"foo"}, "foo"},
 				{[]string{"bla"}, "blabla"},
 				{[]string{"bar"}, "barbar"},
 				{[]string{"test"}, "testtest"},
@@ -635,12 +635,7 @@ func TestTextTools(t *testing.T) { //nolint:paralleltest,tparallel
 							usedTool++
 						}
 					}
-					if providerName == "groq" {
-						// For some reason groq calls the tool twice.
-						assert.Equal(t, 4, usedTool, string(callsJSON))
-					} else {
-						assert.Equal(t, 2, usedTool, string(callsJSON))
-					}
+					assert.Equal(t, 2, usedTool, string(callsJSON))
 
 					if providerName == "anthropic" {
 						assert.Len(t, messages, 4+usedTool, string(callsJSON))
