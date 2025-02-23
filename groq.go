@@ -103,9 +103,10 @@ type groqResponse struct {
 		ID string `json:"id"`
 	} `json:"x_groq"`
 	Error *struct {
-		Message string  `json:"message"`
-		Type    string  `json:"type"`
-		Code    *string `json:"code,omitempty"`
+		Message          string  `json:"message"`
+		Type             string  `json:"type"`
+		Code             *string `json:"code,omitempty"`
+		FailedGeneration *string `json:"failed_generation,omitempty"`
 	} `json:"error,omitempty"`
 }
 
