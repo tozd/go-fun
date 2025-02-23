@@ -318,9 +318,9 @@ var tests = []struct {
 
 			calls := recorder.Calls()
 			callsJSON, err := json.MarshalIndent(calls, "", "  ")
-			if assert.Len(t, calls, 1, callsJSON) {
-				require.NoError(t, err)
-				assert.Len(t, calls[0].Messages, 14, callsJSON)
+			require.NoError(t, err)
+			if assert.Len(t, calls, 1, string(callsJSON)) {
+				assert.Len(t, calls[0].Messages, 14, string(callsJSON))
 			}
 		},
 	},
@@ -342,8 +342,8 @@ var tests = []struct {
 			calls := recorder.Calls()
 			callsJSON, err := json.MarshalIndent(calls, "", "  ")
 			require.NoError(t, err)
-			if assert.Len(t, calls, 1, callsJSON) {
-				assert.Len(t, calls[0].Messages, 11, callsJSON)
+			if assert.Len(t, calls, 1, string(callsJSON)) {
+				assert.Len(t, calls[0].Messages, 11, string(callsJSON))
 			}
 		},
 	},
@@ -367,8 +367,8 @@ var tests = []struct {
 			calls := recorder.Calls()
 			callsJSON, err := json.MarshalIndent(calls, "", "  ")
 			require.NoError(t, err)
-			if assert.Len(t, calls, 1, callsJSON) {
-				assert.Len(t, calls[0].Messages, 15, callsJSON)
+			if assert.Len(t, calls, 1, string(callsJSON)) {
+				assert.Len(t, calls[0].Messages, 15, string(callsJSON))
 			}
 		},
 	},
@@ -520,8 +520,8 @@ func TestText(t *testing.T) { //nolint:paralleltest,tparallel
 				calls := recorder.Calls()
 				callsJSON, err := json.MarshalIndent(calls, "", "  ")
 				require.NoError(t, err)
-				if assert.Len(t, calls, 1, callsJSON) {
-					assert.Len(t, calls[0].Messages, 3, callsJSON)
+				if assert.Len(t, calls, 1, string(callsJSON)) {
+					assert.Len(t, calls[0].Messages, 3, string(callsJSON))
 				}
 			},
 		},
@@ -554,8 +554,8 @@ func TestText(t *testing.T) { //nolint:paralleltest,tparallel
 				calls := recorder.Calls()
 				callsJSON, err := json.MarshalIndent(calls, "", "  ")
 				require.NoError(t, err)
-				if assert.Len(t, calls, 1, callsJSON) {
-					assert.Len(t, calls[0].Messages, 26, callsJSON)
+				if assert.Len(t, calls, 1, string(callsJSON)) {
+					assert.Len(t, calls[0].Messages, 26, string(callsJSON))
 				}
 			},
 		},
@@ -588,8 +588,8 @@ func TestText(t *testing.T) { //nolint:paralleltest,tparallel
 				calls := recorder.Calls()
 				callsJSON, err := json.MarshalIndent(calls, "", "  ")
 				require.NoError(t, err)
-				if assert.Len(t, calls, 1, callsJSON) {
-					assert.Len(t, calls[0].Messages, 27, callsJSON)
+				if assert.Len(t, calls, 1, string(callsJSON)) {
+					assert.Len(t, calls[0].Messages, 27, string(callsJSON))
 				}
 			},
 		},
@@ -627,7 +627,7 @@ func TestTextTools(t *testing.T) { //nolint:paralleltest,tparallel
 				calls := recorder.Calls()
 				callsJSON, err := json.MarshalIndent(calls, "", "  ")
 				require.NoError(t, err)
-				if assert.Len(t, calls, 1, callsJSON) {
+				if assert.Len(t, calls, 1, string(callsJSON)) {
 					usedTool := 0
 					messages := calls[0].Messages
 					for i := range messages {
@@ -637,15 +637,15 @@ func TestTextTools(t *testing.T) { //nolint:paralleltest,tparallel
 					}
 					if providerName == "groq" {
 						// For some reason groq calls the tool twice.
-						assert.Equal(t, 4, usedTool, callsJSON)
+						assert.Equal(t, 4, usedTool, string(callsJSON))
 					} else {
-						assert.Equal(t, 2, usedTool, callsJSON)
+						assert.Equal(t, 2, usedTool, string(callsJSON))
 					}
 
 					if providerName == "anthropic" {
-						assert.Len(t, messages, 4+usedTool, callsJSON)
+						assert.Len(t, messages, 4+usedTool, string(callsJSON))
 					} else {
-						assert.Len(t, messages, 3+usedTool, callsJSON)
+						assert.Len(t, messages, 3+usedTool, string(callsJSON))
 					}
 				}
 			},
