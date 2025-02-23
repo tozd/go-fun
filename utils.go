@@ -90,6 +90,10 @@ func newClient(
 		if ok && setRateLimit != nil {
 			setRateLimit(limitRequests, limitTokens, remainingRequests, remainingTokens, resetRequests, resetTokens)
 		}
+		if resp.StatusCode == 524 {
+			// ClaudFlare returns 524 when it fails to connect, so we retry.
+			return true, nil
+		}
 		check, err := retryablehttp.ErrorPropagatedRetryPolicy(ctx, resp, err)
 		return check, errors.WithStack(err)
 	}
