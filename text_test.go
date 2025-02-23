@@ -615,7 +615,7 @@ func TestTextTools(t *testing.T) { //nolint:paralleltest,tparallel
 			"Repeat the input twice, by concatenating the input string without any space. Return only the resulting string. Do not explain anything.",
 			nil,
 			[]fun.InputOutput[string, string]{
-				{[]string{"foo"}, "foo"},
+				{[]string{"foo"}, "foofoo"},
 				{[]string{"bla"}, "blabla"},
 				{[]string{"bar"}, "barbar"},
 				{[]string{"test"}, "testtest"},
