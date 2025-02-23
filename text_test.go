@@ -132,13 +132,14 @@ var providers = []testProvider{
 				t.Skip("GROQ_API_KEY is not available")
 			}
 			return &fun.GroqTextProvider{
-				Client:            nil,
-				APIKey:            os.Getenv("GROQ_API_KEY"),
-				Model:             "llama3-8b-8192",
-				MaxContextLength:  0,
-				MaxResponseLength: 0,
-				Seed:              42,
-				Temperature:       0,
+				Client:                 nil,
+				APIKey:                 os.Getenv("GROQ_API_KEY"),
+				Model:                  "llama3-8b-8192",
+				RequestsPerMinuteLimit: 100,
+				MaxContextLength:       0,
+				MaxResponseLength:      0,
+				Seed:                   42,
+				Temperature:            0,
 			}
 		},
 	},
@@ -241,13 +242,14 @@ var providersForTools = []testProvider{
 				t.Skip("GROQ_API_KEY is not available")
 			}
 			return &fun.GroqTextProvider{
-				Client:            nil,
-				APIKey:            os.Getenv("GROQ_API_KEY"),
-				Model:             "llama-3.3-70b-versatile",
-				MaxContextLength:  0,
-				MaxResponseLength: 0,
-				Seed:              42,
-				Temperature:       0,
+				Client:                 nil,
+				APIKey:                 os.Getenv("GROQ_API_KEY"),
+				Model:                  "llama-3.3-70b-versatile",
+				RequestsPerMinuteLimit: 1000,
+				MaxContextLength:       0,
+				MaxResponseLength:      0,
+				Seed:                   42,
+				Temperature:            0,
 			}
 		},
 	},

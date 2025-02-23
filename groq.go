@@ -126,6 +126,9 @@ type GroqTextProvider struct {
 	// Model is the name of the model to be used.
 	Model string `json:"model"`
 
+	// RequestsPerMinuteLimit is the RPM limit for the used model. Default is 30.
+	RequestsPerMinuteLimit int `json:"requestsPerMinuteLimit"`
+
 	// MaxContextLength is the maximum total number of tokens allowed to be used
 	// with the underlying AI model (i.e., the maximum context window).
 	// If not provided, heuristics are used to determine it automatically.
@@ -183,11 +186,13 @@ func (g *GroqTextProvider) Init(ctx context.Context, messages []ChatMessage) err
 		g.Client = newClient(
 			func(req *http.Request) error {
 				if req.URL.Path == "/openai/v1/chat/completions" {
+					ctx := req.Context() //nolint:govet
+					estimatedInputTokens, _ := getEstimatedTokens(ctx)
 					// Rate limit retries.
-					return groqRateLimiter.Take(req.Context(), g.rateLimiterKey, map[string]int{
+					return groqRateLimiter.Take(ctx, g.rateLimiterKey, map[string]int{
 						"rpm": 1,
 						"rpd": 1,
-						"tpm": g.MaxContextLength, // TODO: Can we provide a better estimate?
+						"tpm": estimatedInputTokens,
 					})
 				}
 				return nil
@@ -195,15 +200,11 @@ func (g *GroqTextProvider) Init(ctx context.Context, messages []ChatMessage) err
 			parseRateLimitHeaders,
 			func(limitRequests, limitTokens, remainingRequests, remainingTokens int, resetRequests, resetTokens time.Time) {
 				groqRateLimiter.Set(g.rateLimiterKey, map[string]any{
+					// TODO: Correctly implement this rate limit.
+					//       Currently there are not headers for this limit, so we are simulating it with a token bucket rate limit.
 					"rpm": tokenBucketRateLimit{
-						// TODO: Correctly implement this rate limit.
-						//       Currently there are not headers for this limit, so we are simulating it with a token
-						//       bucket rate limit with burst 1. This means that if we have a burst of requests and then
-						//       a pause we do not process them as fast as we could.
-						//       See: https://console.groq.com/docs/rate-limits
-						//nolint:mnd
-						Limit: rate.Limit(float64(30) / time.Minute.Seconds()), // Requests per minute.
-						Burst: 1,
+						Limit: rate.Limit(float64(g.RequestsPerMinuteLimit) / time.Minute.Seconds()), // Requests per minute.
+						Burst: g.RequestsPerMinuteLimit,
 					},
 					"rpd": resettingRateLimit{
 						Limit:     limitRequests,
@@ -270,6 +271,11 @@ func (g *GroqTextProvider) Init(ctx context.Context, messages []ChatMessage) err
 		)
 	}
 
+	if g.RequestsPerMinuteLimit == 0 {
+		// RPM limit on the free tier is the default.
+		g.RequestsPerMinuteLimit = 30
+	}
+
 	if g.MaxContextLength == 0 {
 		g.MaxContextLength = g.maxContextLength(model)
 	}
@@ -316,14 +322,21 @@ func (g *GroqTextProvider) Chat(ctx context.Context, message ChatMessage) (strin
 			Model:       g.Model,
 			Seed:        g.Seed,
 			Temperature: g.Temperature,
-			MaxTokens:   g.MaxResponseLength, // TODO: Can we provide a better estimate?
+			MaxTokens:   g.MaxResponseLength,
 			Tools:       g.tools,
 		})
 		if errE != nil {
 			return "", errE
 		}
 
-		req, err := http.NewRequestWithContext(ctx, http.MethodPost, "https://api.groq.com/openai/v1/chat/completions", bytes.NewReader(request))
+		estimatedInputTokens, estimatedOutputTokens := g.estimatedTokens(messages)
+
+		req, err := http.NewRequestWithContext(
+			withEstimatedTokens(ctx, estimatedInputTokens, estimatedOutputTokens),
+			http.MethodPost,
+			"https://api.groq.com/openai/v1/chat/completions",
+			bytes.NewReader(request),
+		)
 		if err != nil {
 			return "", errors.WithStack(err)
 		}
@@ -333,7 +346,7 @@ func (g *GroqTextProvider) Chat(ctx context.Context, message ChatMessage) (strin
 		errE = groqRateLimiter.Take(ctx, g.rateLimiterKey, map[string]int{
 			"rpm": 1,
 			"rpd": 1,
-			"tpm": g.MaxContextLength, // TODO: Can we provide a better estimate?
+			"tpm": estimatedInputTokens,
 		})
 		if errE != nil {
 			return "", errE
@@ -490,6 +503,27 @@ func (g *GroqTextProvider) Chat(ctx context.Context, message ChatMessage) (strin
 
 		return *response.Choices[0].Message.Content, nil
 	}
+}
+
+func (g *GroqTextProvider) estimatedTokens(messages []groqMessage) (int, int) {
+	// We estimate inputTokens from training messages (including system message) by
+	// dividing number of characters by 4.
+	inputTokens := 0
+	for _, message := range messages {
+		if message.Content != nil {
+			inputTokens += len(*message.Content) / 4 //nolint:mnd
+			for _, tool := range message.ToolCalls {
+				inputTokens += len(tool.Function.Name) / 4      //nolint:mnd
+				inputTokens += len(tool.Function.Arguments) / 4 //nolint:mnd
+			}
+		}
+	}
+	for _, tool := range g.tools {
+		inputTokens += len(tool.Function.Name) / 4            //nolint:mnd
+		inputTokens += len(tool.Function.Description) / 4     //nolint:mnd
+		inputTokens += len(tool.Function.InputJSONSchema) / 4 //nolint:mnd
+	}
+	return inputTokens, 0
 }
 
 func (g *GroqTextProvider) maxContextLength(model groqModel) int {

@@ -52,6 +52,10 @@ var openAIModels = map[string]struct { //nolint:gochecknoglobals
 		MaxContextLength:  128_000,
 		MaxResponseLength: 4_096,
 	},
+	"o3-mini-2025-01-31": {
+		MaxContextLength:  200_000,
+		MaxResponseLength: 100_000,
+	},
 }
 
 var openAIRateLimiter = keyedRateLimiter{ //nolint:gochecknoglobals
@@ -233,10 +237,12 @@ func (o *OpenAITextProvider) Init(_ context.Context, messages []ChatMessage) err
 	if o.Client == nil {
 		o.Client = newClient(
 			func(req *http.Request) error {
+				ctx := req.Context() //nolint:govet
+				estimatedInputTokens, _ := getEstimatedTokens(ctx)
 				// Rate limit retries.
 				return openAIRateLimiter.Take(req.Context(), o.rateLimiterKey, map[string]int{
 					"rpm": 1,
-					"tpm": o.MaxContextLength, // TODO: Can we provide a better estimate?
+					"tpm": estimatedInputTokens,
 				})
 			},
 			parseRateLimitHeaders,
@@ -312,7 +318,7 @@ func (o *OpenAITextProvider) Chat(ctx context.Context, message ChatMessage) (str
 			Model:          o.Model,
 			Seed:           o.Seed,
 			Temperature:    o.Temperature,
-			MaxTokens:      o.MaxResponseLength, // TODO: Can we provide a better estimate?
+			MaxTokens:      o.MaxResponseLength,
 			ResponseFormat: nil,
 			Tools:          o.tools,
 		}
@@ -334,7 +340,14 @@ func (o *OpenAITextProvider) Chat(ctx context.Context, message ChatMessage) (str
 			return "", errE
 		}
 
-		req, err := http.NewRequestWithContext(ctx, http.MethodPost, "https://api.openai.com/v1/chat/completions", bytes.NewReader(request))
+		estimatedInputTokens, estimatedOutputTokens := o.estimatedTokens(messages)
+
+		req, err := http.NewRequestWithContext(
+			withEstimatedTokens(ctx, estimatedInputTokens, estimatedOutputTokens),
+			http.MethodPost,
+			"https://api.openai.com/v1/chat/completions",
+			bytes.NewReader(request),
+		)
 		if err != nil {
 			return "", errors.WithStack(err)
 		}
@@ -343,7 +356,7 @@ func (o *OpenAITextProvider) Chat(ctx context.Context, message ChatMessage) (str
 		// Rate limit the initial request.
 		errE = openAIRateLimiter.Take(ctx, o.rateLimiterKey, map[string]int{
 			"rpm": 1,
-			"tpm": o.MaxContextLength, // TODO: Can we provide a better estimate?
+			"tpm": estimatedInputTokens,
 		})
 		if errE != nil {
 			return "", errE
@@ -569,6 +582,27 @@ func (o *OpenAITextProvider) InitTools(ctx context.Context, tools map[string]Tex
 	}
 
 	return nil
+}
+
+func (o *OpenAITextProvider) estimatedTokens(messages []openAIMessage) (int, int) {
+	// We estimate inputTokens from training messages (including system message) by
+	// dividing number of characters by 4.
+	inputTokens := 0
+	for _, message := range messages {
+		if message.Content != nil {
+			inputTokens += len(*message.Content) / 4 //nolint:mnd
+			for _, tool := range message.ToolCalls {
+				inputTokens += len(tool.Function.Name) / 4      //nolint:mnd
+				inputTokens += len(tool.Function.Arguments) / 4 //nolint:mnd
+			}
+		}
+	}
+	for _, tool := range o.tools {
+		inputTokens += len(tool.Function.Name) / 4            //nolint:mnd
+		inputTokens += len(tool.Function.Description) / 4     //nolint:mnd
+		inputTokens += len(tool.Function.InputJSONSchema) / 4 //nolint:mnd
+	}
+	return inputTokens, 0
 }
 
 func (o *OpenAITextProvider) callToolWrapper( //nolint:dupl

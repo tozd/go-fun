@@ -218,6 +218,7 @@ func (r *keyedRateLimiter) getOrCreate(key, k string, create func() any) any {
 
 func (r *keyedRateLimiter) Take(ctx context.Context, key string, ns map[string]int) errors.E {
 	delay := time.Duration(0)
+	limits := []string{}
 
 	for k, n := range ns {
 		limiter := r.get(key, k)
@@ -229,12 +230,18 @@ func (r *keyedRateLimiter) Take(ctx context.Context, key string, ns map[string]i
 					return errors.WithStack(err)
 				}
 				delay += d
+				if d > 0 {
+					limits = append(limits, k)
+				}
 			case *resettingRateLimiter:
 				d, errE := limiter.Take(ctx, n)
 				if errE != nil {
 					return errE
 				}
 				delay += d
+				if d > 0 {
+					limits = append(limits, k)
+				}
 			default:
 				panic(errors.Errorf("invalid limiter type: %T", limiter))
 			}
@@ -242,7 +249,7 @@ func (r *keyedRateLimiter) Take(ctx context.Context, key string, ns map[string]i
 	}
 
 	if delay != 0 {
-		zerolog.Ctx(ctx).Debug().Dur("delay", delay).Msg("rate limited")
+		zerolog.Ctx(ctx).Debug().Dur("delay", delay).Strs("limits", limits).Msg("rate limited")
 	}
 
 	return nil
