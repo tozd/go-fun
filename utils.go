@@ -90,7 +90,7 @@ func newClient(
 		if ok && setRateLimit != nil {
 			setRateLimit(limitRequests, limitTokens, remainingRequests, remainingTokens, resetRequests, resetTokens)
 		}
-		if resp.StatusCode == 524 {
+		if resp.StatusCode == 524 { //nolint:mnd
 			// ClaudFlare returns 524 when it fails to connect, so we retry.
 			return true, nil
 		}

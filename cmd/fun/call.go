@@ -72,8 +72,9 @@ func (c *CallCommand) Run(logger zerolog.Logger) errors.E { //nolint:maintidx
 				Username: "",
 				Password: "",
 			},
-			MaxContextLength:  0,
-			MaxResponseLength: 0,
+			MaxContextLength:  0, // TODO: How to make it configurable?
+			MaxResponseLength: 0, // TODO: How to make it configurable?
+			MaxExchanges:      0, // TODO: How to make it configurable?
 			Seed:              defaultSeed,
 			Temperature:       0,
 		}
@@ -88,6 +89,7 @@ func (c *CallCommand) Run(logger zerolog.Logger) errors.E { //nolint:maintidx
 			RequestsPerMinuteLimit: 0, // TODO: How to make it configurable?
 			MaxContextLength:       0, // TODO: How to make it configurable?
 			MaxResponseLength:      0, // TODO: How to make it configurable?
+			MaxExchanges:           0, // TODO: How to make it configurable?
 			Seed:                   defaultSeed,
 			Temperature:            0,
 		}
@@ -101,6 +103,7 @@ func (c *CallCommand) Run(logger zerolog.Logger) errors.E { //nolint:maintidx
 			Model:             c.Model,
 			MaxContextLength:  0, // TODO: How to make it configurable?
 			MaxResponseLength: 0, // TODO: How to make it configurable?
+			MaxExchanges:      0, // TODO: How to make it configurable?
 			PromptCaching:     true,
 			Temperature:       0,
 		}
@@ -114,6 +117,7 @@ func (c *CallCommand) Run(logger zerolog.Logger) errors.E { //nolint:maintidx
 			Model:                 c.Model,
 			MaxContextLength:      0,     // TODO: How to make it configurable?
 			MaxResponseLength:     0,     // TODO: How to make it configurable?
+			MaxExchanges:          0,     // TODO: How to make it configurable?
 			ForceOutputJSONSchema: false, // TODO: How to make it configurable?
 			Seed:                  defaultSeed,
 			Temperature:           0,
