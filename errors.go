@@ -23,4 +23,5 @@ var (
 	ErrInvalidJSONSchema            = errors.Base("invalid JSON Schema")
 	ErrToolNotFound                 = errors.Base("tool not found")
 	ErrToolCallsWithoutCalls        = errors.Base("tool calls without calls")
+	ErrMaxExchangesReached          = errors.Base("reached max allowed exchanges")
 )

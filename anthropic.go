@@ -197,6 +197,10 @@ type AnthropicTextProvider struct {
 	// are used to determine it automatically.
 	MaxResponseLength int `json:"maxResponseLength"`
 
+	// MaxExchanges is the maximum number of exchanges with the AI model per chat
+	// to obtain the final response. Default is 10.
+	MaxExchanges int `json:"maxExchanges"`
+
 	// PromptCaching set to true enables prompt caching.
 	PromptCaching bool `json:"promptCaching"`
 
@@ -343,6 +347,10 @@ func (a *AnthropicTextProvider) Init(_ context.Context, messages []ChatMessage) 
 		a.MaxResponseLength = a.maxResponseTokens()
 	}
 
+	if a.MaxExchanges == 0 {
+		a.MaxExchanges = 10
+	}
+
 	return nil
 }
 
@@ -382,7 +390,7 @@ func (a *AnthropicTextProvider) Chat(ctx context.Context, message ChatMessage) (
 		callRecorder.notify("", nil)
 	}
 
-	for {
+	for range a.MaxExchanges {
 		request, errE := x.MarshalWithoutEscapeHTML(anthropicRequest{
 			Model:       a.Model,
 			Messages:    messages,
@@ -615,6 +623,11 @@ func (a *AnthropicTextProvider) Chat(ctx context.Context, message ChatMessage) (
 
 		return *response.Content[0].Text, nil
 	}
+
+	return "", errors.WithDetails(
+		ErrMaxExchangesReached,
+		"maxExchanges", a.MaxExchanges,
+	)
 }
 
 func (a *AnthropicTextProvider) estimatedTokens(messages []anthropicMessage) (int, int) {

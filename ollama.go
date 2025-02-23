@@ -97,6 +97,10 @@ type OllamaTextProvider struct {
 	// which instructs Ollama to fill the context.
 	MaxResponseLength int `json:"maxResponseLength"`
 
+	// MaxExchanges is the maximum number of exchanges with the AI model per chat
+	// to obtain the final response. Default is 10.
+	MaxExchanges int `json:"maxExchanges"`
+
 	// Seed is used to control the randomness of the AI model. Default is 0.
 	Seed int `json:"seed"`
 
@@ -212,6 +216,10 @@ func (o *OllamaTextProvider) Init(ctx context.Context, messages []ChatMessage) e
 		)
 	}
 
+	if o.MaxExchanges == 0 {
+		o.MaxExchanges = 10
+	}
+
 	return nil
 }
 
@@ -252,7 +260,7 @@ func (o *OllamaTextProvider) Chat(ctx context.Context, message ChatMessage) (str
 
 	// Ollama does not provide request ID, so we make one ourselves.
 	apiRequestNumber := 0
-	for {
+	for range o.MaxExchanges {
 		apiRequestNumber++
 		apiRequest := fmt.Sprintf("req_%d", apiRequestNumber)
 
@@ -387,6 +395,11 @@ func (o *OllamaTextProvider) Chat(ctx context.Context, message ChatMessage) (str
 
 		return responses[0].Message.Content, nil
 	}
+
+	return "", errors.WithDetails(
+		ErrMaxExchangesReached,
+		"maxExchanges", o.MaxExchanges,
+	)
 }
 
 // InitTools implements [WithTools] interface.

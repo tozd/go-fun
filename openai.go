@@ -170,6 +170,10 @@ type OpenAITextProvider struct {
 	// are used to determine it automatically.
 	MaxResponseLength int `json:"maxResponseLength"`
 
+	// MaxExchanges is the maximum number of exchanges with the AI model per chat
+	// to obtain the final response. Default is 10.
+	MaxExchanges int `json:"maxExchanges"`
+
 	// See: https://github.com/invopop/jsonschema/issues/148
 
 	// ForceOutputJSONSchema when set to true requests the AI model to force
@@ -237,7 +241,7 @@ func (o *OpenAITextProvider) Init(_ context.Context, messages []ChatMessage) err
 	if o.Client == nil {
 		o.Client = newClient(
 			func(req *http.Request) error {
-				ctx := req.Context() //nolint:govet
+				ctx := req.Context()
 				estimatedInputTokens, _ := getEstimatedTokens(ctx)
 				// Rate limit retries.
 				return openAIRateLimiter.Take(req.Context(), o.rateLimiterKey, map[string]int{
@@ -279,6 +283,10 @@ func (o *OpenAITextProvider) Init(_ context.Context, messages []ChatMessage) err
 		return errors.New("MaxResponseLength not set")
 	}
 
+	if o.MaxExchanges == 0 {
+		o.MaxExchanges = 10
+	}
+
 	return nil
 }
 
@@ -312,7 +320,7 @@ func (o *OpenAITextProvider) Chat(ctx context.Context, message ChatMessage) (str
 		callRecorder.notify("", nil)
 	}
 
-	for {
+	for range o.MaxExchanges {
 		oReq := openAIRequest{
 			Messages:       messages,
 			Model:          o.Model,
@@ -523,6 +531,11 @@ func (o *OpenAITextProvider) Chat(ctx context.Context, message ChatMessage) (str
 
 		return *response.Choices[0].Message.Content, nil
 	}
+
+	return "", errors.WithDetails(
+		ErrMaxExchangesReached,
+		"maxExchanges", o.MaxExchanges,
+	)
 }
 
 // InitOutputJSONSchema implements [WithOutputJSONSchema] interface.

@@ -139,6 +139,10 @@ type GroqTextProvider struct {
 	// are used to determine it automatically.
 	MaxResponseLength int `json:"maxResponseLength"`
 
+	// MaxExchanges is the maximum number of exchanges with the AI model per chat
+	// to obtain the final response. Default is 10.
+	MaxExchanges int `json:"maxExchanges"`
+
 	// Seed is used to control the randomness of the AI model. Default is 0.
 	Seed int `json:"seed"`
 
@@ -284,6 +288,10 @@ func (g *GroqTextProvider) Init(ctx context.Context, messages []ChatMessage) err
 		g.MaxResponseLength = g.maxResponseTokens(model)
 	}
 
+	if g.MaxExchanges == 0 {
+		g.MaxExchanges = 10
+	}
+
 	return nil
 }
 
@@ -316,7 +324,7 @@ func (g *GroqTextProvider) Chat(ctx context.Context, message ChatMessage) (strin
 		callRecorder.notify("", nil)
 	}
 
-	for {
+	for range g.MaxExchanges {
 		request, errE := x.MarshalWithoutEscapeHTML(groqRequest{
 			Messages:    messages,
 			Model:       g.Model,
@@ -503,6 +511,11 @@ func (g *GroqTextProvider) Chat(ctx context.Context, message ChatMessage) (strin
 
 		return *response.Choices[0].Message.Content, nil
 	}
+
+	return "", errors.WithDetails(
+		ErrMaxExchangesReached,
+		"maxExchanges", g.MaxExchanges,
+	)
 }
 
 func (g *GroqTextProvider) estimatedTokens(messages []groqMessage) (int, int) {
