@@ -417,9 +417,6 @@ func (a *AnthropicTextProvider) Chat(ctx context.Context, message ChatMessage) (
 		req.Header.Add("X-Api-Key", a.APIKey)
 		req.Header.Add("Anthropic-Version", "2023-06-01")
 		req.Header.Add("Content-Type", "application/json")
-		if a.PromptCaching {
-			req.Header.Add("Anthropic-Beta", "prompt-caching-2024-07-31")
-		}
 		// Rate limit the initial request.
 		errE = anthropicRateLimiter.Take(ctx, a.rateLimiterKey, map[string]int{
 			"rpm":  1,
