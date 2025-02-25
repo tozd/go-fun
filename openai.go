@@ -136,9 +136,19 @@ type openAIResponse struct {
 		FinishReason string        `json:"finish_reason"`
 	} `json:"choices"`
 	Usage struct {
-		PromptTokens     int `json:"prompt_tokens"`
-		CompletionTokens int `json:"completion_tokens"`
-		TotalTokens      int `json:"total_tokens"`
+		PromptTokens            int `json:"prompt_tokens"`
+		CompletionTokens        int `json:"completion_tokens"`
+		TotalTokens             int `json:"total_tokens"`
+		CompletionTokensDetails struct {
+			AcceptedPredictionTokens *int `json:"accepted_prediction_tokens,omitempty"`
+			AudioTokens              *int `json:"audio_tokens,omitempty"`
+			ReasoningTokens          *int `json:"reasoning_tokens,omitempty"`
+			RejectedPredictionTokens *int `json:"rejected_prediction_tokens,omitempty"`
+		} `json:"completion_tokens_details"`
+		PromptTokensDetails struct {
+			AudioTokens  *int `json:"audio_tokens,omitempty"`
+			CachedTokens *int `json:"cached_tokens,omitempty"`
+		} `json:"prompt_tokens_details"`
 	} `json:"usage"`
 	Error *struct {
 		Message string  `json:"message"`
@@ -436,6 +446,7 @@ func (o *OpenAITextProvider) Chat(ctx context.Context, message ChatMessage) (str
 				response.Usage.CompletionTokens,
 				nil,
 				nil,
+				response.Usage.CompletionTokensDetails.ReasoningTokens,
 			)
 			callRecorder.addUsedTime(
 				apiRequest,

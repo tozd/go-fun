@@ -501,6 +501,8 @@ func (a *AnthropicTextProvider) Chat(ctx context.Context, message ChatMessage) (
 				response.Usage.OutputTokens,
 				response.Usage.CacheCreationInputTokens,
 				response.Usage.CacheReadInputTokens,
+				// TODO: Anthropic does not support extended thinking usage currently.
+				nil,
 			)
 			callRecorder.addUsedTime(
 				apiRequest,

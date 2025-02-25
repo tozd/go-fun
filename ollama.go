@@ -310,6 +310,7 @@ func (o *OllamaTextProvider) Chat(ctx context.Context, message ChatMessage) (str
 				responses[0].Metrics.EvalCount,
 				nil,
 				nil,
+				nil,
 			)
 			callRecorder.addUsedTime(
 				apiRequest,

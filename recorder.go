@@ -47,6 +47,9 @@ type TextRecorderUsedTokens struct {
 	// CacheReadInputTokens is the number of tokens retrieved
 	// from the cache for this request.
 	CacheReadInputTokens *int `json:"cacheReadInputTokens,omitempty"`
+
+	// ThinkingTokens is the number of tokens used for extended thinking or reasoning.
+	ThinkingTokens *int `json:"thinkingTokens,omitempty"`
 }
 
 // TextRecorderUsedTime describes time taken by a request to an AI model.
@@ -272,7 +275,7 @@ func (c *TextRecorderCall) addMessage(role, content, toolID, toolName string, is
 	})
 }
 
-func (c *TextRecorderCall) addUsedTokens(requestID string, maxTotal, maxResponse, prompt, response int, cacheCreationInputTokens, cacheReadInputTokens *int) {
+func (c *TextRecorderCall) addUsedTokens(requestID string, maxTotal, maxResponse, prompt, response int, cacheCreationInputTokens, cacheReadInputTokens, thinkingTokens *int) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
@@ -288,6 +291,7 @@ func (c *TextRecorderCall) addUsedTokens(requestID string, maxTotal, maxResponse
 		Total:                    prompt + response,
 		CacheCreationInputTokens: cacheCreationInputTokens,
 		CacheReadInputTokens:     cacheReadInputTokens,
+		ThinkingTokens:           thinkingTokens,
 	}
 }
 

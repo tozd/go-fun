@@ -414,6 +414,7 @@ func (g *GroqTextProvider) Chat(ctx context.Context, message ChatMessage) (strin
 				response.Usage.CompletionTokens,
 				nil,
 				nil,
+				nil,
 			)
 			callRecorder.addUsedTime(
 				apiRequest,
