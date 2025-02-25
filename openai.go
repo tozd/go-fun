@@ -445,7 +445,7 @@ func (o *OpenAITextProvider) Chat(ctx context.Context, message ChatMessage) (str
 				response.Usage.PromptTokens,
 				response.Usage.CompletionTokens,
 				nil,
-				nil,
+				response.Usage.PromptTokensDetails.CachedTokens,
 				response.Usage.CompletionTokensDetails.ReasoningTokens,
 			)
 			callRecorder.addUsedTime(
