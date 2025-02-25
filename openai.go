@@ -96,13 +96,14 @@ type openAITool struct {
 }
 
 type openAIRequest struct {
-	Messages       []openAIMessage       `json:"messages"`
-	Model          string                `json:"model"`
-	Seed           int                   `json:"seed"`
-	Temperature    float64               `json:"temperature"`
-	MaxTokens      int                   `json:"max_tokens"`
-	ResponseFormat *openAIResponseFormat `json:"response_format,omitempty"`
-	Tools          []openAITool          `json:"tools,omitempty"`
+	Messages        []openAIMessage       `json:"messages"`
+	Model           string                `json:"model"`
+	Seed            int                   `json:"seed"`
+	Temperature     float64               `json:"temperature"`
+	MaxTokens       int                   `json:"max_tokens"`
+	ReasoningEffort *string               `json:"reasoning_effort,omitempty"`
+	ResponseFormat  *openAIResponseFormat `json:"response_format,omitempty"`
+	Tools           []openAITool          `json:"tools,omitempty"`
 }
 
 type openAIToolCall struct {
@@ -177,6 +178,9 @@ type OpenAITextProvider struct {
 	// MaxExchanges is the maximum number of exchanges with the AI model per chat
 	// to obtain the final response. Default is 10.
 	MaxExchanges int `json:"maxExchanges"`
+
+	// ReasoningEffort is the reasoning effort to use for reasoning models.
+	ReasoningEffort string `json:"reasoningEffort"`
 
 	// See: https://github.com/invopop/jsonschema/issues/148
 
@@ -325,14 +329,19 @@ func (o *OpenAITextProvider) Chat(ctx context.Context, message ChatMessage) (str
 	}
 
 	for range o.MaxExchanges {
+		var reasoningEffort *string
+		if o.ReasoningEffort != "" {
+			reasoningEffort = &o.ReasoningEffort
+		}
 		oReq := openAIRequest{
-			Messages:       messages,
-			Model:          o.Model,
-			Seed:           o.Seed,
-			Temperature:    o.Temperature,
-			MaxTokens:      o.MaxResponseLength,
-			ResponseFormat: nil,
-			Tools:          o.tools,
+			Messages:        messages,
+			Model:           o.Model,
+			Seed:            o.Seed,
+			Temperature:     o.Temperature,
+			MaxTokens:       o.MaxResponseLength,
+			ReasoningEffort: reasoningEffort,
+			ResponseFormat:  nil,
+			Tools:           o.tools,
 		}
 
 		if o.outputJSONSchema != nil {
