@@ -85,8 +85,9 @@ test_e2e:
     - go version
 
   script:
+    - echo "$CONFIG" > config.json
     - go run ./cmd/fun extract --input testdata/exercises.json --output data --out=.txt 'exercises.#.{id:serial,data:text}'
-    - go run ./cmd/fun call --input data --output results --provider "$PROVIDER" --model "$MODEL" --in .txt --out .txt --prompt testdata/prompt.txt --output-schema testdata/number-schema.json
+    - go run ./cmd/fun call --input data --output results --provider "$PROVIDER" --config config.json --in .txt --out .txt --prompt testdata/prompt.txt --output-schema testdata/number-schema.json
     - ./testdata/compare.sh
 
   artifacts:
@@ -100,16 +101,20 @@ test_e2e:
     matrix:
       - IMAGE_TAG: ['1.23-alpine3.21', '1.24-alpine3.21']
         PROVIDER: ollama
-        MODEL: "llama3:8b"
+        CONFIG_NAME: llama3
+        CONFIG: '{"model":"llama3:8b"}'
       - IMAGE_TAG: ['1.23-alpine3.21', '1.24-alpine3.21']
         PROVIDER: groq
-        MODEL: "llama-3.3-70b-versatile"
+        CONFIG_NAME: llama-3.3
+        CONFIG: '{"model":"llama-3.3-70b-versatile"}'
       - IMAGE_TAG: ['1.23-alpine3.21', '1.24-alpine3.21']
         PROVIDER: anthropic
-        MODEL: "claude-3-5-sonnet-20241022"
+        CONFIG_NAME: claude-3-5-sonnet
+        CONFIG: '{"model":"claude-3-5-sonnet-20241022"}'
       - IMAGE_TAG: ['1.23-alpine3.21', '1.24-alpine3.21']
         PROVIDER: openai
-        MODEL: "gpt-4o-2024-11-20"
+        CONFIG_NAME: gpt-4o
+        CONFIG: '{"model":"gpt-4o-2024-11-20"}'
 
   # We use a resource group to not hit rate limits when running multiple jobs in parallel (from potentially multiple pipelines).
   # TODO: Use a separate resource group for each provider so that these jobs can run in parallel.

@@ -148,7 +148,8 @@ To solve all exercises, you can then run:
 ```sh
 export ANTHROPIC_API_KEY='...'
 echo "You MUST output only final number, nothing more." > prompt.txt
-fun call --input data --output results --provider anthropic --model claude-3-haiku-20240307 --in .txt --out .txt --prompt prompt.txt
+echo '{"model":"claude-3-haiku-20240307"}' > config.json
+fun call --input data --output results --provider anthropic --config config.json --in .txt --out .txt --prompt prompt.txt
 ```
 
 For the `data/1.txt` input file you should now get `results/1.txt` output file with contents `3`.
@@ -161,7 +162,8 @@ outputs do not validate and corresponding output files will not be created.
 
 ```sh
 echo '{"type": "integer"}' > schema.json
-fun call --input data --output results --provider anthropic --model claude-3-haiku-20240307 --in .txt --out .txt --prompt prompt.txt --output-schema schema.json
+echo '{"model":"claude-3-haiku-20240307"}' > config.json
+fun call --input data --output results --provider anthropic --config config.json --in .txt --out .txt --prompt prompt.txt --output-schema schema.json
 ```
 
 We can also use a JSON Schema to validate that the
@@ -169,7 +171,8 @@ We can also use a JSON Schema to validate that the
 
 ```sh
 echo '{"type": "string", "pattern": "^[0-9]+$"}' > schema.json
-fun call --input data --output results --provider anthropic --model claude-3-haiku-20240307 --in .txt --out .txt --prompt prompt.txt --output-schema schema.json
+echo '{"model":"claude-3-haiku-20240307"}' > config.json
+fun call --input data --output results --provider anthropic --config config.json --in .txt --out .txt --prompt prompt.txt --output-schema schema.json
 ```
 
 ## Related projects

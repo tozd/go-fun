@@ -24,7 +24,6 @@ import (
 )
 
 const (
-	defaultSeed       = 42
 	progressPrintRate = 30 * time.Second
 )
 
@@ -46,7 +45,7 @@ type CallCommand struct {
 	InputJSONSchema  kong.FileContentFlag `                                                   help:"Path to a file with JSON Schema to validate inputs."                                         name:"input-schema"  placeholder:"PATH"`
 	OutputJSONSchema kong.FileContentFlag `                                                   help:"Path to a file with JSON Schema to validate outputs."                                        name:"output-schema" placeholder:"PATH"`
 	Provider         string               `               enum:"ollama,groq,anthropic,openai" help:"AI model provider. Possible: ${enum}."                                                                                               required:"" short:"p"`
-	Model            string               `                                                   help:"AI model to use."                                                                                                                    required:"" short:"m"`
+	Config           kong.FileContentFlag `                                                   help:"Path to a file with AI model configuration in JSON."                                                                                 required:"" short:"c"`
 	Parallel         int                  `default:"1"                                        help:"How many input files to process in parallel. Default: ${default}."                                                placeholder:"INT"`
 	Batches          int                  `default:"1"                                        help:"Split input files into batches. Default: ${default}."                                                             placeholder:"INT"              short:"B"`
 	Batch            int                  `default:"0"                                        help:"Process only files in the batch with this 0-based index. Default: ${default}."                                    placeholder:"INT"              short:"b"`
@@ -57,71 +56,53 @@ func (c *CallCommand) Run(logger zerolog.Logger) errors.E { //nolint:maintidx
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 
+	var model string
 	var provider fun.TextProvider
 	switch c.Provider {
 	case "ollama":
-		if os.Getenv("OLLAMA_HOST") == "" {
-			return errors.New("OLLAMA_HOST environment variable is missing")
+		var p fun.OllamaTextProvider
+		errE := x.UnmarshalWithoutUnknownFields(c.Config, &p)
+		if errE != nil {
+			return errE
 		}
-		provider = &fun.OllamaTextProvider{
-			Client: nil,
-			Base:   os.Getenv("OLLAMA_HOST"),
-			Model:  c.Model,
-			ModelAccess: fun.OllamaModelAccess{ // TODO: How to make it configurable?
-				Insecure: false,
-				Username: "",
-				Password: "",
-			},
-			MaxContextLength:  0, // TODO: How to make it configurable?
-			MaxResponseLength: 0, // TODO: How to make it configurable?
-			MaxExchanges:      0, // TODO: How to make it configurable?
-			Seed:              defaultSeed,
-			Temperature:       0,
+		if host := os.Getenv("OLLAMA_HOST"); host != "" {
+			p.Base = host
 		}
+		provider = &p
+		model = p.Model
 	case "groq":
-		if os.Getenv("GROQ_API_KEY") == "" {
-			return errors.New("GROQ_API_KEY environment variable is missing")
+		var p fun.GroqTextProvider
+		errE := x.UnmarshalWithoutUnknownFields(c.Config, &p)
+		if errE != nil {
+			return errE
 		}
-		provider = &fun.GroqTextProvider{
-			Client:                 nil,
-			APIKey:                 os.Getenv("GROQ_API_KEY"),
-			Model:                  c.Model,
-			RequestsPerMinuteLimit: 0, // TODO: How to make it configurable?
-			MaxContextLength:       0, // TODO: How to make it configurable?
-			MaxResponseLength:      0, // TODO: How to make it configurable?
-			MaxExchanges:           0, // TODO: How to make it configurable?
-			Seed:                   defaultSeed,
-			Temperature:            0,
+		if apiKey := os.Getenv("GROQ_API_KEY"); apiKey != "" {
+			p.APIKey = apiKey
 		}
+		provider = &p
+		model = p.Model
 	case "anthropic":
-		if os.Getenv("ANTHROPIC_API_KEY") == "" {
-			return errors.New("ANTHROPIC_API_KEY environment variable is missing")
+		var p fun.AnthropicTextProvider
+		errE := x.UnmarshalWithoutUnknownFields(c.Config, &p)
+		if errE != nil {
+			return errE
 		}
-		provider = &fun.AnthropicTextProvider{
-			Client:            nil,
-			APIKey:            os.Getenv("ANTHROPIC_API_KEY"),
-			Model:             c.Model,
-			MaxContextLength:  0, // TODO: How to make it configurable?
-			MaxResponseLength: 0, // TODO: How to make it configurable?
-			MaxExchanges:      0, // TODO: How to make it configurable?
-			PromptCaching:     true,
-			Temperature:       0,
+		if apiKey := os.Getenv("ANTHROPIC_API_KEY"); apiKey != "" {
+			p.APIKey = apiKey
 		}
+		provider = &p
+		model = p.Model
 	case "openai":
-		if os.Getenv("OPENAI_API_KEY") == "" {
-			return errors.New("OPENAI_API_KEY environment variable is missing")
+		var p fun.OpenAITextProvider
+		errE := x.UnmarshalWithoutUnknownFields(c.Config, &p)
+		if errE != nil {
+			return errE
 		}
-		provider = &fun.OpenAITextProvider{
-			Client:                nil,
-			APIKey:                os.Getenv("OPENAI_API_KEY"),
-			Model:                 c.Model,
-			MaxContextLength:      0,     // TODO: How to make it configurable?
-			MaxResponseLength:     0,     // TODO: How to make it configurable?
-			MaxExchanges:          0,     // TODO: How to make it configurable?
-			ForceOutputJSONSchema: false, // TODO: How to make it configurable?
-			Seed:                  defaultSeed,
-			Temperature:           0,
+		if apiKey := os.Getenv("OPENAI_API_KEY"); apiKey != "" {
+			p.APIKey = apiKey
 		}
+		provider = &p
+		model = p.Model
 	}
 
 	// TODO: We could use type:"filecontent" Kong's option on string field type instead?
@@ -197,7 +178,7 @@ func (c *CallCommand) Run(logger zerolog.Logger) errors.E { //nolint:maintidx
 		batch = files[c.Batch*batchSize : min((c.Batch+1)*batchSize, len(files))]
 	}
 
-	logger.Info().Int("all", len(files)).Str("model", c.Model).
+	logger.Info().Int("all", len(files)).Str("model", model).
 		Str("provider", c.Provider).Int("parallel", c.Parallel).
 		Int("batches", c.Batches).Int("batch", c.Batch).
 		Int("inputs", len(batch)).
