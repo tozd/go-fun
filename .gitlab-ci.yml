@@ -109,8 +109,8 @@ test_e2e:
         CONFIG: '{"model":"llama-3.3-70b-versatile"}'
       - IMAGE_TAG: ['1.23-alpine3.21', '1.24-alpine3.21']
         PROVIDER: anthropic
-        CONFIG_NAME: claude-3-5-sonnet
-        CONFIG: '{"model":"claude-3-5-sonnet-20241022"}'
+        CONFIG_NAME: claude-3-7-sonnet
+        CONFIG: '{"model":"claude-3-7-sonnet-20250219","extendedThinkingBudget":32000}'
       - IMAGE_TAG: ['1.23-alpine3.21', '1.24-alpine3.21']
         PROVIDER: openai
         CONFIG_NAME: gpt-4o
