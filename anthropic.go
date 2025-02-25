@@ -37,10 +37,16 @@ type anthropicSystem struct {
 	CacheControl *anthropicCacheControl `json:"cache_control,omitempty"`
 }
 
+type anthropicThinking struct {
+	Type         string `json:"type"`
+	BudgetTokens int    `json:"budget_tokens"`
+}
+
 type anthropicRequest struct {
 	Model       string             `json:"model"`
 	Messages    []anthropicMessage `json:"messages"`
 	MaxTokens   int                `json:"max_tokens"`
+	Thinking    *anthropicThinking `json:"thinking,omitempty"`
 	System      []anthropicSystem  `json:"system,omitempty"`
 	Temperature float64            `json:"temperature"`
 	Tools       []anthropicTool    `json:"tools,omitempty"`
@@ -60,6 +66,9 @@ type anthropicContent struct {
 	IsError      bool                   `json:"is_error,omitempty"`
 	Content      *string                `json:"content,omitempty"`
 	CacheControl *anthropicCacheControl `json:"cache_control,omitempty"`
+	Thinking     string                 `json:"thinking,omitempty"`
+	Signature    string                 `json:"signature,omitempty"`
+	Data         string                 `json:"data,omitempty"`
 }
 
 type anthropicResponse struct {
@@ -204,7 +213,12 @@ type AnthropicTextProvider struct {
 	// PromptCaching set to true enables prompt caching.
 	PromptCaching bool `json:"promptCaching"`
 
+	// ExtendedThinkingBudget is the budget of tokens to use for extended thinking.
+	// Default is 0 which means that extended thinking is not enabled.
+	ExtendedThinkingBudget int `json:"extendedThinkingBudget"`
+
 	// Temperature is how creative should the AI model be.
+	// Ignored when extended thinking is enabled.
 	// Default is 0 which means not at all.
 	Temperature float64 `json:"temperature"`
 
@@ -391,12 +405,23 @@ func (a *AnthropicTextProvider) Chat(ctx context.Context, message ChatMessage) (
 	}
 
 	for range a.MaxExchanges {
+		temperature := a.Temperature
+		var thinking *anthropicThinking
+		if a.ExtendedThinkingBudget > 0 {
+			thinking = &anthropicThinking{
+				Type:         "enabled",
+				BudgetTokens: a.ExtendedThinkingBudget,
+			}
+			// Temperature must be 1 when extended thinking is enabled.
+			temperature = 1
+		}
 		request, errE := x.MarshalWithoutEscapeHTML(anthropicRequest{
 			Model:       a.Model,
 			Messages:    messages,
 			MaxTokens:   a.MaxResponseLength,
+			Thinking:    thinking,
 			System:      a.system,
-			Temperature: a.Temperature,
+			Temperature: temperature,
 			Tools:       a.tools,
 		})
 		if errE != nil {
@@ -416,6 +441,7 @@ func (a *AnthropicTextProvider) Chat(ctx context.Context, message ChatMessage) (
 		}
 		req.Header.Add("X-Api-Key", a.APIKey)
 		req.Header.Add("Anthropic-Version", "2023-06-01")
+		req.Header.Add("Anthropic-Beta", "output-128k-2025-02-19")
 		req.Header.Add("Content-Type", "application/json")
 		// Rate limit the initial request.
 		errE = anthropicRateLimiter.Take(ctx, a.rateLimiterKey, map[string]int{
@@ -511,7 +537,7 @@ func (a *AnthropicTextProvider) Chat(ctx context.Context, message ChatMessage) (
 		if response.StopReason == roleToolUse {
 			if len(response.Content) == 0 {
 				return "", errors.WithDetails(
-					ErrUnexpectedNumberOfMessages,
+					ErrUnexpectedMessage,
 					"number", len(response.Content),
 					"apiRequest", apiRequest,
 				)
@@ -540,7 +566,7 @@ func (a *AnthropicTextProvider) Chat(ctx context.Context, message ChatMessage) (
 			var wg sync.WaitGroup
 			for _, content := range response.Content {
 				switch content.Type {
-				case typeText:
+				case typeText, typeThinking, typeRedactedThinking:
 					// We do nothing.
 				case roleToolUse:
 					messages[len(messages)-1].Content = append(messages[len(messages)-1].Content, anthropicContent{ //nolint:exhaustruct
@@ -596,29 +622,44 @@ func (a *AnthropicTextProvider) Chat(ctx context.Context, message ChatMessage) (
 			return "", nil
 		}
 
-		if len(response.Content) != 1 {
-			return "", errors.WithDetails(
-				ErrUnexpectedNumberOfMessages,
-				"number", len(response.Content),
-				"apiRequest", apiRequest,
-			)
+		var text *string
+		for _, content := range response.Content {
+			if content.Type == typeThinking {
+				continue
+			}
+			if content.Type == typeRedactedThinking {
+				continue
+			}
+			if content.Type != typeText {
+				return "", errors.WithDetails(
+					ErrUnexpectedMessageType,
+					"type", content.Type,
+					"apiRequest", apiRequest,
+				)
+			}
+			if content.Text == nil {
+				return "", errors.WithDetails(
+					ErrUnexpectedMessageType,
+					"apiRequest", apiRequest,
+				)
+			}
+			if text != nil {
+				return "", errors.WithDetails(
+					ErrUnexpectedMessage,
+					"apiRequest", apiRequest,
+				)
+			}
+			text = content.Text
 		}
-		if response.Content[0].Type != typeText {
+
+		if text == nil {
 			return "", errors.WithDetails(
-				ErrUnexpectedMessageType,
-				"type", response.Content[0].Type,
+				ErrUnexpectedMessage,
 				"apiRequest", apiRequest,
 			)
 		}
 
-		if response.Content[0].Text == nil {
-			return "", errors.WithDetails(
-				ErrUnexpectedMessageType,
-				"apiRequest", apiRequest,
-			)
-		}
-
-		return *response.Content[0].Text, nil
+		return *text, nil
 	}
 
 	return "", errors.WithDetails(
@@ -660,6 +701,14 @@ func (a *AnthropicTextProvider) maxContextLength() int {
 }
 
 func (a *AnthropicTextProvider) maxResponseTokens() int {
+	if strings.Contains(a.Model, "3-7") {
+		if a.ExtendedThinkingBudget > 0 {
+			// This is the maximum without output-128k-2025-02-19 beta header and we still use it.
+			// One can manually set MaxResponseLength to a different (e.g., higher) value.
+			return 64000 //nolint:mnd
+		}
+		return 8192 //nolint:mnd
+	}
 	if strings.Contains(a.Model, "3-5") {
 		return 8192 //nolint:mnd
 	}

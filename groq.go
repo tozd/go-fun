@@ -399,7 +399,7 @@ func (g *GroqTextProvider) Chat(ctx context.Context, message ChatMessage) (strin
 
 		if len(response.Choices) != 1 {
 			return "", errors.WithDetails(
-				ErrUnexpectedNumberOfMessages,
+				ErrUnexpectedMessage,
 				"number", len(response.Choices),
 				"apiRequest", apiRequest,
 			)
@@ -451,7 +451,7 @@ func (g *GroqTextProvider) Chat(ctx context.Context, message ChatMessage) (strin
 		if response.Choices[0].FinishReason == "tool_calls" {
 			if len(response.Choices[0].Message.ToolCalls) == 0 {
 				return "", errors.WithDetails(
-					ErrUnexpectedNumberOfMessages,
+					ErrUnexpectedMessage,
 					"number", len(response.Choices[0].Message.ToolCalls),
 					"apiRequest", apiRequest,
 				)

@@ -293,7 +293,7 @@ func (o *OllamaTextProvider) Chat(ctx context.Context, message ChatMessage) (str
 
 		if len(responses) != 1 {
 			return "", errors.WithDetails(
-				ErrUnexpectedNumberOfMessages,
+				ErrUnexpectedMessage,
 				"number", len(responses),
 				"apiRequest", apiRequest,
 			)

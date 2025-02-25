@@ -30,8 +30,10 @@ const (
 	roleToolUse    = "tool_use"
 	roleToolResult = "tool_result"
 
-	typeText   = "text"
-	stopReason = "stop"
+	typeText             = "text"
+	typeThinking         = "thinking"
+	typeRedactedThinking = "redacted_thinking"
+	stopReason           = "stop"
 )
 
 func compileValidator[T any](jsonSchema []byte) (*jsonschema.Schema, []byte, errors.E) {

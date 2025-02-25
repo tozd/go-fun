@@ -11,7 +11,7 @@ var (
 	ErrMissingRequestID             = errors.Base("missing request ID")
 	ErrModelNotActive               = errors.Base("model not active")
 	ErrUnexpectedRole               = errors.Base("unexpected role")
-	ErrUnexpectedNumberOfMessages   = errors.Base("unexpected number of messages")
+	ErrUnexpectedMessage            = errors.Base("unexpected message")
 	ErrUnexpectedMessageType        = errors.Base("unexpected message type")
 	ErrUnexpectedStop               = errors.Base("unexpected stop")
 	ErrUnexpectedNumberOfTokens     = errors.Base("unexpected number of tokens")
