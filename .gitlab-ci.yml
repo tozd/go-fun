@@ -62,9 +62,6 @@ test:
     matrix:
       - IMAGE_TAG: ['1.24-alpine3.21']
 
-  # We use a resource group to not hit rate limits when running multiple jobs in parallel (from potentially multiple pipelines).
-  resource_group: llms
-
 test_e2e:
   stage: test
 
@@ -115,11 +112,6 @@ test_e2e:
         PROVIDER: openai
         CONFIG_NAME: o1
         CONFIG: '{"model":"o1-2024-12-17","temperature":1.0}'
-
-  # We use a resource group to not hit rate limits when running multiple jobs in parallel (from potentially multiple pipelines).
-  # TODO: Use a separate resource group for each provider so that these jobs can run in parallel.
-  #       See: https://gitlab.com/gitlab-org/gitlab/-/issues/340417
-  resource_group: llms
 
 lint:
   stage: test
