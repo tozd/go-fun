@@ -247,8 +247,8 @@ var providersForTools = []testProvider{
 			return &fun.GroqTextProvider{
 				Client:                 nil,
 				APIKey:                 os.Getenv("GROQ_API_KEY"),
-				Model:                  "llama-3.3-70b-versatile",
-				RequestsPerMinuteLimit: 1000,
+				Model:                  "qwen-2.5-32b",
+				RequestsPerMinuteLimit: 100,
 				MaxContextLength:       0,
 				MaxResponseLength:      0,
 				Seed:                   42,
