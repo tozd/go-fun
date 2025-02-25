@@ -190,7 +190,7 @@ type OpenAITextProvider struct {
 	MaxExchanges int `json:"maxExchanges"`
 
 	// ReasoningEffort is the reasoning effort to use for reasoning models.
-	ReasoningEffort string `json:"reasoningEffort"`
+	ReasoningEffort string `json:"reasoningEffort,omitempty"`
 
 	// See: https://github.com/invopop/jsonschema/issues/148
 
