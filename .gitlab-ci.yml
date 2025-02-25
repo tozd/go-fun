@@ -74,7 +74,7 @@ test_e2e:
     - saas-linux-medium-amd64
 
   services:
-    - name: ollama/ollama:0.5.11
+    - name: ollama/ollama:0.5.1
       alias: ollama
 
   variables:
