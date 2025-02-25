@@ -56,12 +56,12 @@ type groqTool struct {
 }
 
 type groqRequest struct {
-	Messages    []groqMessage `json:"messages"`
-	Model       string        `json:"model"`
-	Seed        int           `json:"seed"`
-	Temperature float64       `json:"temperature"`
-	MaxTokens   int           `json:"max_tokens"`
-	Tools       []groqTool    `json:"tools,omitempty"`
+	Messages            []groqMessage `json:"messages"`
+	Model               string        `json:"model"`
+	Seed                int           `json:"seed"`
+	Temperature         float64       `json:"temperature"`
+	MaxCompletionTokens int           `json:"max_completion_tokens"`
+	Tools               []groqTool    `json:"tools,omitempty"`
 }
 
 type groqToolCall struct {
@@ -327,12 +327,12 @@ func (g *GroqTextProvider) Chat(ctx context.Context, message ChatMessage) (strin
 
 	for range g.MaxExchanges {
 		request, errE := x.MarshalWithoutEscapeHTML(groqRequest{
-			Messages:    messages,
-			Model:       g.Model,
-			Seed:        g.Seed,
-			Temperature: g.Temperature,
-			MaxTokens:   g.MaxResponseLength,
-			Tools:       g.tools,
+			Messages:            messages,
+			Model:               g.Model,
+			Seed:                g.Seed,
+			Temperature:         g.Temperature,
+			MaxCompletionTokens: g.MaxResponseLength,
+			Tools:               g.tools,
 		})
 		if errE != nil {
 			return "", errE

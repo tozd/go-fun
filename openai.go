@@ -96,14 +96,14 @@ type openAITool struct {
 }
 
 type openAIRequest struct {
-	Messages        []openAIMessage       `json:"messages"`
-	Model           string                `json:"model"`
-	Seed            int                   `json:"seed"`
-	Temperature     float64               `json:"temperature"`
-	MaxTokens       int                   `json:"max_tokens"`
-	ReasoningEffort *string               `json:"reasoning_effort,omitempty"`
-	ResponseFormat  *openAIResponseFormat `json:"response_format,omitempty"`
-	Tools           []openAITool          `json:"tools,omitempty"`
+	Messages            []openAIMessage       `json:"messages"`
+	Model               string                `json:"model"`
+	Seed                int                   `json:"seed"`
+	Temperature         float64               `json:"temperature"`
+	MaxCompletionTokens int                   `json:"max_completion_tokens"`
+	ReasoningEffort     *string               `json:"reasoning_effort,omitempty"`
+	ResponseFormat      *openAIResponseFormat `json:"response_format,omitempty"`
+	Tools               []openAITool          `json:"tools,omitempty"`
 }
 
 type openAIToolCall struct {
@@ -334,14 +334,14 @@ func (o *OpenAITextProvider) Chat(ctx context.Context, message ChatMessage) (str
 			reasoningEffort = &o.ReasoningEffort
 		}
 		oReq := openAIRequest{
-			Messages:        messages,
-			Model:           o.Model,
-			Seed:            o.Seed,
-			Temperature:     o.Temperature,
-			MaxTokens:       o.MaxResponseLength,
-			ReasoningEffort: reasoningEffort,
-			ResponseFormat:  nil,
-			Tools:           o.tools,
+			Messages:            messages,
+			Model:               o.Model,
+			Seed:                o.Seed,
+			Temperature:         o.Temperature,
+			MaxCompletionTokens: o.MaxResponseLength,
+			ReasoningEffort:     reasoningEffort,
+			ResponseFormat:      nil,
+			Tools:               o.tools,
 		}
 
 		if o.outputJSONSchema != nil {
