@@ -121,6 +121,7 @@ func ExampleTextRecorder() {
 	//               "maxResponseLength": 4096,
 	//               "maxExchanges": 10,
 	//               "promptCaching": false,
+	//               "extendedThinkingBudget": 0,
 	//               "temperature": 0
 	//             },
 	//             "messages": [
