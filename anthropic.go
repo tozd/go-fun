@@ -472,7 +472,8 @@ func (a *AnthropicTextProvider) Chat(ctx context.Context, message ChatMessage) (
 		defer io.Copy(io.Discard, resp.Body) //nolint:errcheck
 
 		if apiRequest == "" {
-			return "", errors.WithStack(ErrMissingRequestID)
+			body, _ := io.ReadAll(resp.Body)
+			return "", errors.WithDetails(ErrMissingRequestID, body, string(body))
 		}
 
 		var response anthropicResponse
