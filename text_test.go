@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"os"
 	"slices"
-	"strings"
 	"testing"
 	"time"
 
@@ -116,7 +115,7 @@ var providers = []testProvider{
 			return &fun.OllamaTextProvider{
 				Client:            nil,
 				Base:              os.Getenv("OLLAMA_HOST"),
-				Model:             "llama3:8b",
+				Model:             "qwen2.5:72b",
 				MaxContextLength:  0,
 				MaxResponseLength: 0,
 				Seed:              42,
@@ -228,7 +227,7 @@ var providersForTools = []testProvider{
 			return &fun.OllamaTextProvider{
 				Client:            nil,
 				Base:              os.Getenv("OLLAMA_HOST"),
-				Model:             "llama3-groq-tool-use:70b",
+				Model:             "qwen2.5:72b",
 				MaxContextLength:  0,
 				MaxResponseLength: 0,
 				Seed:              42,
@@ -644,15 +643,8 @@ func TestText(t *testing.T) { //nolint:paralleltest,tparallel
 	runTextTests(
 		t, providers, tests,
 		func() map[string]fun.TextTooler { return nil },
-		func(t *testing.T, providerName string, tt fun.InputOutput[string, string], output string) {
+		func(t *testing.T, _ string, tt fun.InputOutput[string, string], output string) {
 			t.Helper()
-
-			if providerName == "ollama" && tt.Output == "zklzkl" {
-				// TODO: Remove this special case.
-				// Ollama returns invalid output for this case.
-				assert.Equal(t, "kllzk", output)
-				return
-			}
 
 			assert.Equal(t, tt.Output, output)
 		},
@@ -699,14 +691,8 @@ func TestTextTools(t *testing.T) { //nolint:paralleltest,tparallel
 		},
 	}
 
-	runTextTests(t, providersForTools, tests, tools, func(t *testing.T, providerName string, tt fun.InputOutput[string, string], output string) {
+	runTextTests(t, providersForTools, tests, tools, func(t *testing.T, _ string, tt fun.InputOutput[string, string], output string) {
 		t.Helper()
-
-		if providerName == "ollama" {
-			// TODO: Remove this special case.
-			// Ollama adds this quotes to the output.
-			output = strings.Trim(output, `"`)
-		}
 
 		assert.Equal(t, tt.Output, output)
 	})

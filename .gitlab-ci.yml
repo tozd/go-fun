@@ -71,7 +71,7 @@ test_e2e:
   image: golang:$IMAGE_TAG
 
   tags:
-    - saas-linux-medium-amd64
+    - saas-linux-2xlarge-amd64
 
   services:
     - name: ollama/ollama:0.5.11
@@ -101,8 +101,8 @@ test_e2e:
     matrix:
       - IMAGE_TAG: ['1.24-alpine3.21']
         PROVIDER: ollama
-        CONFIG_NAME: llama3-8b
-        CONFIG: '{"model":"llama3:8b"}'
+        CONFIG_NAME: qwen2.5-72b
+        CONFIG: '{"model":"qwen2.5:72b"}'
       - IMAGE_TAG: ['1.24-alpine3.21']
         PROVIDER: groq
         CONFIG_NAME: llama3-70b
