@@ -70,6 +70,9 @@ func (c *CallCommand) Run(logger zerolog.Logger) errors.E { //nolint:maintidx
 		}
 		provider = &p
 		model = p.Model
+		if p.Base == "" {
+			return errors.New("OLLAMA_HOST is missing")
+		}
 	case "groq":
 		var p fun.GroqTextProvider
 		errE := x.UnmarshalWithoutUnknownFields(c.Config, &p)
@@ -81,6 +84,9 @@ func (c *CallCommand) Run(logger zerolog.Logger) errors.E { //nolint:maintidx
 		}
 		provider = &p
 		model = p.Model
+		if p.APIKey == "" {
+			return errors.New("GROQ_API_KEY is missing")
+		}
 	case "anthropic":
 		var p fun.AnthropicTextProvider
 		errE := x.UnmarshalWithoutUnknownFields(c.Config, &p)
@@ -92,6 +98,9 @@ func (c *CallCommand) Run(logger zerolog.Logger) errors.E { //nolint:maintidx
 		}
 		provider = &p
 		model = p.Model
+		if p.APIKey == "" {
+			return errors.New("ANTHROPIC_API_KEY is missing")
+		}
 	case "openai":
 		var p fun.OpenAITextProvider
 		errE := x.UnmarshalWithoutUnknownFields(c.Config, &p)
@@ -103,6 +112,9 @@ func (c *CallCommand) Run(logger zerolog.Logger) errors.E { //nolint:maintidx
 		}
 		provider = &p
 		model = p.Model
+		if p.APIKey == "" {
+			return errors.New("OPENAI_API_KEY is missing")
+		}
 	}
 
 	// TODO: We could use type:"filecontent" Kong's option on string field type instead?
