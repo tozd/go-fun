@@ -101,12 +101,12 @@ test_e2e:
     matrix:
       - IMAGE_TAG: ['1.24-alpine3.21']
         PROVIDER: ollama
-        CONFIG_NAME: llama3
+        CONFIG_NAME: llama3-8b
         CONFIG: '{"model":"llama3:8b"}'
       - IMAGE_TAG: ['1.24-alpine3.21']
         PROVIDER: groq
-        CONFIG_NAME: llama-3.3
-        CONFIG: '{"model":"llama-3.3-70b-versatile"}'
+        CONFIG_NAME: llama3-70b
+        CONFIG: '{"model":"llama3-70b-8192"}'
       - IMAGE_TAG: ['1.24-alpine3.21']
         PROVIDER: anthropic
         CONFIG_NAME: claude-3-7-sonnet

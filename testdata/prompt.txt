@@ -1,1 +1,1 @@
-Return only the numeric result, no other text, no explanation, no currency.
+Return only the final numeric result, no other text, no explanation, no currency, no commas.
