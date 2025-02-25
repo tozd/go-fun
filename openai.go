@@ -56,6 +56,10 @@ var openAIModels = map[string]struct { //nolint:gochecknoglobals
 		MaxContextLength:  200_000,
 		MaxResponseLength: 100_000,
 	},
+	"o1-2024-12-17": {
+		MaxContextLength:  200_000,
+		MaxResponseLength: 100_000,
+	},
 }
 
 var openAIRateLimiter = keyedRateLimiter{ //nolint:gochecknoglobals
