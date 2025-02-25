@@ -1,1 +1,1 @@
-You MUST output only final number, nothing more.
+Return only the numeric result, no other text, no explanation, no currency.
