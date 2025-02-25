@@ -322,11 +322,11 @@ var tests = []struct {
 
 			calls := recorder.Calls()
 			messages := []fun.TextRecorderMessage{}
-			for _, m := range calls[0].Messages { //nolint:copylocks
+			for _, m := range calls[0].Messages { //nolint:govet
 				if m.Role == "thinking" || m.Role == "redacted_thinking" {
 					continue
 				}
-				messages = append(messages, m) //nolint:copylocks
+				messages = append(messages, m) //nolint:govet
 			}
 			callsJSON, err := json.MarshalIndent(calls, "", "  ")
 			require.NoError(t, err)
@@ -352,11 +352,11 @@ var tests = []struct {
 
 			calls := recorder.Calls()
 			messages := []fun.TextRecorderMessage{}
-			for _, m := range calls[0].Messages { //nolint:copylocks
+			for _, m := range calls[0].Messages { //nolint:govet
 				if m.Role == "thinking" || m.Role == "redacted_thinking" {
 					continue
 				}
-				messages = append(messages, m) //nolint:copylocks
+				messages = append(messages, m) //nolint:govet
 			}
 			callsJSON, err := json.MarshalIndent(calls, "", "  ")
 			require.NoError(t, err)
@@ -384,11 +384,11 @@ var tests = []struct {
 
 			calls := recorder.Calls()
 			messages := []fun.TextRecorderMessage{}
-			for _, m := range calls[0].Messages { //nolint:copylocks
+			for _, m := range calls[0].Messages { //nolint:govet
 				if m.Role == "thinking" || m.Role == "redacted_thinking" {
 					continue
 				}
-				messages = append(messages, m) //nolint:copylocks
+				messages = append(messages, m) //nolint:govet
 			}
 			callsJSON, err := json.MarshalIndent(calls, "", "  ")
 			require.NoError(t, err)
@@ -544,11 +544,11 @@ func TestText(t *testing.T) { //nolint:paralleltest,tparallel
 
 				calls := recorder.Calls()
 				messages := []fun.TextRecorderMessage{}
-				for _, m := range calls[0].Messages { //nolint:copylocks
+				for _, m := range calls[0].Messages { //nolint:govet
 					if m.Role == "thinking" || m.Role == "redacted_thinking" {
 						continue
 					}
-					messages = append(messages, m) //nolint:copylocks
+					messages = append(messages, m) //nolint:govet
 				}
 				callsJSON, err := json.MarshalIndent(calls, "", "  ")
 				require.NoError(t, err)
@@ -585,11 +585,11 @@ func TestText(t *testing.T) { //nolint:paralleltest,tparallel
 
 				calls := recorder.Calls()
 				messages := []fun.TextRecorderMessage{}
-				for _, m := range calls[0].Messages { //nolint:copylocks
+				for _, m := range calls[0].Messages { //nolint:govet
 					if m.Role == "thinking" || m.Role == "redacted_thinking" {
 						continue
 					}
-					messages = append(messages, m) //nolint:copylocks
+					messages = append(messages, m) //nolint:govet
 				}
 				callsJSON, err := json.MarshalIndent(calls, "", "  ")
 				require.NoError(t, err)
@@ -626,11 +626,11 @@ func TestText(t *testing.T) { //nolint:paralleltest,tparallel
 
 				calls := recorder.Calls()
 				messages := []fun.TextRecorderMessage{}
-				for _, m := range calls[0].Messages { //nolint:copylocks
+				for _, m := range calls[0].Messages { //nolint:govet
 					if m.Role == "thinking" || m.Role == "redacted_thinking" {
 						continue
 					}
-					messages = append(messages, m) //nolint:copylocks
+					messages = append(messages, m) //nolint:govet
 				}
 				callsJSON, err := json.MarshalIndent(calls, "", "  ")
 				require.NoError(t, err)
@@ -667,7 +667,7 @@ func TestTextTools(t *testing.T) { //nolint:paralleltest,tparallel
 				{[]string{"test"}, "testtest"},
 				{[]string{"zzz"}, "zzzzzz"},
 			},
-			func(t *testing.T, recorder *fun.TextRecorder, providerName string) {
+			func(t *testing.T, recorder *fun.TextRecorder, _ string) {
 				t.Helper()
 
 				calls := recorder.Calls()
