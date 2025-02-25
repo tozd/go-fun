@@ -321,10 +321,17 @@ var tests = []struct {
 			t.Helper()
 
 			calls := recorder.Calls()
+			messages := []fun.TextRecorderMessage{}
+			for _, m := range calls[0].Messages { //nolint:copylocks
+				if m.Role == "thinking" || m.Role == "redacted_thinking" {
+					continue
+				}
+				messages = append(messages, m) //nolint:copylocks
+			}
 			callsJSON, err := json.MarshalIndent(calls, "", "  ")
 			require.NoError(t, err)
 			if assert.Len(t, calls, 1, string(callsJSON)) {
-				assert.Len(t, calls[0].Messages, 14, string(callsJSON))
+				assert.Len(t, messages, 14, string(callsJSON))
 			}
 		},
 	},
@@ -344,10 +351,17 @@ var tests = []struct {
 			t.Helper()
 
 			calls := recorder.Calls()
+			messages := []fun.TextRecorderMessage{}
+			for _, m := range calls[0].Messages { //nolint:copylocks
+				if m.Role == "thinking" || m.Role == "redacted_thinking" {
+					continue
+				}
+				messages = append(messages, m) //nolint:copylocks
+			}
 			callsJSON, err := json.MarshalIndent(calls, "", "  ")
 			require.NoError(t, err)
 			if assert.Len(t, calls, 1, string(callsJSON)) {
-				assert.Len(t, calls[0].Messages, 11, string(callsJSON))
+				assert.Len(t, messages, 11, string(callsJSON))
 			}
 		},
 	},
@@ -369,10 +383,17 @@ var tests = []struct {
 			t.Helper()
 
 			calls := recorder.Calls()
+			messages := []fun.TextRecorderMessage{}
+			for _, m := range calls[0].Messages { //nolint:copylocks
+				if m.Role == "thinking" || m.Role == "redacted_thinking" {
+					continue
+				}
+				messages = append(messages, m) //nolint:copylocks
+			}
 			callsJSON, err := json.MarshalIndent(calls, "", "  ")
 			require.NoError(t, err)
 			if assert.Len(t, calls, 1, string(callsJSON)) {
-				assert.Len(t, calls[0].Messages, 15, string(callsJSON))
+				assert.Len(t, messages, 15, string(callsJSON))
 			}
 		},
 	},
@@ -522,10 +543,17 @@ func TestText(t *testing.T) { //nolint:paralleltest,tparallel
 				t.Helper()
 
 				calls := recorder.Calls()
+				messages := []fun.TextRecorderMessage{}
+				for _, m := range calls[0].Messages { //nolint:copylocks
+					if m.Role == "thinking" || m.Role == "redacted_thinking" {
+						continue
+					}
+					messages = append(messages, m) //nolint:copylocks
+				}
 				callsJSON, err := json.MarshalIndent(calls, "", "  ")
 				require.NoError(t, err)
 				if assert.Len(t, calls, 1, string(callsJSON)) {
-					assert.Len(t, calls[0].Messages, 3, string(callsJSON))
+					assert.Len(t, messages, 3, string(callsJSON))
 				}
 			},
 		},
@@ -556,10 +584,17 @@ func TestText(t *testing.T) { //nolint:paralleltest,tparallel
 				t.Helper()
 
 				calls := recorder.Calls()
+				messages := []fun.TextRecorderMessage{}
+				for _, m := range calls[0].Messages { //nolint:copylocks
+					if m.Role == "thinking" || m.Role == "redacted_thinking" {
+						continue
+					}
+					messages = append(messages, m) //nolint:copylocks
+				}
 				callsJSON, err := json.MarshalIndent(calls, "", "  ")
 				require.NoError(t, err)
 				if assert.Len(t, calls, 1, string(callsJSON)) {
-					assert.Len(t, calls[0].Messages, 26, string(callsJSON))
+					assert.Len(t, messages, 26, string(callsJSON))
 				}
 			},
 		},
@@ -590,10 +625,17 @@ func TestText(t *testing.T) { //nolint:paralleltest,tparallel
 				t.Helper()
 
 				calls := recorder.Calls()
+				messages := []fun.TextRecorderMessage{}
+				for _, m := range calls[0].Messages { //nolint:copylocks
+					if m.Role == "thinking" || m.Role == "redacted_thinking" {
+						continue
+					}
+					messages = append(messages, m) //nolint:copylocks
+				}
 				callsJSON, err := json.MarshalIndent(calls, "", "  ")
 				require.NoError(t, err)
 				if assert.Len(t, calls, 1, string(callsJSON)) {
-					assert.Len(t, calls[0].Messages, 27, string(callsJSON))
+					assert.Len(t, messages, 27, string(callsJSON))
 				}
 			},
 		},
@@ -633,19 +675,18 @@ func TestTextTools(t *testing.T) { //nolint:paralleltest,tparallel
 				require.NoError(t, err)
 				if assert.Len(t, calls, 1, string(callsJSON)) {
 					usedTool := 0
+					usedThinking := 0
 					messages := calls[0].Messages
 					for i := range messages {
 						if messages[i].Role == "tool_use" || messages[i].Role == "tool_result" {
 							usedTool++
 						}
+						if messages[i].Role == "thinking" || messages[i].Role == "redacted_thinking" {
+							usedThinking++
+						}
 					}
 					assert.Equal(t, 2, usedTool, string(callsJSON))
-
-					if providerName == "anthropic" {
-						assert.Len(t, messages, 4+usedTool, string(callsJSON))
-					} else {
-						assert.Len(t, messages, 3+usedTool, string(callsJSON))
-					}
+					assert.Len(t, messages, 3+usedTool+usedThinking, string(callsJSON))
 				}
 			},
 		},

@@ -23,17 +23,17 @@ const (
 )
 
 const (
-	roleSystem     = "system"
-	roleAssistant  = "assistant"
-	roleUser       = "user"
-	roleTool       = "tool"
-	roleToolUse    = "tool_use"
-	roleToolResult = "tool_result"
+	roleSystem           = "system"
+	roleAssistant        = "assistant"
+	roleUser             = "user"
+	roleTool             = "tool"
+	roleToolUse          = "tool_use"
+	roleToolResult       = "tool_result"
+	roleThinking         = "thinking"
+	roleRedactedThinking = "redacted_thinking"
 
-	typeText             = "text"
-	typeThinking         = "thinking"
-	typeRedactedThinking = "redacted_thinking"
-	stopReason           = "stop"
+	typeText   = "text"
+	stopReason = "stop"
 )
 
 func compileValidator[T any](jsonSchema []byte) (*jsonschema.Schema, []byte, errors.E) {

@@ -398,7 +398,10 @@ func (a *AnthropicTextProvider) Chat(ctx context.Context, message ChatMessage) (
 		}
 
 		for _, message := range messages {
-			a.recordMessage(callRecorder, message)
+			errE := a.recordMessage(callRecorder, message)
+			if errE != nil {
+				return "", errE
+			}
 		}
 
 		callRecorder.notify("", nil)
@@ -506,10 +509,13 @@ func (a *AnthropicTextProvider) Chat(ctx context.Context, message ChatMessage) (
 				apiCallDuration,
 			)
 
-			a.recordMessage(callRecorder, anthropicMessage{
+			errE := a.recordMessage(callRecorder, anthropicMessage{
 				Role:    response.Role,
 				Content: response.Content,
 			})
+			if errE != nil {
+				return "", errE
+			}
 
 			callRecorder.notify("", nil)
 		}
@@ -566,7 +572,7 @@ func (a *AnthropicTextProvider) Chat(ctx context.Context, message ChatMessage) (
 			var wg sync.WaitGroup
 			for _, content := range response.Content {
 				switch content.Type {
-				case typeText, typeThinking, typeRedactedThinking:
+				case typeText, roleThinking, roleRedactedThinking:
 					// We do nothing.
 				case roleToolUse:
 					messages[len(messages)-1].Content = append(messages[len(messages)-1].Content, anthropicContent{ //nolint:exhaustruct
@@ -624,10 +630,10 @@ func (a *AnthropicTextProvider) Chat(ctx context.Context, message ChatMessage) (
 
 		var text *string
 		for _, content := range response.Content {
-			if content.Type == typeThinking {
+			if content.Type == roleThinking {
 				continue
 			}
-			if content.Type == typeRedactedThinking {
+			if content.Type == roleRedactedThinking {
 				continue
 			}
 			if content.Type != typeText {
@@ -810,17 +816,27 @@ func (a *AnthropicTextProvider) callTool(ctx context.Context, toolCall anthropic
 	return output, Duration(duration), errE
 }
 
-func (a *AnthropicTextProvider) recordMessage(recorder *TextRecorderCall, message anthropicMessage) {
+func (a *AnthropicTextProvider) recordMessage(recorder *TextRecorderCall, message anthropicMessage) errors.E {
 	for _, content := range message.Content {
 		switch content.Type {
 		case roleToolResult:
-			panic(errors.New("recording tool result message should not happen"))
+			return errors.New("recording tool result message should not happen")
 		case typeText:
 			if content.Text != nil {
 				recorder.addMessage(message.Role, *content.Text, "", "", false)
 			}
 		case roleToolUse:
 			recorder.addMessage(roleToolUse, string(content.Input), content.ID, content.Name, false)
+		case roleThinking:
+			recorder.addMessage(roleThinking, content.Thinking, "", "", false)
+		case roleRedactedThinking:
+			recorder.addMessage(roleRedactedThinking, "", "", "", false)
+		default:
+			return errors.WithDetails(
+				ErrUnexpectedMessageType,
+				"type", content.Type,
+			)
 		}
 	}
+	return nil
 }
