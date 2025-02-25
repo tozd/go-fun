@@ -153,10 +153,12 @@ var providers = []testProvider{
 				t.Skip("ANTHROPIC_API_KEY is not available")
 			}
 			return &fun.AnthropicTextProvider{
-				Client:      nil,
-				APIKey:      os.Getenv("ANTHROPIC_API_KEY"),
-				Model:       "claude-3-haiku-20240307",
-				Temperature: 0,
+				Client:                 nil,
+				APIKey:                 os.Getenv("ANTHROPIC_API_KEY"),
+				Model:                  "claude-3-7-sonnet-20250219",
+				PromptCaching:          true,
+				ExtendedThinkingBudget: 32000,
+				Temperature:            0,
 			}
 		},
 	},
@@ -263,10 +265,12 @@ var providersForTools = []testProvider{
 				t.Skip("ANTHROPIC_API_KEY is not available")
 			}
 			return &fun.AnthropicTextProvider{
-				Client:      nil,
-				APIKey:      os.Getenv("ANTHROPIC_API_KEY"),
-				Model:       "claude-3-5-sonnet-20240620",
-				Temperature: 0,
+				Client:                 nil,
+				APIKey:                 os.Getenv("ANTHROPIC_API_KEY"),
+				Model:                  "claude-3-7-sonnet-20250219",
+				PromptCaching:          true,
+				ExtendedThinkingBudget: 32000,
+				Temperature:            0,
 			}
 		},
 	},
