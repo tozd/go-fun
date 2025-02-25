@@ -140,14 +140,14 @@ type openAIResponse struct {
 		CompletionTokens        int `json:"completion_tokens"`
 		TotalTokens             int `json:"total_tokens"`
 		CompletionTokensDetails struct {
-			AcceptedPredictionTokens *int `json:"accepted_prediction_tokens,omitempty"`
-			AudioTokens              *int `json:"audio_tokens,omitempty"`
-			ReasoningTokens          *int `json:"reasoning_tokens,omitempty"`
-			RejectedPredictionTokens *int `json:"rejected_prediction_tokens,omitempty"`
+			AcceptedPredictionTokens int `json:"accepted_prediction_tokens"`
+			AudioTokens              int `json:"audio_tokens"`
+			ReasoningTokens          int `json:"reasoning_tokens"`
+			RejectedPredictionTokens int `json:"rejected_prediction_tokens"`
 		} `json:"completion_tokens_details"`
 		PromptTokensDetails struct {
-			AudioTokens  *int `json:"audio_tokens,omitempty"`
-			CachedTokens *int `json:"cached_tokens,omitempty"`
+			AudioTokens  int `json:"audio_tokens"`
+			CachedTokens int `json:"cached_tokens"`
 		} `json:"prompt_tokens_details"`
 	} `json:"usage"`
 	Error *struct {
@@ -440,6 +440,14 @@ func (o *OpenAITextProvider) Chat(ctx context.Context, message ChatMessage) (str
 		}
 
 		if callRecorder != nil {
+			var cacheReadInputTokens *int
+			if response.Usage.PromptTokensDetails.CachedTokens != 0 {
+				cacheReadInputTokens = &response.Usage.PromptTokensDetails.CachedTokens
+			}
+			var reasoningTokens *int
+			if response.Usage.CompletionTokensDetails.ReasoningTokens != 0 {
+				reasoningTokens = &response.Usage.CompletionTokensDetails.ReasoningTokens
+			}
 			callRecorder.addUsedTokens(
 				apiRequest,
 				o.MaxContextLength,
@@ -447,8 +455,8 @@ func (o *OpenAITextProvider) Chat(ctx context.Context, message ChatMessage) (str
 				response.Usage.PromptTokens,
 				response.Usage.CompletionTokens,
 				nil,
-				response.Usage.PromptTokensDetails.CachedTokens,
-				response.Usage.CompletionTokensDetails.ReasoningTokens,
+				cacheReadInputTokens,
+				reasoningTokens,
 			)
 			callRecorder.addUsedTime(
 				apiRequest,
