@@ -275,7 +275,10 @@ func (c *TextRecorderCall) addMessage(role, content, toolID, toolName string, is
 	})
 }
 
-func (c *TextRecorderCall) addUsedTokens(requestID string, maxTotal, maxResponse, prompt, response int, cacheCreationInputTokens, cacheReadInputTokens, thinkingTokens *int) {
+func (c *TextRecorderCall) addUsedTokens(
+	requestID string, maxTotal, maxResponse, prompt, response int,
+	cacheCreationInputTokens, cacheReadInputTokens, thinkingTokens *int,
+) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
