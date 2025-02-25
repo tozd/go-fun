@@ -213,6 +213,7 @@ type OpenAITextProvider struct {
 	Seed int `json:"seed"`
 
 	// Temperature is how creative should the AI model be.
+	// It has to be set to 1 with reasoning models.
 	// Default is 0 which means not at all.
 	Temperature float64 `json:"temperature"`
 
