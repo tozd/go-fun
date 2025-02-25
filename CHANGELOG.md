@@ -7,10 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Support for reasoning models in `AnthropicTextProvider` and `OpenAITextProvider`.
+- Support limiting the maximum number of exchanges with the model to prevent infinite loops.
+
 ### Changed
 
+- `fun` tool uses now a JSON config file instead of just a model name.
 - Go 1.23.6 or newer is required.
 - Update Ollama dependency to 0.5.11.
+
+### Fixed
+
+- Rate limiting logic for `GroqTextProvider`.
 
 ## [0.7.0] - 2024-12-10
 
