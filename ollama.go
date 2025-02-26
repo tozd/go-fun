@@ -101,14 +101,9 @@ type OllamaTextProvider struct {
 	// to obtain the final response. Default is 10.
 	MaxExchanges int `json:"maxExchanges"`
 
-	// See: https://github.com/invopop/jsonschema/issues/148
-
 	// ForceOutputJSONSchema when set to true requests the AI model to force
-	// the output JSON Schema for its output. When true, instruct the AI model
-	// to respond in JSON.
-	//
-	// There are currently limitations on the JSON Schema, so JSON Schema
-	// automatically determined from the Output type fails.
+	// the output JSON Schema for its output. When true, you should instruct
+	// the AI model to respond in JSON.
 	ForceOutputJSONSchema bool `json:"forceOutputJsonSchema"`
 
 	// Seed is used to control the randomness of the AI model. Default is 0.
