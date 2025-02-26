@@ -400,11 +400,10 @@ func (g *GroqTextProvider) Chat(ctx context.Context, message ChatMessage) (strin
 		}
 
 		if len(response.Choices) != 1 {
-			return "", errors.WithDetails(
-				ErrUnexpectedMessage,
-				"number", len(response.Choices),
-				"apiRequest", apiRequest,
-			)
+			errE := errors.Errorf("%w: not just one response", ErrUnexpectedMessage)
+			errors.Details(errE)["number"] = len(response.Choices)
+			errors.Details(errE)["apiRequest"] = apiRequest
+			return "", errE
 		}
 
 		if callRecorder != nil {
@@ -453,11 +452,10 @@ func (g *GroqTextProvider) Chat(ctx context.Context, message ChatMessage) (strin
 
 		if response.Choices[0].FinishReason == "tool_calls" {
 			if len(response.Choices[0].Message.ToolCalls) == 0 {
-				return "", errors.WithDetails(
-					ErrUnexpectedMessage,
-					"number", len(response.Choices[0].Message.ToolCalls),
-					"apiRequest", apiRequest,
-				)
+				errE := errors.Errorf("%w: expected tool calls", ErrUnexpectedMessage)
+				errors.Details(errE)["number"] = len(response.Choices[0].Message.ToolCalls)
+				errors.Details(errE)["apiRequest"] = apiRequest
+				return "", errE
 			}
 
 			// We have already recorded this message above.
@@ -507,10 +505,9 @@ func (g *GroqTextProvider) Chat(ctx context.Context, message ChatMessage) (strin
 			)
 		}
 		if response.Choices[0].Message.Content == nil {
-			return "", errors.WithDetails(
-				ErrUnexpectedMessageType,
-				"apiRequest", apiRequest,
-			)
+			errE := errors.Errorf("%w: message content is nil", ErrUnexpectedMessageType)
+			errors.Details(errE)["apiRequest"] = apiRequest
+			return "", errE
 		}
 
 		return *response.Choices[0].Message.Content, nil

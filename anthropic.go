@@ -545,11 +545,10 @@ func (a *AnthropicTextProvider) Chat(ctx context.Context, message ChatMessage) (
 
 		if response.StopReason == roleToolUse {
 			if len(response.Content) == 0 {
-				return "", errors.WithDetails(
-					ErrUnexpectedMessage,
-					"number", len(response.Content),
-					"apiRequest", apiRequest,
-				)
+				errE := errors.Errorf("%w: expected tool calls", ErrUnexpectedMessage)
+				errors.Details(errE)["number"] = len(response.Content)
+				errors.Details(errE)["apiRequest"] = apiRequest
+				return "", errE
 			}
 
 			// We have already recorded this message above.
@@ -647,25 +646,22 @@ func (a *AnthropicTextProvider) Chat(ctx context.Context, message ChatMessage) (
 				)
 			}
 			if content.Text == nil {
-				return "", errors.WithDetails(
-					ErrUnexpectedMessageType,
-					"apiRequest", apiRequest,
-				)
+				errE := errors.Errorf("%w: message content is nil", ErrUnexpectedMessageType)
+				errors.Details(errE)["apiRequest"] = apiRequest
+				return "", errE
 			}
 			if text != nil {
-				return "", errors.WithDetails(
-					ErrUnexpectedMessage,
-					"apiRequest", apiRequest,
-				)
+				errE := errors.Errorf("%w: not just one response", ErrUnexpectedMessage)
+				errors.Details(errE)["apiRequest"] = apiRequest
+				return "", errE
 			}
 			text = content.Text
 		}
 
 		if text == nil {
-			return "", errors.WithDetails(
-				ErrUnexpectedMessage,
-				"apiRequest", apiRequest,
-			)
+			errE := errors.Errorf("%w: message content is nil", ErrUnexpectedMessageType)
+			errors.Details(errE)["apiRequest"] = apiRequest
+			return "", errE
 		}
 
 		return *text, nil

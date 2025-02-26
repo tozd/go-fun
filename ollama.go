@@ -299,11 +299,10 @@ func (o *OllamaTextProvider) Chat(ctx context.Context, message ChatMessage) (str
 		apiCallDuration := time.Since(start)
 
 		if len(responses) != 1 {
-			return "", errors.WithDetails(
-				ErrUnexpectedMessage,
-				"number", len(responses),
-				"apiRequest", apiRequest,
-			)
+			errE := errors.Errorf("%w: not just one response", ErrUnexpectedMessage)
+			errors.Details(errE)["number"] = len(responses)
+			errors.Details(errE)["apiRequest"] = apiRequest
+			return "", errE
 		}
 
 		toolCallIDPrefix := fmt.Sprintf("call_%d", len(messages))
