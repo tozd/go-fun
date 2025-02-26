@@ -11,6 +11,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Support for reasoning models in `AnthropicTextProvider` and `OpenAITextProvider`.
 - Support limiting the maximum number of exchanges with the model to prevent infinite loops.
+- Support forcing output JSON Schema in `OllamaTextProvider`.
 
 ### Changed
 

@@ -657,7 +657,7 @@ func TestTextTools(t *testing.T) { //nolint:paralleltest,tparallel
 	tests := []textTestCase{
 		{
 			"just_prompt",
-			"Repeat the input twice, by concatenating the input string without any space. Return only the resulting string. Do not explain anything.",
+			"Repeat the input twice, by concatenating the input string without any space. Return only the resulting string. Do not explain anything. You must use the tool.",
 			nil,
 			[]fun.InputOutput[string, string]{
 				{[]string{"foo"}, "foofoo"},
@@ -711,10 +711,20 @@ func TestTextStruct(t *testing.T) { //nolint:paralleltest,tparallel
 						t.Parallel()
 					}
 
+					p := provider.Provider(t)
+
+					// TODO: Remove this special case for Ollama.
+					//       Currently it does not return JSON output on its own for all cases.
+					var outputJSONSchema []byte
+					if o, ok := p.(*fun.OllamaTextProvider); ok {
+						o.ForceOutputJSONSchema = true
+						outputJSONSchema = outputStructJSONSchema
+					}
+
 					f := fun.Text[string, OutputStruct]{
-						Provider:         provider.Provider(t),
+						Provider:         p,
 						InputJSONSchema:  jsonSchemaString,
-						OutputJSONSchema: nil,
+						OutputJSONSchema: outputJSONSchema,
 						Prompt:           tt.Prompt,
 						Data:             tt.Data,
 					}

@@ -101,6 +101,16 @@ type OllamaTextProvider struct {
 	// to obtain the final response. Default is 10.
 	MaxExchanges int `json:"maxExchanges"`
 
+	// See: https://github.com/invopop/jsonschema/issues/148
+
+	// ForceOutputJSONSchema when set to true requests the AI model to force
+	// the output JSON Schema for its output. When true, instruct the AI model
+	// to respond in JSON.
+	//
+	// There are currently limitations on the JSON Schema, so JSON Schema
+	// automatically determined from the Output type fails.
+	ForceOutputJSONSchema bool `json:"forceOutputJsonSchema"`
+
 	// Seed is used to control the randomness of the AI model. Default is 0.
 	Seed int `json:"seed"`
 
@@ -108,10 +118,11 @@ type OllamaTextProvider struct {
 	// Default is 0 which means not at all.
 	Temperature float64 `json:"temperature"`
 
-	client   *api.Client
-	messages []api.Message
-	tools    api.Tools
-	toolers  map[string]TextTooler
+	client           *api.Client
+	messages         []api.Message
+	tools            api.Tools
+	toolers          map[string]TextTooler
+	outputJSONSchema json.RawMessage
 }
 
 func (o OllamaTextProvider) MarshalJSON() ([]byte, error) {
@@ -272,6 +283,7 @@ func (o *OllamaTextProvider) Chat(ctx context.Context, message ChatMessage) (str
 			Model:    o.Model,
 			Messages: messages,
 			Stream:   &stream,
+			Format:   o.outputJSONSchema,
 			Tools:    o.tools,
 			Options: map[string]interface{}{
 				"num_ctx":     o.MaxContextLength,
@@ -401,6 +413,24 @@ func (o *OllamaTextProvider) Chat(ctx context.Context, message ChatMessage) (str
 		ErrMaxExchangesReached,
 		"maxExchanges", o.MaxExchanges,
 	)
+}
+
+// InitOutputJSONSchema implements [WithOutputJSONSchema] interface.
+func (o *OllamaTextProvider) InitOutputJSONSchema(_ context.Context, schema []byte) errors.E {
+	if !o.ForceOutputJSONSchema {
+		return nil
+	}
+
+	if schema == nil {
+		return errors.Errorf(`%w: output JSON Schema is missing`, ErrInvalidJSONSchema)
+	}
+
+	if o.outputJSONSchema != nil {
+		return errors.WithStack(ErrAlreadyInitialized)
+	}
+	o.outputJSONSchema = schema
+
+	return nil
 }
 
 // InitTools implements [WithTools] interface.
