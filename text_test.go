@@ -713,7 +713,7 @@ func TestTextStruct(t *testing.T) { //nolint:paralleltest,tparallel
 
 					p := provider.Provider(t)
 
-					// TODO: Remove this special case for Ollama and make it a seperate test case to test ForceOutputJSONSchema.
+					// TODO: Remove this special case for Ollama and make it a separate test case to test ForceOutputJSONSchema.
 					//       Currently it does not return JSON output on its own for all cases for qwen2.5:72b model.
 					if o, ok := p.(*fun.OllamaTextProvider); ok {
 						o.ForceOutputJSONSchema = true
