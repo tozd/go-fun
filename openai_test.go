@@ -20,6 +20,7 @@ func TestOpenAIJSON(t *testing.T) {
 		MaxContextLength:      43,
 		MaxResponseLength:     56,
 		MaxExchanges:          57,
+		ReasoningEffort:       "",
 		ForceOutputJSONSchema: false,
 		Seed:                  42,
 		Temperature:           0.7,
