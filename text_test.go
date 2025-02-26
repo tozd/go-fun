@@ -715,16 +715,14 @@ func TestTextStruct(t *testing.T) { //nolint:paralleltest,tparallel
 
 					// TODO: Remove this special case for Ollama.
 					//       Currently it does not return JSON output on its own for all cases.
-					var outputJSONSchema []byte
 					if o, ok := p.(*fun.OllamaTextProvider); ok {
 						o.ForceOutputJSONSchema = true
-						outputJSONSchema = outputStructJSONSchema
 					}
 
 					f := fun.Text[string, OutputStruct]{
 						Provider:         p,
 						InputJSONSchema:  jsonSchemaString,
-						OutputJSONSchema: outputJSONSchema,
+						OutputJSONSchema: nil,
 						Prompt:           tt.Prompt,
 						Data:             tt.Data,
 					}
