@@ -16,6 +16,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- Improve prompt caching when using tools for `AnthropicTextProvider`.
 - `fun` tool uses now a JSON config file instead of just a model name.
 - Go 1.23.6 or newer is required.
 - Update Ollama dependency to 0.5.11.

@@ -391,6 +391,7 @@ func (a *AnthropicTextProvider) Chat(ctx context.Context, message ChatMessage) (
 			},
 		},
 	})
+	lastCacheBreakpoint := len(messages) - 1
 
 	if callRecorder != nil {
 		for _, system := range a.system {
@@ -408,6 +409,28 @@ func (a *AnthropicTextProvider) Chat(ctx context.Context, message ChatMessage) (
 	}
 
 	for range a.MaxExchanges {
+		if len(a.tools) > 0 && a.PromptCaching {
+			// If tools are defined and prompt caching is enabled, we can improve performance by
+			// setting 2 cache breakpoints. Together with the cache breakpoint set during provider's
+			// initialization, this uses up to 3 from 4 available cache breakpoints.
+			// First we clear any cache breakpoints we might have set during this call.
+			for i := len(a.messages); i < len(messages); i++ {
+				messages[i].Content[len(messages[i].Content)-1].CacheControl = nil
+			}
+			// We set one cache breakpoint where we set the cache breakpoint the last
+			// time (to facilitate cache read for the current exchange). For the first
+			// exchange this will be the same as the second cache breaking point.
+			messages[lastCacheBreakpoint].Content[len(messages[lastCacheBreakpoint].Content)-1].CacheControl = &anthropicCacheControl{
+				Type: "ephemeral",
+			}
+			// We set second cache breaking at the end of currently available messages
+			// (to facilitate cache write in preparation for the next exchange).
+			messages[len(messages)-1].Content[len(messages[len(messages)-1].Content)-1].CacheControl = &anthropicCacheControl{
+				Type: "ephemeral",
+			}
+			lastCacheBreakpoint = len(messages) - 1
+		}
+
 		temperature := a.Temperature
 		var thinking *anthropicThinking
 		if a.ExtendedThinkingBudget > 0 {
