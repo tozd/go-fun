@@ -202,7 +202,7 @@ func (c *CallCommand) Run(logger zerolog.Logger) errors.E { //nolint:maintidx
 	invalid := x.Counter(0)
 	skipped := x.Counter(0)
 	done := x.Counter(0)
-	ticker := x.NewTicker(ctx, &count, x.NewCounter(int64(len(files))), progressPrintRate)
+	ticker := x.NewTicker(ctx, &count, int64(len(files)), progressPrintRate)
 	defer ticker.Stop()
 	go func() {
 		for p := range ticker.C {
