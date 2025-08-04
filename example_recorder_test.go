@@ -168,15 +168,15 @@ func ExampleTextRecorder() {
 	//         "maxTotal": 128000,
 	//         "maxResponse": 16384,
 	//         "prompt": 57,
-	//         "response": 17,
-	//         "total": 74
+	//         "response": 16,
+	//         "total": 73
 	//       },
 	//       "req_1_1": {
 	//         "maxTotal": 128000,
 	//         "maxResponse": 16384,
 	//         "prompt": 82,
-	//         "response": 3,
-	//         "total": 85
+	//         "response": 2,
+	//         "total": 84
 	//       }
 	//     },
 	//     "usedTime": {
