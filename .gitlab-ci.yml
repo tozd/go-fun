@@ -28,7 +28,7 @@ test:
     - saas-linux-2xlarge-amd64
 
   services:
-    - name: ollama/ollama:0.5.11
+    - name: ollama/ollama:0.10.1
       alias: ollama
 
   variables:
@@ -71,7 +71,7 @@ test_e2e:
     - saas-linux-2xlarge-amd64
 
   services:
-    - name: ollama/ollama:0.5.11
+    - name: ollama/ollama:0.10.1
       alias: ollama
 
   variables:

@@ -1,11 +1,11 @@
 module gitlab.com/tozd/go/fun
 
-go 1.23.4
+go 1.24.0
 
-toolchain go1.23.6
+toolchain go1.24.5
 
 require (
-	github.com/ollama/ollama v0.5.11
+	github.com/ollama/ollama v0.10.1
 	github.com/rs/zerolog v1.33.0
 	github.com/santhosh-tekuri/jsonschema/v6 v6.0.1
 	github.com/tidwall/gjson v1.17.3

@@ -29,7 +29,7 @@ This is a Go package. You can add it to your project using `go get`:
 go get gitlab.com/tozd/go/fun
 ```
 
-It requires Go 1.23.6 or newer.
+It requires Go 1.24.5 or newer.
 
 [Releases page](https://gitlab.com/tozd/go/fun/-/releases)
 contains a list of stable versions of the `fun` tool.
