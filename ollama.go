@@ -281,7 +281,8 @@ func (o *OllamaTextProvider) Chat(ctx context.Context, message ChatMessage) (str
 
 		start := time.Now()
 		stream := false
-		err := o.client.Chat(ctx, &api.ChatRequest{ //nolint:exhaustruct
+		think := false
+		err := o.client.Chat(ctx, &api.ChatRequest{
 			Model:    o.Model,
 			Messages: messages,
 			Stream:   &stream,
@@ -293,6 +294,8 @@ func (o *OllamaTextProvider) Chat(ctx context.Context, message ChatMessage) (str
 				"seed":        o.Seed,
 				"temperature": o.Temperature,
 			},
+			KeepAlive: nil,
+			Think:     &think,
 		}, func(resp api.ChatResponse) error {
 			responses = append(responses, resp)
 			return nil
