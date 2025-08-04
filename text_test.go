@@ -115,7 +115,7 @@ var providers = []testProvider{
 			return &fun.OllamaTextProvider{
 				Client:            nil,
 				Base:              os.Getenv("OLLAMA_HOST"),
-				Model:             "qwen2.5:72b",
+				Model:             "qwen3:32b",
 				MaxContextLength:  0,
 				MaxResponseLength: 0,
 				Seed:              42,
@@ -227,7 +227,7 @@ var providersForTools = []testProvider{
 			return &fun.OllamaTextProvider{
 				Client:            nil,
 				Base:              os.Getenv("OLLAMA_HOST"),
-				Model:             "qwen2.5:72b",
+				Model:             "qwen3:32b",
 				MaxContextLength:  0,
 				MaxResponseLength: 0,
 				Seed:              42,
@@ -246,7 +246,7 @@ var providersForTools = []testProvider{
 			return &fun.GroqTextProvider{
 				Client:                 nil,
 				APIKey:                 os.Getenv("GROQ_API_KEY"),
-				Model:                  "qwen-2.5-32b",
+				Model:                  "qwen/qwen3-32b",
 				RequestsPerMinuteLimit: 100,
 				MaxContextLength:       0,
 				MaxResponseLength:      0,
