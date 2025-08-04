@@ -424,7 +424,7 @@ func runTextTests(
 						Tools:            tools(),
 					}
 
-					ctx := zerolog.New(zerolog.NewTestWriter(t)).WithContext(context.Background())
+					ctx := zerolog.New(zerolog.NewTestWriter(t)).WithContext(t.Context())
 
 					errE := f.Init(ctx)
 					require.NoError(t, errE, "% -+#.1v", errE)
@@ -727,7 +727,7 @@ func TestTextStruct(t *testing.T) { //nolint:paralleltest,tparallel
 						Data:             tt.Data,
 					}
 
-					ctx := zerolog.New(zerolog.NewTestWriter(t)).WithContext(context.Background())
+					ctx := zerolog.New(zerolog.NewTestWriter(t)).WithContext(t.Context())
 
 					errE := f.Init(ctx)
 					require.NoError(t, errE, "% -+#.1v", errE)
@@ -801,7 +801,7 @@ func TestOpenAIJSONSchema(t *testing.T) {
 				Data:             data,
 			}
 
-			ctx := zerolog.New(zerolog.NewTestWriter(t)).WithContext(context.Background())
+			ctx := zerolog.New(zerolog.NewTestWriter(t)).WithContext(t.Context())
 
 			errE := f.Init(ctx)
 			require.NoError(t, errE, "% -+#.1v", errE)

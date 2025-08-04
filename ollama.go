@@ -52,11 +52,14 @@ func ollamaRateLimiterLock(key string) *sync.Mutex {
 // See: https://github.com/ollama/ollama/issues/6377
 type ollamaToolFunctionParameters struct {
 	Type       string   `json:"type"`
+	Defs       any      `json:"$defs,omitempty"`
+	Items      any      `json:"items,omitempty"`
 	Required   []string `json:"required"`
 	Properties map[string]struct {
-		Type        string   `json:"type"`
-		Description string   `json:"description"`
-		Enum        []string `json:"enum,omitempty"`
+		Type        api.PropertyType `json:"type"`
+		Items       any              `json:"items,omitempty"`
+		Description string           `json:"description"`
+		Enum        []any            `json:"enum,omitempty"`
 	} `json:"properties"`
 }
 
@@ -161,8 +164,10 @@ func (o *OllamaTextProvider) Init(ctx context.Context, messages []ChatMessage) e
 		o.messages = append(o.messages, api.Message{
 			Role:      message.Role,
 			Content:   message.Content,
+			Thinking:  "",
 			Images:    nil,
 			ToolCalls: nil,
+			ToolName:  "",
 		})
 	}
 
@@ -246,8 +251,10 @@ func (o *OllamaTextProvider) Chat(ctx context.Context, message ChatMessage) (str
 	messages = append(messages, api.Message{
 		Role:      message.Role,
 		Content:   message.Content,
+		Thinking:  "",
 		Images:    nil,
 		ToolCalls: nil,
+		ToolName:  "",
 	})
 
 	if callRecorder != nil {
@@ -378,8 +385,10 @@ func (o *OllamaTextProvider) Chat(ctx context.Context, message ChatMessage) (str
 				messages = append(messages, api.Message{
 					Role:      roleTool,
 					Content:   "",
+					Thinking:  "",
 					Images:    nil,
 					ToolCalls: nil,
+					ToolName:  toolCall.Function.Name,
 				})
 				result := &messages[len(messages)-1]
 
@@ -474,7 +483,8 @@ func (o *OllamaTextProvider) InitTools(ctx context.Context, tools map[string]Tex
 		}
 
 		o.tools = append(o.tools, api.Tool{
-			Type: "function",
+			Type:  "function",
+			Items: nil,
 			Function: api.ToolFunction{
 				Name:        name,
 				Description: tool.GetDescription(),

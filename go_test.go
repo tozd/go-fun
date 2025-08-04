@@ -21,7 +21,7 @@ func TestGo(t *testing.T) {
 		},
 	}
 
-	ctx := zerolog.New(zerolog.NewTestWriter(t)).WithContext(context.Background())
+	ctx := zerolog.New(zerolog.NewTestWriter(t)).WithContext(t.Context())
 
 	errE := f.Init(ctx)
 	require.NoError(t, errE, "% -+#.1v", errE)
