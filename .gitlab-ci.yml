@@ -18,6 +18,7 @@ variables:
   DOCKER_BUILDKIT: "1"
   FF_NETWORK_PER_BUILD: 1
   PACKAGE_REGISTRY_URL: "${CI_API_V4_URL}/projects/${CI_PROJECT_ID}/packages/generic"
+  CI_DEBUG_SERVICES: "true"
 
 test:
   stage: test
@@ -32,7 +33,6 @@ test:
       alias: ollama
       variables:
         OLLAMA_DEBUG: "1"
-        CI_DEBUG_SERVICES: "true"
 
   variables:
     OLLAMA_HOST: http://ollama:11434
@@ -78,7 +78,6 @@ test_e2e:
       alias: ollama
       variables:
         OLLAMA_DEBUG: "1"
-        CI_DEBUG_SERVICES: "true"
 
   variables:
     OLLAMA_HOST: http://ollama:11434
