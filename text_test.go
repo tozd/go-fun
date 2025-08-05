@@ -227,7 +227,7 @@ var providersForTools = []testProvider{
 			return &fun.OllamaTextProvider{
 				Client:            nil,
 				Base:              os.Getenv("OLLAMA_HOST"),
-				Model:             "qwen/qwen3-32b",
+				Model:             "qwen3:32b",
 				MaxContextLength:  0,
 				MaxResponseLength: 0,
 				Seed:              42,
