@@ -35,7 +35,7 @@ test:
     OLLAMA_HOST: http://ollama:11434
 
   before_script:
-    - apk --update add make bash git gcc musl-dev
+    - apk --update add make bash git gcc musl-dev curl
     - (cd /go; go install gotest.tools/gotestsum@v1.12.0)
     - (cd /go; go install github.com/boumenot/gocover-cobertura@v1.3.0)
     - (cd /go; go install github.com/google/martian/v3/cmd/proxy@v3.3.3)
