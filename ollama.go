@@ -48,21 +48,6 @@ func ollamaRateLimiterLock(key string) *sync.Mutex {
 	return ollamaRateLimiter[key]
 }
 
-// This is a copy of what is supported in ToolFunction.
-// See: https://github.com/ollama/ollama/issues/6377
-type ollamaToolFunctionParameters struct {
-	Type       string   `json:"type"`
-	Defs       any      `json:"$defs,omitempty"`
-	Items      any      `json:"items,omitempty"`
-	Required   []string `json:"required"`
-	Properties map[string]struct {
-		Type        api.PropertyType `json:"type"`
-		Items       any              `json:"items,omitempty"`
-		Description string           `json:"description"`
-		Enum        []any            `json:"enum,omitempty"`
-	} `json:"properties"`
-}
-
 var _ TextProvider = (*OllamaTextProvider)(nil)
 
 // OllamaModelAccess describes access to a model for [OllamaTextProvider].
@@ -281,7 +266,6 @@ func (o *OllamaTextProvider) Chat(ctx context.Context, message ChatMessage) (str
 
 		start := time.Now()
 		stream := false
-		think := false
 		err := o.client.Chat(ctx, &api.ChatRequest{
 			Model:    o.Model,
 			Messages: messages,
@@ -295,7 +279,7 @@ func (o *OllamaTextProvider) Chat(ctx context.Context, message ChatMessage) (str
 				"temperature": o.Temperature,
 			},
 			KeepAlive: nil,
-			Think:     &think,
+			Think:     &api.ThinkValue{Value: true},
 		}, func(resp api.ChatResponse) error {
 			responses = append(responses, resp)
 			return nil
@@ -477,7 +461,7 @@ func (o *OllamaTextProvider) InitTools(ctx context.Context, tools map[string]Tex
 		}
 
 		// We do not allow unknown fields to make sure we can fully support provided JSON Schema.
-		var parameters ollamaToolFunctionParameters
+		var parameters api.ToolFunctionParameters
 		errE = x.UnmarshalWithoutUnknownFields(schema, &parameters)
 		if errE != nil {
 			errE = errors.Prefix(errE, ErrInvalidJSONSchema)

@@ -112,7 +112,7 @@ func parseAnthropicRateLimitHeaders(resp *http.Response) ( //nolint:nonamedretur
 		limitInputTokensStr == "" || remainingInputTokensStr == "" || resetInputTokensStr == "" ||
 		limitOutputTokensStr == "" || remainingOutputTokensStr == "" || resetOutputTokensStr == "" {
 		// ok == false here.
-		return //nolint:nakedret
+		return limitRequests, limitInputTokens, limitOutputTokens, remainingRequests, remainingInputTokens, remainingOutputTokens, resetRequests, resetInputTokens, resetOutputTokens, ok, errE //nolint:nakedret
 	}
 
 	// We have all the headers we want.
@@ -122,52 +122,52 @@ func parseAnthropicRateLimitHeaders(resp *http.Response) ( //nolint:nonamedretur
 	limitRequests, err = strconv.Atoi(limitRequestsStr)
 	if err != nil {
 		errE = errors.WithDetails(err, "value", limitRequestsStr)
-		return //nolint:nakedret
+		return limitRequests, limitInputTokens, limitOutputTokens, remainingRequests, remainingInputTokens, remainingOutputTokens, resetRequests, resetInputTokens, resetOutputTokens, ok, errE //nolint:nakedret
 	}
 	remainingRequests, err = strconv.Atoi(remainingRequestsStr)
 	if err != nil {
 		errE = errors.WithDetails(err, "value", remainingRequestsStr)
-		return //nolint:nakedret
+		return limitRequests, limitInputTokens, limitOutputTokens, remainingRequests, remainingInputTokens, remainingOutputTokens, resetRequests, resetInputTokens, resetOutputTokens, ok, errE //nolint:nakedret
 	}
 	resetRequests, err = time.Parse(time.RFC3339, resetRequestsStr)
 	if err != nil {
 		errE = errors.WithDetails(err, "value", resetRequestsStr)
-		return //nolint:nakedret
+		return limitRequests, limitInputTokens, limitOutputTokens, remainingRequests, remainingInputTokens, remainingOutputTokens, resetRequests, resetInputTokens, resetOutputTokens, ok, errE //nolint:nakedret
 	}
 
 	limitInputTokens, err = strconv.Atoi(limitInputTokensStr)
 	if err != nil {
 		errE = errors.WithDetails(err, "value", limitInputTokensStr)
-		return //nolint:nakedret
+		return limitRequests, limitInputTokens, limitOutputTokens, remainingRequests, remainingInputTokens, remainingOutputTokens, resetRequests, resetInputTokens, resetOutputTokens, ok, errE //nolint:nakedret
 	}
 	remainingInputTokens, err = strconv.Atoi(remainingInputTokensStr)
 	if err != nil {
 		errE = errors.WithDetails(err, "value", remainingInputTokensStr)
-		return //nolint:nakedret
+		return limitRequests, limitInputTokens, limitOutputTokens, remainingRequests, remainingInputTokens, remainingOutputTokens, resetRequests, resetInputTokens, resetOutputTokens, ok, errE //nolint:nakedret
 	}
 	resetInputTokens, err = time.Parse(time.RFC3339, resetInputTokensStr)
 	if err != nil {
 		errE = errors.WithDetails(err, "value", resetInputTokensStr)
-		return //nolint:nakedret
+		return limitRequests, limitInputTokens, limitOutputTokens, remainingRequests, remainingInputTokens, remainingOutputTokens, resetRequests, resetInputTokens, resetOutputTokens, ok, errE //nolint:nakedret
 	}
 
 	limitOutputTokens, err = strconv.Atoi(limitOutputTokensStr)
 	if err != nil {
 		errE = errors.WithDetails(err, "value", limitOutputTokensStr)
-		return //nolint:nakedret
+		return limitRequests, limitInputTokens, limitOutputTokens, remainingRequests, remainingInputTokens, remainingOutputTokens, resetRequests, resetInputTokens, resetOutputTokens, ok, errE //nolint:nakedret
 	}
 	remainingOutputTokens, err = strconv.Atoi(remainingOutputTokensStr)
 	if err != nil {
 		errE = errors.WithDetails(err, "value", remainingOutputTokensStr)
-		return //nolint:nakedret
+		return limitRequests, limitInputTokens, limitOutputTokens, remainingRequests, remainingInputTokens, remainingOutputTokens, resetRequests, resetInputTokens, resetOutputTokens, ok, errE //nolint:nakedret
 	}
 	resetOutputTokens, err = time.Parse(time.RFC3339, resetOutputTokensStr)
 	if err != nil {
 		errE = errors.WithDetails(err, "value", resetOutputTokensStr)
-		return //nolint:nakedret
+		return limitRequests, limitInputTokens, limitOutputTokens, remainingRequests, remainingInputTokens, remainingOutputTokens, resetRequests, resetInputTokens, resetOutputTokens, ok, errE //nolint:nakedret
 	}
 
-	return //nolint:nakedret
+	return limitRequests, limitInputTokens, limitOutputTokens, remainingRequests, remainingInputTokens, remainingOutputTokens, resetRequests, resetInputTokens, resetOutputTokens, ok, errE //nolint:nakedret
 }
 
 type anthropicTool struct {

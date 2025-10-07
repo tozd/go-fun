@@ -121,7 +121,7 @@ func parseRateLimitHeaders(resp *http.Response) ( //nolint:nonamedreturns
 
 	if limitRequestsStr == "" || limitTokensStr == "" || remainingRequestsStr == "" || remainingTokensStr == "" || resetRequestsStr == "" || resetTokensStr == "" {
 		// ok == false here.
-		return //nolint:nakedret
+		return limitRequests, limitTokens, remainingRequests, remainingTokens, resetRequests, resetTokens, ok, errE //nolint:nakedret
 	}
 
 	// We have all the headers we want.
@@ -131,37 +131,37 @@ func parseRateLimitHeaders(resp *http.Response) ( //nolint:nonamedreturns
 	limitRequests, err = strconv.Atoi(limitRequestsStr)
 	if err != nil {
 		errE = errors.WithDetails(err, "value", limitRequestsStr)
-		return //nolint:nakedret
+		return limitRequests, limitTokens, remainingRequests, remainingTokens, resetRequests, resetTokens, ok, errE //nolint:nakedret
 	}
 	limitTokens, err = strconv.Atoi(limitTokensStr)
 	if err != nil {
 		errE = errors.WithDetails(err, "value", limitTokensStr)
-		return //nolint:nakedret
+		return limitRequests, limitTokens, remainingRequests, remainingTokens, resetRequests, resetTokens, ok, errE //nolint:nakedret
 	}
 	remainingRequests, err = strconv.Atoi(remainingRequestsStr)
 	if err != nil {
 		errE = errors.WithDetails(err, "value", remainingRequestsStr)
-		return //nolint:nakedret
+		return limitRequests, limitTokens, remainingRequests, remainingTokens, resetRequests, resetTokens, ok, errE //nolint:nakedret
 	}
 	remainingTokens, err = strconv.Atoi(remainingTokensStr)
 	if err != nil {
 		errE = errors.WithDetails(err, "value", remainingTokensStr)
-		return //nolint:nakedret
+		return limitRequests, limitTokens, remainingRequests, remainingTokens, resetRequests, resetTokens, ok, errE //nolint:nakedret
 	}
 	resetRequestsDuration, err := time.ParseDuration(resetRequestsStr)
 	if err != nil {
 		errE = errors.WithDetails(err, "value", resetRequestsStr)
-		return //nolint:nakedret
+		return limitRequests, limitTokens, remainingRequests, remainingTokens, resetRequests, resetTokens, ok, errE //nolint:nakedret
 	}
 	resetRequests = now.Add(resetRequestsDuration)
 	resetTokensDuration, err := time.ParseDuration(resetTokensStr)
 	if err != nil {
 		errE = errors.WithDetails(err, "value", resetTokensStr)
-		return //nolint:nakedret
+		return limitRequests, limitTokens, remainingRequests, remainingTokens, resetRequests, resetTokens, ok, errE //nolint:nakedret
 	}
 	resetTokens = now.Add(resetTokensDuration)
 
-	return //nolint:nakedret
+	return limitRequests, limitTokens, remainingRequests, remainingTokens, resetRequests, resetTokens, ok, errE //nolint:nakedret
 }
 
 func getString(data any, name string) string {
