@@ -108,12 +108,14 @@ type OllamaTextProvider struct {
 	outputJSONSchema json.RawMessage
 }
 
+// MarshalJSON implements json.Marshaler interface for OllamaTextProvider.
 func (o OllamaTextProvider) MarshalJSON() ([]byte, error) {
 	// We define a new type to not recurse into this same MarshalJSON.
 	type P OllamaTextProvider
 	t := struct {
-		Type string `json:"type"`
 		P
+
+		Type string `json:"type"`
 	}{
 		Type: "ollama",
 		P:    P(o),
@@ -278,8 +280,9 @@ func (o *OllamaTextProvider) Chat(ctx context.Context, message ChatMessage) (str
 				"seed":        o.Seed,
 				"temperature": o.Temperature,
 			},
-			KeepAlive: nil,
-			Think:     &api.ThinkValue{Value: true},
+			KeepAlive:       nil,
+			Think:           &api.ThinkValue{Value: true},
+			DebugRenderOnly: false,
 		}, func(resp api.ChatResponse) error {
 			responses = append(responses, resp)
 			return nil
@@ -306,16 +309,16 @@ func (o *OllamaTextProvider) Chat(ctx context.Context, message ChatMessage) (str
 				apiRequest,
 				o.MaxContextLength,
 				o.MaxResponseLength,
-				responses[0].Metrics.PromptEvalCount,
-				responses[0].Metrics.EvalCount,
+				responses[0].PromptEvalCount,
+				responses[0].EvalCount,
 				nil,
 				nil,
 				nil,
 			)
 			callRecorder.addUsedTime(
 				apiRequest,
-				responses[0].Metrics.PromptEvalDuration,
-				responses[0].Metrics.EvalDuration,
+				responses[0].PromptEvalDuration,
+				responses[0].EvalDuration,
 				apiCallDuration,
 			)
 
@@ -324,13 +327,13 @@ func (o *OllamaTextProvider) Chat(ctx context.Context, message ChatMessage) (str
 			callRecorder.notify("", nil)
 		}
 
-		if responses[0].Metrics.PromptEvalCount+responses[0].Metrics.EvalCount >= o.MaxContextLength {
+		if responses[0].PromptEvalCount+responses[0].EvalCount >= o.MaxContextLength {
 			return "", errors.WithDetails(
 				ErrUnexpectedNumberOfTokens,
 				"content", responses[0].Message.Content,
-				"prompt", responses[0].Metrics.PromptEvalCount,
-				"response", responses[0].Metrics.EvalCount,
-				"total", responses[0].Metrics.PromptEvalCount+responses[0].Metrics.EvalCount,
+				"prompt", responses[0].PromptEvalCount,
+				"response", responses[0].EvalCount,
+				"total", responses[0].PromptEvalCount+responses[0].EvalCount,
 				"maxTotal", o.MaxContextLength,
 				"maxResponse", o.MaxResponseLength,
 				"apiRequest", apiRequest,

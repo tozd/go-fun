@@ -1,3 +1,4 @@
+// Command fun is a CLI tool for calling AI models on files.
 package main
 
 import (

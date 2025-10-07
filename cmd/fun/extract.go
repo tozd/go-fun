@@ -19,13 +19,13 @@ type ExtractCommand struct {
 	InputFile       *os.File `                      help:"Path to input JSON file."                                                                   name:"input"  placeholder:"PATH"   required:"" short:"i"`
 	OutputDir       string   `                      help:"Path to output directory."                                                                  name:"output" placeholder:"PATH"   required:"" short:"o" type:"path"`
 	OutputExtension string   `                      help:"File extension of an output file."                                                          name:"out"    placeholder:"EXT"`
-	IDField         string   `       default:"id"   help:"Name of the field used for ID in results from the GJSON query. Default: ${default}."        name:"id"     placeholder:"STRING"`
-	DataField       string   `       default:"data" help:"Name of the field used for data in results from the GJSON query. Default: ${default}."      name:"data"   placeholder:"STRING"`
+	IDField         string   `       default:"id"   help:"Name of the field used for ID in results from the GJSON query."                             name:"id"     placeholder:"STRING"`
+	DataField       string   `       default:"data" help:"Name of the field used for data in results from the GJSON query."                           name:"data"   placeholder:"STRING"`
 	Query           string   `arg:""                help:"GJSON query to extract data. It should return an array of objects with ID and data fields."`
 }
 
 func (c *ExtractCommand) Run(_ zerolog.Logger) errors.E {
-	err := os.MkdirAll(c.OutputDir, 0o755) //nolint:mnd
+	err := os.MkdirAll(c.OutputDir, 0o755) //nolint:mnd,gosec
 	if err != nil {
 		return errors.WithStack(err)
 	}

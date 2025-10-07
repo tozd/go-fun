@@ -7,12 +7,13 @@ import (
 )
 
 func writeFile(path, data string) errors.E {
-	f, err := os.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o644) //nolint:mnd
+	f, err := os.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o644) //nolint:mnd,gosec
 	if err != nil {
 		return errors.WithStack(err)
 	}
 	_, err = f.WriteString(data)
-	if err2 := f.Close(); err2 != nil && err == nil {
+	err2 := f.Close()
+	if err2 != nil && err == nil {
 		err = err2
 	}
 	return errors.WithStack(err)

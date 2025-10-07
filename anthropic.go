@@ -112,7 +112,8 @@ func parseAnthropicRateLimitHeaders(resp *http.Response) ( //nolint:nonamedretur
 		limitInputTokensStr == "" || remainingInputTokensStr == "" || resetInputTokensStr == "" ||
 		limitOutputTokensStr == "" || remainingOutputTokensStr == "" || resetOutputTokensStr == "" {
 		// ok == false here.
-		return limitRequests, limitInputTokens, limitOutputTokens, remainingRequests, remainingInputTokens, remainingOutputTokens, resetRequests, resetInputTokens, resetOutputTokens, ok, errE //nolint:nakedret
+		return limitRequests, limitInputTokens, limitOutputTokens, remainingRequests,
+			remainingInputTokens, remainingOutputTokens, resetRequests, resetInputTokens, resetOutputTokens, ok, errE
 	}
 
 	// We have all the headers we want.
@@ -122,52 +123,62 @@ func parseAnthropicRateLimitHeaders(resp *http.Response) ( //nolint:nonamedretur
 	limitRequests, err = strconv.Atoi(limitRequestsStr)
 	if err != nil {
 		errE = errors.WithDetails(err, "value", limitRequestsStr)
-		return limitRequests, limitInputTokens, limitOutputTokens, remainingRequests, remainingInputTokens, remainingOutputTokens, resetRequests, resetInputTokens, resetOutputTokens, ok, errE //nolint:nakedret
+		return limitRequests, limitInputTokens, limitOutputTokens, remainingRequests,
+			remainingInputTokens, remainingOutputTokens, resetRequests, resetInputTokens, resetOutputTokens, ok, errE
 	}
 	remainingRequests, err = strconv.Atoi(remainingRequestsStr)
 	if err != nil {
 		errE = errors.WithDetails(err, "value", remainingRequestsStr)
-		return limitRequests, limitInputTokens, limitOutputTokens, remainingRequests, remainingInputTokens, remainingOutputTokens, resetRequests, resetInputTokens, resetOutputTokens, ok, errE //nolint:nakedret
+		return limitRequests, limitInputTokens, limitOutputTokens, remainingRequests,
+			remainingInputTokens, remainingOutputTokens, resetRequests, resetInputTokens, resetOutputTokens, ok, errE
 	}
 	resetRequests, err = time.Parse(time.RFC3339, resetRequestsStr)
 	if err != nil {
 		errE = errors.WithDetails(err, "value", resetRequestsStr)
-		return limitRequests, limitInputTokens, limitOutputTokens, remainingRequests, remainingInputTokens, remainingOutputTokens, resetRequests, resetInputTokens, resetOutputTokens, ok, errE //nolint:nakedret
+		return limitRequests, limitInputTokens, limitOutputTokens, remainingRequests,
+			remainingInputTokens, remainingOutputTokens, resetRequests, resetInputTokens, resetOutputTokens, ok, errE
 	}
 
 	limitInputTokens, err = strconv.Atoi(limitInputTokensStr)
 	if err != nil {
 		errE = errors.WithDetails(err, "value", limitInputTokensStr)
-		return limitRequests, limitInputTokens, limitOutputTokens, remainingRequests, remainingInputTokens, remainingOutputTokens, resetRequests, resetInputTokens, resetOutputTokens, ok, errE //nolint:nakedret
+		return limitRequests, limitInputTokens, limitOutputTokens, remainingRequests,
+			remainingInputTokens, remainingOutputTokens, resetRequests, resetInputTokens, resetOutputTokens, ok, errE
 	}
 	remainingInputTokens, err = strconv.Atoi(remainingInputTokensStr)
 	if err != nil {
 		errE = errors.WithDetails(err, "value", remainingInputTokensStr)
-		return limitRequests, limitInputTokens, limitOutputTokens, remainingRequests, remainingInputTokens, remainingOutputTokens, resetRequests, resetInputTokens, resetOutputTokens, ok, errE //nolint:nakedret
+		return limitRequests, limitInputTokens, limitOutputTokens, remainingRequests,
+			remainingInputTokens, remainingOutputTokens, resetRequests, resetInputTokens, resetOutputTokens, ok, errE
 	}
 	resetInputTokens, err = time.Parse(time.RFC3339, resetInputTokensStr)
 	if err != nil {
 		errE = errors.WithDetails(err, "value", resetInputTokensStr)
-		return limitRequests, limitInputTokens, limitOutputTokens, remainingRequests, remainingInputTokens, remainingOutputTokens, resetRequests, resetInputTokens, resetOutputTokens, ok, errE //nolint:nakedret
+		return limitRequests, limitInputTokens, limitOutputTokens, remainingRequests,
+			remainingInputTokens, remainingOutputTokens, resetRequests, resetInputTokens, resetOutputTokens, ok, errE
 	}
 
 	limitOutputTokens, err = strconv.Atoi(limitOutputTokensStr)
 	if err != nil {
 		errE = errors.WithDetails(err, "value", limitOutputTokensStr)
-		return limitRequests, limitInputTokens, limitOutputTokens, remainingRequests, remainingInputTokens, remainingOutputTokens, resetRequests, resetInputTokens, resetOutputTokens, ok, errE //nolint:nakedret
+		return limitRequests, limitInputTokens, limitOutputTokens, remainingRequests,
+			remainingInputTokens, remainingOutputTokens, resetRequests, resetInputTokens, resetOutputTokens, ok, errE
 	}
 	remainingOutputTokens, err = strconv.Atoi(remainingOutputTokensStr)
 	if err != nil {
 		errE = errors.WithDetails(err, "value", remainingOutputTokensStr)
-		return limitRequests, limitInputTokens, limitOutputTokens, remainingRequests, remainingInputTokens, remainingOutputTokens, resetRequests, resetInputTokens, resetOutputTokens, ok, errE //nolint:nakedret
+		return limitRequests, limitInputTokens, limitOutputTokens, remainingRequests,
+			remainingInputTokens, remainingOutputTokens, resetRequests, resetInputTokens, resetOutputTokens, ok, errE
 	}
 	resetOutputTokens, err = time.Parse(time.RFC3339, resetOutputTokensStr)
 	if err != nil {
 		errE = errors.WithDetails(err, "value", resetOutputTokensStr)
-		return limitRequests, limitInputTokens, limitOutputTokens, remainingRequests, remainingInputTokens, remainingOutputTokens, resetRequests, resetInputTokens, resetOutputTokens, ok, errE //nolint:nakedret
+		return limitRequests, limitInputTokens, limitOutputTokens, remainingRequests,
+			remainingInputTokens, remainingOutputTokens, resetRequests, resetInputTokens, resetOutputTokens, ok, errE
 	}
 
-	return limitRequests, limitInputTokens, limitOutputTokens, remainingRequests, remainingInputTokens, remainingOutputTokens, resetRequests, resetInputTokens, resetOutputTokens, ok, errE //nolint:nakedret
+	return limitRequests, limitInputTokens, limitOutputTokens, remainingRequests,
+		remainingInputTokens, remainingOutputTokens, resetRequests, resetInputTokens, resetOutputTokens, ok, errE
 }
 
 type anthropicTool struct {
@@ -228,15 +239,17 @@ type AnthropicTextProvider struct {
 	tools          []anthropicTool
 }
 
+// MarshalJSON implements json.Marshaler interface for AnthropicTextProvider.
 func (a AnthropicTextProvider) MarshalJSON() ([]byte, error) {
 	// We define a new type to not recurse into this same MarshalJSON.
 	type P AnthropicTextProvider
 	t := struct {
-		Type string `json:"type"`
 		P
+
+		Type string `json:"type"`
 	}{
-		Type: "anthropic",
 		P:    P(a),
+		Type: "anthropic",
 	}
 	return x.MarshalWithoutEscapeHTML(t)
 }
@@ -312,7 +325,7 @@ func (a *AnthropicTextProvider) Init(_ context.Context, messages []ChatMessage) 
 			if resp.StatusCode == http.StatusTooManyRequests {
 				// We read the body and provide it back.
 				body, _ := io.ReadAll(resp.Body)
-				resp.Body.Close()
+				resp.Body.Close() //nolint:errcheck,gosec
 				resp.Body = io.NopCloser(bytes.NewReader(body))
 				if resp.Header.Get("Content-Type") == applicationJSONHeader && json.Valid(body) {
 					zerolog.Ctx(ctx).Warn().RawJSON("body", body).Msg("hit rate limit")
@@ -491,7 +504,7 @@ func (a *AnthropicTextProvider) Chat(ctx context.Context, message ChatMessage) (
 			}
 			return "", errE
 		}
-		defer resp.Body.Close()
+		defer resp.Body.Close()              //nolint:errcheck
 		defer io.Copy(io.Discard, resp.Body) //nolint:errcheck
 
 		if apiRequest == "" {

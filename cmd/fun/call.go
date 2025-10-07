@@ -40,15 +40,15 @@ type CallCommand struct {
 	OutputDir        string               `                                                   help:"Path to output directory."                                                                   name:"output"        placeholder:"PATH" required:"" short:"o" type:"path"`
 	DataDir          string               `                                                   help:"Path to data directory. It should contains pairs of files with inputs and expected outputs." name:"data"          placeholder:"PATH"             short:"d" type:"existingdir"`
 	PromptPath       string               `                                                   help:"Path to a file with the prompt, a natural language description of the function."             name:"prompt"        placeholder:"PATH"             short:"P" type:"path"`
-	InputExtension   string               `default:".in"                                      help:"File extension of an input file. Default: ${default}."                                       name:"in"            placeholder:"EXT"`
-	OutputExtension  string               `default:".out"                                     help:"File extension of an output file. Default: ${default}."                                      name:"out"           placeholder:"EXT"`
+	InputExtension   string               `default:".in"                                      help:"File extension of an input file."                                                            name:"in"            placeholder:"EXT"`
+	OutputExtension  string               `default:".out"                                     help:"File extension of an output file."                                                           name:"out"           placeholder:"EXT"`
 	InputJSONSchema  kong.FileContentFlag `                                                   help:"Path to a file with JSON Schema to validate inputs."                                         name:"input-schema"  placeholder:"PATH"`
 	OutputJSONSchema kong.FileContentFlag `                                                   help:"Path to a file with JSON Schema to validate outputs."                                        name:"output-schema" placeholder:"PATH"`
-	Provider         string               `               enum:"ollama,groq,anthropic,openai" help:"AI model provider. Possible: ${enum}."                                                                                               required:"" short:"p"`
-	Config           kong.FileContentFlag `                                                   help:"Path to a file with AI model configuration in JSON."                                                                                 required:"" short:"c"`
-	Parallel         int                  `default:"1"                                        help:"How many input files to process in parallel. Default: ${default}."                                                placeholder:"INT"`
-	Batches          int                  `default:"1"                                        help:"Split input files into batches. Default: ${default}."                                                             placeholder:"INT"              short:"B"`
-	Batch            int                  `default:"0"                                        help:"Process only files in the batch with this 0-based index. Default: ${default}."                                    placeholder:"INT"              short:"b"`
+	Provider         string               `               enum:"ollama,groq,anthropic,openai" help:"AI model provider."                                                                                                                  required:"" short:"p"`
+	Config           kong.FileContentFlag `                                                   help:"Path to a file with AI model configuration in JSON."                                                              placeholder:"PATH" required:"" short:"c"`
+	Parallel         int                  `default:"1"                                        help:"How many input files to process in parallel."                                                                     placeholder:"INT"`
+	Batches          int                  `default:"1"                                        help:"Split input files into batches."                                                                                  placeholder:"INT"              short:"B"`
+	Batch            int                  `default:"0"                                        help:"Process only files in the batch with this 0-based index."                                                         placeholder:"INT"              short:"b"`
 }
 
 func (c *CallCommand) Run(logger zerolog.Logger) errors.E { //nolint:maintidx
@@ -138,11 +138,11 @@ func (c *CallCommand) Run(logger zerolog.Logger) errors.E { //nolint:maintidx
 
 		for _, inputPath := range files {
 			outputPath := strings.TrimSuffix(inputPath, c.InputExtension) + c.OutputExtension
-			inputData, err := os.ReadFile(inputPath)
+			inputData, err := os.ReadFile(filepath.Clean(inputPath))
 			if err != nil {
 				return errors.WithStack(err)
 			}
-			outputData, err := os.ReadFile(outputPath)
+			outputData, err := os.ReadFile(filepath.Clean(outputPath))
 			if err != nil {
 				return errors.WithStack(err)
 			}
@@ -173,7 +173,7 @@ func (c *CallCommand) Run(logger zerolog.Logger) errors.E { //nolint:maintidx
 	}
 	slices.Sort(files)
 
-	err = os.MkdirAll(c.OutputDir, 0o755) //nolint:mnd
+	err = os.MkdirAll(c.OutputDir, 0o755) //nolint:mnd,gosec
 	if err != nil {
 		return errors.WithStack(err)
 	}
@@ -293,7 +293,7 @@ func (c *CallCommand) processFile( //nolint:nonamedreturns
 		errored = errE == nil && errorErrE != nil && invalidErrE == nil
 	}()
 
-	f, err := os.OpenFile(outputPath, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o644) //nolint:mnd
+	f, err := os.OpenFile(outputPath, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o644) //nolint:mnd,gosec
 	if errors.Is(err, fs.ErrExist) {
 		// We skip files which already exist.
 		return false, errors.Prefix(err, errFileSkipped)
@@ -318,7 +318,7 @@ func (c *CallCommand) processFile( //nolint:nonamedreturns
 	}()
 
 	errorOutputPath := outputPath + ".error"
-	fError, err := os.OpenFile(errorOutputPath, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o644) //nolint:mnd
+	fError, err := os.OpenFile(errorOutputPath, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o644) //nolint:mnd,gosec
 	if errors.Is(err, fs.ErrExist) {
 		// We skip files which already exist.
 		return false, errors.Prefix(err, errFileSkipped)
@@ -341,7 +341,7 @@ func (c *CallCommand) processFile( //nolint:nonamedreturns
 	}()
 
 	invalidOutputPath := outputPath + ".invalid"
-	fInvalid, err := os.OpenFile(invalidOutputPath, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o644) //nolint:mnd
+	fInvalid, err := os.OpenFile(invalidOutputPath, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o644) //nolint:mnd,gosec
 	if errors.Is(err, fs.ErrExist) {
 		// We skip files which already exist.
 		return false, errors.Prefix(err, errFileSkipped)
@@ -363,7 +363,7 @@ func (c *CallCommand) processFile( //nolint:nonamedreturns
 		errE = errors.Join(errE, errE2, errE3)
 	}()
 
-	inputData, err := os.ReadFile(inputPath)
+	inputData, err := os.ReadFile(filepath.Clean(inputPath))
 	if err != nil {
 		return false, errors.WithStack(err)
 	}

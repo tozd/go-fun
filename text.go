@@ -15,10 +15,12 @@ import (
 var _ Callee[any, any] = (*Text[any, any])(nil)
 
 const (
-	// Prompt to parse input string into the target struct.
+	// TextParserToJSONPrompt is a prompt to parse input string
+	// into the target struct.
 	TextParserToJSONPrompt = `Be a parser of input strings into JSON. Match the structure of examples. Do not make up new JSON fields and do not add data not found in the input string. Keep data in original language and letter case. Use your knowledge to resolve ambiguousness. Output only JSON.` //nolint:lll
 
-	// Prompt to request only JSON output, which is then converted into the target struct.
+	// TextToJSONPrompt is a prompt to request only JSON output,
+	// which is then converted into the target struct.
 	TextToJSONPrompt = `Output only JSON.`
 )
 

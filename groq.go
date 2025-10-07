@@ -156,12 +156,14 @@ type GroqTextProvider struct {
 	tools          []groqTool
 }
 
+// MarshalJSON implements json.Marshaler interface for GroqTextProvider.
 func (g GroqTextProvider) MarshalJSON() ([]byte, error) {
 	// We define a new type to not recurse into this same MarshalJSON.
 	type P GroqTextProvider
 	t := struct {
-		Type string `json:"type"`
 		P
+
+		Type string `json:"type"`
 	}{
 		Type: "groq",
 		P:    P(g),
@@ -247,7 +249,7 @@ func (g *GroqTextProvider) Init(ctx context.Context, messages []ChatMessage) err
 		}
 		return errE
 	}
-	defer resp.Body.Close()
+	defer resp.Body.Close()              //nolint:errcheck
 	defer io.Copy(io.Discard, resp.Body) //nolint:errcheck
 
 	if apiRequest == "" {
@@ -374,7 +376,7 @@ func (g *GroqTextProvider) Chat(ctx context.Context, message ChatMessage) (strin
 			}
 			return "", errE
 		}
-		defer resp.Body.Close()
+		defer resp.Body.Close()              //nolint:errcheck
 		defer io.Copy(io.Discard, resp.Body) //nolint:errcheck
 
 		if apiRequest == "" {

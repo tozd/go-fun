@@ -26,7 +26,7 @@ func retryErrorHandler(resp *http.Response, err error, numTries int) (*http.Resp
 	var body []byte
 	if resp != nil {
 		body, _ = io.ReadAll(resp.Body)
-		resp.Body.Close()
+		resp.Body.Close() //nolint:errcheck,gosec
 	}
 	var errE errors.E
 	if err != nil {
@@ -69,7 +69,7 @@ func newClient(
 		if resp.StatusCode == http.StatusTooManyRequests {
 			// We read the body and provide it back.
 			body, _ := io.ReadAll(resp.Body)
-			resp.Body.Close()
+			resp.Body.Close() //nolint:errcheck,gosec
 			resp.Body = io.NopCloser(bytes.NewReader(body))
 			if resp.Header.Get("Content-Type") == applicationJSONHeader && json.Valid(body) {
 				zerolog.Ctx(ctx).Warn().RawJSON("body", body).Msg("hit rate limit")
@@ -121,7 +121,7 @@ func parseRateLimitHeaders(resp *http.Response) ( //nolint:nonamedreturns
 
 	if limitRequestsStr == "" || limitTokensStr == "" || remainingRequestsStr == "" || remainingTokensStr == "" || resetRequestsStr == "" || resetTokensStr == "" {
 		// ok == false here.
-		return limitRequests, limitTokens, remainingRequests, remainingTokens, resetRequests, resetTokens, ok, errE //nolint:nakedret
+		return limitRequests, limitTokens, remainingRequests, remainingTokens, resetRequests, resetTokens, ok, errE
 	}
 
 	// We have all the headers we want.
@@ -131,37 +131,37 @@ func parseRateLimitHeaders(resp *http.Response) ( //nolint:nonamedreturns
 	limitRequests, err = strconv.Atoi(limitRequestsStr)
 	if err != nil {
 		errE = errors.WithDetails(err, "value", limitRequestsStr)
-		return limitRequests, limitTokens, remainingRequests, remainingTokens, resetRequests, resetTokens, ok, errE //nolint:nakedret
+		return limitRequests, limitTokens, remainingRequests, remainingTokens, resetRequests, resetTokens, ok, errE
 	}
 	limitTokens, err = strconv.Atoi(limitTokensStr)
 	if err != nil {
 		errE = errors.WithDetails(err, "value", limitTokensStr)
-		return limitRequests, limitTokens, remainingRequests, remainingTokens, resetRequests, resetTokens, ok, errE //nolint:nakedret
+		return limitRequests, limitTokens, remainingRequests, remainingTokens, resetRequests, resetTokens, ok, errE
 	}
 	remainingRequests, err = strconv.Atoi(remainingRequestsStr)
 	if err != nil {
 		errE = errors.WithDetails(err, "value", remainingRequestsStr)
-		return limitRequests, limitTokens, remainingRequests, remainingTokens, resetRequests, resetTokens, ok, errE //nolint:nakedret
+		return limitRequests, limitTokens, remainingRequests, remainingTokens, resetRequests, resetTokens, ok, errE
 	}
 	remainingTokens, err = strconv.Atoi(remainingTokensStr)
 	if err != nil {
 		errE = errors.WithDetails(err, "value", remainingTokensStr)
-		return limitRequests, limitTokens, remainingRequests, remainingTokens, resetRequests, resetTokens, ok, errE //nolint:nakedret
+		return limitRequests, limitTokens, remainingRequests, remainingTokens, resetRequests, resetTokens, ok, errE
 	}
 	resetRequestsDuration, err := time.ParseDuration(resetRequestsStr)
 	if err != nil {
 		errE = errors.WithDetails(err, "value", resetRequestsStr)
-		return limitRequests, limitTokens, remainingRequests, remainingTokens, resetRequests, resetTokens, ok, errE //nolint:nakedret
+		return limitRequests, limitTokens, remainingRequests, remainingTokens, resetRequests, resetTokens, ok, errE
 	}
 	resetRequests = now.Add(resetRequestsDuration)
 	resetTokensDuration, err := time.ParseDuration(resetTokensStr)
 	if err != nil {
 		errE = errors.WithDetails(err, "value", resetTokensStr)
-		return limitRequests, limitTokens, remainingRequests, remainingTokens, resetRequests, resetTokens, ok, errE //nolint:nakedret
+		return limitRequests, limitTokens, remainingRequests, remainingTokens, resetRequests, resetTokens, ok, errE
 	}
 	resetTokens = now.Add(resetTokensDuration)
 
-	return limitRequests, limitTokens, remainingRequests, remainingTokens, resetRequests, resetTokens, ok, errE //nolint:nakedret
+	return limitRequests, limitTokens, remainingRequests, remainingTokens, resetRequests, resetTokens, ok, errE
 }
 
 func getString(data any, name string) string {

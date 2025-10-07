@@ -11,11 +11,10 @@ import (
 	"gitlab.com/tozd/go/errors"
 )
 
-//nolint:lll
 type CombineCommand struct {
-	InputDir       []string `arg:""               help:"Path to input directory."                                            placeholder:"PATH" required:""           type:"existingdir"`
-	OutputDir      string   `                     help:"Path to output directory."                             name:"output" placeholder:"PATH" required:"" short:"o" type:"path"`
-	InputExtension string   `       default:".in" help:"File extension of an input file. Default: ${default}." name:"in"     placeholder:"EXT"`
+	InputDir       []string `arg:""               help:"Path to input directory."                       placeholder:"PATH" required:""           type:"existingdir"`
+	OutputDir      string   `                     help:"Path to output directory."        name:"output" placeholder:"PATH" required:"" short:"o" type:"path"`
+	InputExtension string   `       default:".in" help:"File extension of an input file." name:"in"     placeholder:"EXT"`
 }
 
 func (c *CombineCommand) Help() string {
@@ -23,7 +22,7 @@ func (c *CombineCommand) Help() string {
 }
 
 func (c *CombineCommand) Run(_ zerolog.Logger) errors.E {
-	err := os.MkdirAll(c.OutputDir, 0o755) //nolint:mnd
+	err := os.MkdirAll(c.OutputDir, 0o755) //nolint:mnd,gosec
 	if err != nil {
 		return errors.WithStack(err)
 	}
@@ -41,14 +40,14 @@ FILE:
 			return errors.WithStack(err)
 		}
 
-		inputData, err := os.ReadFile(inputPath)
+		inputData, err := os.ReadFile(filepath.Clean(inputPath))
 		if err != nil {
 			return errors.WithDetails(err, "path", inputPath)
 		}
 
 		for _, inputDir := range c.InputDir[1:] {
 			path := filepath.Join(inputDir, relPath)
-			data, err := os.ReadFile(path) //nolint:govet
+			data, err := os.ReadFile(filepath.Clean(path)) //nolint:govet
 			if errors.Is(err, fs.ErrNotExist) {
 				continue FILE
 			} else if err != nil {

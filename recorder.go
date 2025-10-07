@@ -15,6 +15,7 @@ var textRecorderContextKey = &contextKey{"text-provider-recorder"} //nolint:goch
 // seconds with millisecond precision in JSON.
 type Duration time.Duration
 
+// MarshalJSON implements json.Marshaler interface for Duration.
 func (d Duration) MarshalJSON() ([]byte, error) {
 	return []byte(strconv.FormatFloat(time.Duration(d).Seconds(), byte('f'), 3, 64)), nil
 }
@@ -369,7 +370,7 @@ func (c *TextRecorderCall) startToolMessage(ctx context.Context, toolCallID stri
 	}), &c.Messages[len(c.Messages)-1]
 }
 
-// TextRecorderCall is a recorder which records all communication
+// TextRecorder is a recorder which records all communication
 // with the AI model and track usage.
 //
 // It can be used to record multiple calls and it can be used concurrently,
@@ -421,7 +422,7 @@ func (t *TextRecorder) notifyChannel() chan<- []TextRecorderCall {
 	return t.c
 }
 
-// TextRecorderCall returns calls records recorded by this recorder.
+// Calls returns calls records recorded by this recorder.
 //
 // It returns only completed calls. If you need access to calls while
 // they are being recorded, use [Notify].

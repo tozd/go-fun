@@ -225,12 +225,14 @@ type OpenAITextProvider struct {
 	outputJSONSchemaDescription string
 }
 
+// MarshalJSON implements json.Marshaler interface for OpenAITextProvider.
 func (o OpenAITextProvider) MarshalJSON() ([]byte, error) {
 	// We define a new type to not recurse into this same MarshalJSON.
 	type P OpenAITextProvider
 	t := struct {
-		Type string `json:"type"`
 		P
+
+		Type string `json:"type"`
 	}{
 		Type: "openai",
 		P:    P(o),
@@ -406,7 +408,7 @@ func (o *OpenAITextProvider) Chat(ctx context.Context, message ChatMessage) (str
 			}
 			return "", errE
 		}
-		defer resp.Body.Close()
+		defer resp.Body.Close()              //nolint:errcheck
 		defer io.Copy(io.Discard, resp.Body) //nolint:errcheck
 
 		if apiRequest == "" {
