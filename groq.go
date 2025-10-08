@@ -9,7 +9,6 @@ import (
 	"io"
 	"net/http"
 	"slices"
-	"strings"
 	"sync"
 	"time"
 
@@ -26,13 +25,14 @@ var groqRateLimiter = keyedRateLimiter{ //nolint:gochecknoglobals
 }
 
 type groqModel struct {
-	ID            string `json:"id"`
-	Object        string `json:"object"`
-	Created       int64  `json:"created"`
-	OwnedBy       string `json:"owned_by"`
-	Active        bool   `json:"active"`
-	ContextWindow int    `json:"context_window"`
-	Error         *struct {
+	ID                  string `json:"id"`
+	Object              string `json:"object"`
+	Created             int64  `json:"created"`
+	OwnedBy             string `json:"owned_by"`
+	Active              bool   `json:"active"`
+	ContextWindow       int    `json:"context_window"`
+	MaxCompletionTokens int    `json:"max_completion_tokens"`
+	Error               *struct {
 		Message string  `json:"message"`
 		Type    string  `json:"type"`
 		Code    *string `json:"code,omitempty"`
@@ -547,21 +547,7 @@ func (g *GroqTextProvider) maxContextLength(model groqModel) int {
 }
 
 func (g *GroqTextProvider) maxResponseTokens(model groqModel) int {
-	// See: https://console.groq.com/docs/models
-	// TODO: Why are real limits smaller than what is in the documentation (8000 and not 8192, for example)? If you try 8192 you get an API error.
-	if strings.Contains(model.ID, "llama-3.3") {
-		return 32_000 //nolint:mnd
-	}
-	if strings.Contains(model.ID, "llama-3.2") {
-		return 8_000 //nolint:mnd
-	}
-	if strings.Contains(model.ID, "llama-3.1") {
-		return 8_000 //nolint:mnd
-	}
-	if strings.Contains(model.ID, "deepseek-r1-distill") {
-		return 16_000 //nolint:mnd
-	}
-	return g.maxContextLength(model)
+	return model.MaxCompletionTokens
 }
 
 // InitTools implements [WithTools] interface.
