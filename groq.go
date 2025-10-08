@@ -62,6 +62,7 @@ type groqRequest struct {
 	Temperature         float64       `json:"temperature"`
 	MaxCompletionTokens int           `json:"max_completion_tokens"`
 	Tools               []groqTool    `json:"tools,omitempty"`
+	ReasoningEffort     string        `json:"reasoning_effort,omitempty"`
 }
 
 type groqToolCall struct {
@@ -150,6 +151,10 @@ type GroqTextProvider struct {
 	// Temperature is how creative should the AI model be.
 	// Default is 0 which means not at all.
 	Temperature float64 `json:"temperature"`
+
+	// ReasoningEffort is the reasoning effort to use. Values depend on the model.
+	// Default is to use model's default.
+	ReasoningEffort string `json:"reasoningEffort"`
 
 	rateLimiterKey string
 	messages       []groqMessage
@@ -336,6 +341,7 @@ func (g *GroqTextProvider) Chat(ctx context.Context, message ChatMessage) (strin
 			Temperature:         g.Temperature,
 			MaxCompletionTokens: g.MaxResponseLength,
 			Tools:               g.tools,
+			ReasoningEffort:     g.ReasoningEffort,
 		})
 		if errE != nil {
 			return "", errE

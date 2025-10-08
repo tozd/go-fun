@@ -101,6 +101,10 @@ type OllamaTextProvider struct {
 	// Default is 0 which means not at all.
 	Temperature float64 `json:"temperature"`
 
+	// ReasoningEffort is the reasoning effort to use. Values depend on the model.
+	// Default is disabled reasoning.
+	ReasoningEffort string `json:"reasoningEffort"`
+
 	client           *api.Client
 	messages         []api.Message
 	tools            api.Tools
@@ -268,6 +272,10 @@ func (o *OllamaTextProvider) Chat(ctx context.Context, message ChatMessage) (str
 
 		start := time.Now()
 		stream := false
+		var think any = o.ReasoningEffort
+		if think == "" {
+			think = false
+		}
 		err := o.client.Chat(ctx, &api.ChatRequest{
 			Model:    o.Model,
 			Messages: messages,
@@ -281,7 +289,7 @@ func (o *OllamaTextProvider) Chat(ctx context.Context, message ChatMessage) (str
 				"temperature": o.Temperature,
 			},
 			KeepAlive:       nil,
-			Think:           &api.ThinkValue{Value: true},
+			Think:           &api.ThinkValue{Value: think},
 			DebugRenderOnly: false,
 		}, func(resp api.ChatResponse) error {
 			responses = append(responses, resp)
