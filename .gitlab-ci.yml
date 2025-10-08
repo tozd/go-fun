@@ -77,6 +77,13 @@ test_e2e:
   tags:
     - $RUNNER_TAG
 
+  services:
+    - name: ollama/ollama:0.12.3
+      alias: ollama
+
+  variables:
+    OLLAMA_HOST: http://ollama:11434
+
   before_script:
     - apk --update add make bash gcc musl-dev diffutils
     - go version
