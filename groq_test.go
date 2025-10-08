@@ -16,7 +16,7 @@ func TestGroqJSON(t *testing.T) {
 	provider := fun.GroqTextProvider{
 		Client:                 nil,
 		APIKey:                 "xxx",
-		Model:                  "llama3-8b-8192",
+		Model:                  "llama-3.1-8b-instant",
 		RequestsPerMinuteLimit: 41,
 		MaxContextLength:       43,
 		MaxResponseLength:      56,
@@ -27,5 +27,5 @@ func TestGroqJSON(t *testing.T) {
 
 	out, errE := x.MarshalWithoutEscapeHTML(provider)
 	require.NoError(t, errE, "% -+#.1v", errE)
-	assert.Equal(t, `{"type":"groq","model":"llama3-8b-8192","requestsPerMinuteLimit":41,"maxContextLength":43,"maxResponseLength":56,"maxExchanges":57,"seed":42,"temperature":0.7}`, string(out)) //nolint:testifylint
+	assert.Equal(t, `{"model":"llama-3.1-8b-instant","requestsPerMinuteLimit":41,"maxContextLength":43,"maxResponseLength":56,"maxExchanges":57,"seed":42,"temperature":0.7,"type":"groq"}`, string(out)) //nolint:testifylint
 }

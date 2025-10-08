@@ -134,7 +134,7 @@ var providers = []testProvider{
 			return &fun.GroqTextProvider{
 				Client:                 nil,
 				APIKey:                 os.Getenv("GROQ_API_KEY"),
-				Model:                  "llama3-8b-8192",
+				Model:                  "llama-3.1-8b-instant",
 				RequestsPerMinuteLimit: 100,
 				MaxContextLength:       0,
 				MaxResponseLength:      0,

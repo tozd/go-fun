@@ -20,7 +20,7 @@ func ExampleText_description() {
 	f := fun.Text[int, int]{
 		Provider: &fun.GroqTextProvider{
 			APIKey: os.Getenv("GROQ_API_KEY"),
-			Model:  "llama3-8b-8192",
+			Model:  "llama-3.1-8b-instant",
 			Seed:   42,
 		},
 		Prompt: `Sum numbers together. Output only the number.`,
