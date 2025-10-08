@@ -20,6 +20,7 @@ variables:
   # Disable umask 0000. See: https://gitlab.com/gitlab-org/gitlab-runner/-/issues/1736
   FF_DISABLE_UMASK_FOR_DOCKER_EXECUTOR: 1
   PACKAGE_REGISTRY_URL: "${CI_API_V4_URL}/projects/${CI_PROJECT_ID}/packages/generic"
+  CI_DEBUG_SERVICES: "true"
 
 test:
   stage: test
