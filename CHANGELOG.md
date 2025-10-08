@@ -7,10 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Add `ReasoningEffort` to `GroqTextProvider` and `OllamaTextProvider`.
+
 ### Changed
 
 - Go 1.24 or newer is required.
 - Update Ollama dependency to 0.12.3.
+- Rename `ExtendedThinkingBudget` to `ReasoningBudget` in `AnthropicTextProvider`.
 
 ## [0.8.0] - 2025-02-26
 
