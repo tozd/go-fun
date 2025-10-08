@@ -134,7 +134,7 @@ var providers = []testProvider{
 			return &fun.GroqTextProvider{
 				Client:                 nil,
 				APIKey:                 os.Getenv("GROQ_API_KEY"),
-				Model:                  "llama-3.1-8b-instant",
+				Model:                  "openai/gpt-oss-20b",
 				RequestsPerMinuteLimit: 100,
 				MaxContextLength:       0,
 				MaxResponseLength:      0,
@@ -246,7 +246,7 @@ var providersForTools = []testProvider{
 			return &fun.GroqTextProvider{
 				Client:                 nil,
 				APIKey:                 os.Getenv("GROQ_API_KEY"),
-				Model:                  "qwen/qwen3-32b",
+				Model:                  "openai/gpt-oss-20b",
 				RequestsPerMinuteLimit: 100,
 				MaxContextLength:       0,
 				MaxResponseLength:      0,
