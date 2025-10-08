@@ -35,6 +35,8 @@ test:
   services:
     - name: ollama/ollama:0.12.3
       alias: ollama
+      variables:
+        OLLAMA_DEBUG: "2"
 
   variables:
     OLLAMA_HOST: http://ollama:11434
@@ -81,6 +83,8 @@ test_e2e:
   services:
     - name: ollama/ollama:0.12.3
       alias: ollama
+      variables:
+        OLLAMA_DEBUG: "2"
 
   variables:
     OLLAMA_HOST: http://ollama:11434
