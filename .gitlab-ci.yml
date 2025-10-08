@@ -108,7 +108,7 @@ test_e2e:
       - IMAGE_TAG: ['1.25-alpine3.21']
         PROVIDER: groq
         CONFIG_NAME: llama3-70b
-        CONFIG: '{"model":"llama3-70b-8192"}'
+        CONFIG: '{"model":"openai/gpt-oss-20b"}'
       - IMAGE_TAG: ['1.25-alpine3.21']
         PROVIDER: anthropic
         CONFIG_NAME: claude-3-7-sonnet
