@@ -30,8 +30,6 @@ test:
   tags:
     - saas-linux-2xlarge-amd64
 
-  timeout: 3h
-
   services:
     - name: ollama/ollama:0.12.3
       alias: ollama
