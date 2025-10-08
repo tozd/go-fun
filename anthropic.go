@@ -224,9 +224,9 @@ type AnthropicTextProvider struct {
 	// PromptCaching set to true enables prompt caching.
 	PromptCaching bool `json:"promptCaching"`
 
-	// ExtendedThinkingBudget is the budget of tokens to use for extended thinking.
-	// Default is 0 which means that extended thinking is not enabled.
-	ExtendedThinkingBudget int `json:"extendedThinkingBudget"`
+	// ReasoningBudget is the budget of tokens to use for reasoning.
+	// Default is 0 which means that reasoning is not enabled.
+	ReasoningBudget int `json:"reasoningBudget"`
 
 	// Temperature is how creative should the AI model be.
 	// Ignored when extended thinking is enabled.
@@ -446,10 +446,10 @@ func (a *AnthropicTextProvider) Chat(ctx context.Context, message ChatMessage) (
 
 		temperature := a.Temperature
 		var thinking *anthropicThinking
-		if a.ExtendedThinkingBudget > 0 {
+		if a.ReasoningBudget > 0 {
 			thinking = &anthropicThinking{
 				Type:         "enabled",
-				BudgetTokens: a.ExtendedThinkingBudget,
+				BudgetTokens: a.ReasoningBudget,
 			}
 			// Temperature must be 1 when extended thinking is enabled.
 			temperature = 1
@@ -743,7 +743,7 @@ func (a *AnthropicTextProvider) maxContextLength() int {
 
 func (a *AnthropicTextProvider) maxResponseTokens() int {
 	if strings.Contains(a.Model, "3-7") {
-		if a.ExtendedThinkingBudget > 0 {
+		if a.ReasoningBudget > 0 {
 			// This is the maximum without output-128k-2025-02-19 beta header and we still use it.
 			// One can manually set MaxResponseLength to a different (e.g., higher) value.
 			return 64000 //nolint:mnd
