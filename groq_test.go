@@ -27,5 +27,5 @@ func TestGroqJSON(t *testing.T) {
 
 	out, errE := x.MarshalWithoutEscapeHTML(provider)
 	require.NoError(t, errE, "% -+#.1v", errE)
-	assert.Equal(t, `{"model":"openai/gpt-oss-20b","requestsPerMinuteLimit":41,"maxContextLength":43,"maxResponseLength":56,"maxExchanges":57,"seed":42,"temperature":0.7,"type":"groq"}`, string(out)) //nolint:testifylint
+	assert.Equal(t, `{"model":"openai/gpt-oss-20b","requestsPerMinuteLimit":41,"maxContextLength":43,"maxResponseLength":56,"maxExchanges":57,"seed":42,"temperature":0.7,"reasoningEffort":"","type":"groq"}`, string(out)) //nolint:testifylint
 }
