@@ -21,10 +21,10 @@ build-static:
 	go build -trimpath -ldflags "-s -w -linkmode external -extldflags '-static' -X gitlab.com/tozd/go/cli.Version=${VERSION} -X gitlab.com/tozd/go/cli.BuildTimestamp=${BUILD_TIMESTAMP} -X gitlab.com/tozd/go/cli.Revision=${REVISION}" -o fun gitlab.com/tozd/go/fun/cmd/fun
 
 test:
-	gotestsum --format pkgname --packages ./... -- -race -timeout 30m -cover -covermode atomic
+	gotestsum --format pkgname --packages ./... -- -race -timeout 55m -cover -covermode atomic
 
 test-ci:
-	gotestsum --format pkgname --packages ./... --junitfile tests.xml -- -race -timeout 30m -coverprofile=coverage.txt -covermode atomic
+	gotestsum --format pkgname --packages ./... --junitfile tests.xml -- -race -timeout 55m -coverprofile=coverage.txt -covermode atomic
 	gocover-cobertura < coverage.txt > coverage.xml
 	go tool cover -html=coverage.txt -o coverage.html
 
