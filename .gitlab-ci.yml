@@ -103,11 +103,11 @@ test_e2e:
     matrix:
       - IMAGE_TAG: ['1.25-alpine3.21']
         PROVIDER: ollama
-        CONFIG_NAME: ollama-gpt-oss-20b
-        CONFIG: '{"model":"gpt-oss:20b"}'
+        CONFIG_NAME: qwen3-32b
+        CONFIG: '{"model":"qwen3:32b"}'
       - IMAGE_TAG: ['1.25-alpine3.21']
         PROVIDER: groq
-        CONFIG_NAME: groq-gpt-oss-20b
+        CONFIG_NAME: gpt-oss-20b
         CONFIG: '{"model":"openai/gpt-oss-20b"}'
       - IMAGE_TAG: ['1.25-alpine3.21']
         PROVIDER: anthropic
