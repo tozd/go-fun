@@ -103,25 +103,25 @@ test_e2e:
 
   parallel:
     matrix:
-      - IMAGE_TAG: ['1.25-alpine3.21']
-        RUNNER_TAG: saas-linux-2xlarge-amd64
-        PROVIDER: ollama
+      - PROVIDER: ollama
         CONFIG_NAME: ollama-gpt-oss-20b
+        RUNNER_TAG: saas-linux-2xlarge-amd64
+        IMAGE_TAG: ['1.25-alpine3.21']
         CONFIG: '{"model":"gpt-oss:20b"}'
-      - IMAGE_TAG: ['1.25-alpine3.21']
-        RUNNER_TAG: saas-linux-small-amd64
-        PROVIDER: groq
+      - PROVIDER: groq
         CONFIG_NAME: groq-gpt-oss-20b
+        RUNNER_TAG: saas-linux-small-amd64
+        IMAGE_TAG: ['1.25-alpine3.21']
         CONFIG: '{"model":"openai/gpt-oss-20b"}'
-      - IMAGE_TAG: ['1.25-alpine3.21']
-        RUNNER_TAG: saas-linux-small-amd64
-        PROVIDER: anthropic
+      - PROVIDER: anthropic
         CONFIG_NAME: claude-3-7-sonnet
-        CONFIG: '{"model":"claude-3-7-sonnet-20250219","extendedThinkingBudget":32000}'
-      - IMAGE_TAG: ['1.25-alpine3.21']
         RUNNER_TAG: saas-linux-small-amd64
-        PROVIDER: openai
+        IMAGE_TAG: ['1.25-alpine3.21']
+        CONFIG: '{"model":"claude-3-7-sonnet-20250219","extendedThinkingBudget":32000}'
+      - PROVIDER: openai
         CONFIG_NAME: o1
+        RUNNER_TAG: saas-linux-small-amd64
+        IMAGE_TAG: ['1.25-alpine3.21']
         CONFIG: '{"model":"o1-2024-12-17","temperature":1.0}'
 
 lint:
