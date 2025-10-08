@@ -33,8 +33,8 @@ test:
     - name: ollama/ollama:0.12.3
       alias: ollama
 
-  variables:
-    OLLAMA_HOST: http://ollama:11434
+  # variables:
+  #   OLLAMA_HOST: http://ollama:11434
 
   before_script:
     - apk --update add make bash git gcc musl-dev curl
@@ -79,8 +79,8 @@ test_e2e:
     - name: ollama/ollama:0.12.3
       alias: ollama
 
-  # variables:
-  #   OLLAMA_HOST: http://ollama:11434
+  variables:
+    OLLAMA_HOST: http://ollama:11434
 
   before_script:
     - apk --update add make bash gcc musl-dev diffutils
