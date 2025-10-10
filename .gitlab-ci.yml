@@ -67,7 +67,7 @@ test:
 
   parallel:
     matrix:
-      - IMAGE_TAG: ['1.25-alpine3.21']
+      - IMAGE_TAG: ['1.25-alpine3.22']
 
 test_e2e:
   stage: test
@@ -108,28 +108,28 @@ test_e2e:
       - PROVIDER: ollama
         CONFIG_NAME: ollama-gpt-oss-20b
         RUNNER_TAG: saas-linux-2xlarge-amd64
-        IMAGE_TAG: ['1.25-alpine3.21']
+        IMAGE_TAG: ['1.25-alpine3.22']
         CONFIG: '{"model":"gpt-oss:20b"}'
       - PROVIDER: groq
         CONFIG_NAME: groq-gpt-oss-20b
         RUNNER_TAG: saas-linux-small-amd64
-        IMAGE_TAG: ['1.25-alpine3.21']
+        IMAGE_TAG: ['1.25-alpine3.22']
         CONFIG: '{"model":"openai/gpt-oss-20b"}'
       - PROVIDER: anthropic
         CONFIG_NAME: claude-3-7-sonnet
         RUNNER_TAG: saas-linux-small-amd64
-        IMAGE_TAG: ['1.25-alpine3.21']
+        IMAGE_TAG: ['1.25-alpine3.22']
         CONFIG: '{"model":"claude-3-7-sonnet-20250219","reasoningBudget":32000}'
       - PROVIDER: openai
         CONFIG_NAME: o1
         RUNNER_TAG: saas-linux-small-amd64
-        IMAGE_TAG: ['1.25-alpine3.21']
+        IMAGE_TAG: ['1.25-alpine3.22']
         CONFIG: '{"model":"o1-2024-12-17","temperature":1.0}'
 
 lint:
   stage: test
 
-  image: golang:1.25-alpine3.21
+  image: golang:1.25-alpine3.22
 
   before_script:
     - apk --update add make bash gcc musl-dev
@@ -147,7 +147,7 @@ lint:
 fmt:
   stage: test
 
-  image: golang:1.25-alpine3.21
+  image: golang:1.25-alpine3.22
 
   before_script:
     - apk --update add make bash git gcc musl-dev grep
@@ -160,7 +160,7 @@ fmt:
 lint_docs:
   stage: test
 
-  image: node:22.20-alpine3.21
+  image: node:22.20-alpine3.22
 
   before_script:
     - apk --update add make bash git
@@ -171,7 +171,7 @@ lint_docs:
 audit:
   stage: test
 
-  image: golang:1.25-alpine3.21
+  image: golang:1.25-alpine3.22
 
   before_script:
     - apk --update add make bash git gcc musl-dev
@@ -183,7 +183,7 @@ audit:
 commits:
   stage: test
 
-  image: golang:1.25-alpine3.21
+  image: golang:1.25-alpine3.22
 
   variables:
     GIT_DEPTH: "0"
@@ -313,7 +313,7 @@ upload_binaries:
 publish:
   stage: deploy
 
-  image: golang:1.25-alpine3.21
+  image: golang:1.25-alpine3.22
 
   script:
     - GOPROXY=proxy.golang.org go list -m "gitlab.com/tozd/go/fun@$CI_COMMIT_REF_NAME"
