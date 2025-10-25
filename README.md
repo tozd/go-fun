@@ -43,13 +43,13 @@ You should just download/use the latest one.
 The tool is implemented in Go. You can also use `go install` to install the latest stable (released) version:
 
 ```sh
-go install gitlab.com/tozd/go/fun/cmd/go/fun@latest
+go install gitlab.com/tozd/go/fun/cmd/fun@latest
 ```
 
 To install the latest development version (`main` branch):
 
 ```sh
-go install gitlab.com/tozd/go/fun/cmd/go/fun@main
+go install gitlab.com/tozd/go/fun/cmd/fun@main
 ```
 
 ## Usage
@@ -107,7 +107,7 @@ fun --help
 If you have Go available, you can run it without installation:
 
 ```sh
-go run gitlab.com/tozd/go/fun/cmd/go/fun@latest --help
+go run gitlab.com/tozd/go/fun/cmd/fun@latest --help
 ```
 
 Or with Docker:
