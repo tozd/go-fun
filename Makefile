@@ -1,4 +1,4 @@
-SHELL = /bin/bash -o pipefail
+SHELL = /usr/bin/env bash -o pipefail
 
 # We use ifeq instead of ?= so that we set variables
 # also when they are defined, but empty.
