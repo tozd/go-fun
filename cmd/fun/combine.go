@@ -47,7 +47,7 @@ FILE:
 
 		for _, inputDir := range c.InputDir[1:] {
 			path := filepath.Join(inputDir, relPath)
-			data, err := os.ReadFile(filepath.Clean(path)) //nolint:govet
+			data, err := os.ReadFile(filepath.Clean(path))
 			if errors.Is(err, fs.ErrNotExist) {
 				continue FILE
 			} else if err != nil {

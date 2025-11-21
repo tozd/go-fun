@@ -247,7 +247,7 @@ func (c *CallCommand) Run(logger zerolog.Logger) errors.E { //nolint:maintidx
 
 				count.Increment()
 
-				hasErrored, errE := c.processFile(l.WithContext(ctx), fn, inputPath, outputPath) //nolint:govet
+				hasErrored, errE := c.processFile(l.WithContext(ctx), fn, inputPath, outputPath)
 				if errE != nil {
 					if errors.Is(errE, context.Canceled) || errors.Is(errE, context.DeadlineExceeded) {
 						return errE

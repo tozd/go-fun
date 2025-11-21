@@ -63,7 +63,7 @@ func newClient(
 	}
 	client.CheckRetry = func(ctx context.Context, resp *http.Response, err error) (bool, error) {
 		if err != nil {
-			check, err := retryablehttp.ErrorPropagatedRetryPolicy(ctx, resp, err) //nolint:govet
+			check, err := retryablehttp.ErrorPropagatedRetryPolicy(ctx, resp, err)
 			return check, errors.WithStack(err)
 		}
 		if resp.StatusCode == http.StatusTooManyRequests {

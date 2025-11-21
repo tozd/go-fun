@@ -226,7 +226,7 @@ func (t *Text[Input, Output]) Init(ctx context.Context) errors.E {
 				return errE
 			}
 		}
-		input, errE := toInputString(data.Input) //nolint:govet
+		input, errE := toInputString(data.Input)
 		if errE != nil {
 			return errE
 		}
