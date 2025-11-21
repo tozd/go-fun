@@ -9,7 +9,7 @@ require (
 	github.com/tidwall/gjson v1.18.0
 	gitlab.com/tozd/go/errors v0.10.0
 	gitlab.com/tozd/go/zerolog v0.11.2
-	golang.org/x/sync v0.17.0
+	golang.org/x/sync v0.18.0
 )
 
 require (
@@ -53,10 +53,10 @@ require (
 	gitlab.com/tozd/go/cli v0.6.0
 	gitlab.com/tozd/go/x v0.0.0-20251006201239-ef5d96c2f196
 	gitlab.com/tozd/identifier v0.6.0
-	golang.org/x/crypto v0.42.0 // indirect
-	golang.org/x/net v0.45.0 // indirect
-	golang.org/x/sys v0.36.0 // indirect
-	golang.org/x/text v0.29.0 // indirect
+	golang.org/x/crypto v0.45.0 // indirect
+	golang.org/x/net v0.47.0 // indirect
+	golang.org/x/sys v0.38.0 // indirect
+	golang.org/x/text v0.31.0 // indirect
 	golang.org/x/time v0.13.0
 	gopkg.in/warnings.v0 v0.1.2 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
